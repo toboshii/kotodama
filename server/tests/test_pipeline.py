@@ -310,6 +310,59 @@ class InferenceTests(KotodamaTestCase):
         wait_for(lambda: len(calls) == 3)
         self.assertIsNone(mgr.request(Speaker(name="Fourth"), samples=None, **kw), "rate limited")
 
+    def _ahkk_inferer(self):
+        """Casts from the lines like a sensible LLM would: Mithra child if it
+        hears a meow, otherwise the name-only guess Haiku actually made."""
+        arch = self.arch
+
+        class Inferer:
+            model = "fake-llm"
+            calls: list = []
+
+            def infer(self, ctx):
+                self.calls.append(ctx)
+                if "meow" in " ".join(ctx.get("sample_lines") or []).lower():
+                    return arch.sanitize({"gender": "female", "age": "child", "species": "Mithra"})
+                return arch.sanitize({"gender": "male", "age": "adult", "species": "Tarutaru"})
+
+        inf = Inferer()
+        inf.calls = []
+        return inf
+
+    def test_unknown_race_is_cast_from_its_first_line_not_on_target(self):
+        # Ahkk Jharcham: race 0 ("Precomposed NPC"), unmapped model. Targeting
+        # her used to start a name-only casting that her lines then joined.
+        inf = self._ahkk_inferer()
+        eng = self.make_engine(inferer=inf)
+        hint = {"t": "hint", "reason": "target", "zone": 50, "zone_name": "Aht Urhgan Whitegate"}
+        eng.handle({**hint, "npc": "Ahkk Jharcham", "race": 0, "race_name": "Precomposed NPC", "model": 999})
+        eng.handle({**hint, "npc": "Rok", "race": 8, "race_name": "Galka"})
+        self.assertTrue(wait_for(lambda: not eng.inference._inflight and inf.calls))
+        self.assertEqual([c["name"] for c in inf.calls], ["Rok"], "a known race is still cast on target")
+
+        msg = speak_msg("Mew mew mew mew mew meooow Tulutululu, Meow!", name="Ahkk Jharcham", race=0, zone=50,
+                        zone_name="Aht Urhgan Whitegate")
+        msg["speaker"]["race_name"] = "Precomposed NPC"
+        eng.handle(msg)
+        self.assertTrue(eng.wait_idle())
+        ahkk = [c for c in inf.calls if c["name"] == "Ahkk Jharcham"]
+        self.assertEqual(len(ahkk), 1)
+        self.assertEqual(ahkk[0]["sample_lines"], ["Mew mew mew mew mew meooow Tulutululu, Meow!"])
+        self.assertEqual(eng.lib.local["ahkk jharcham"]["profile"]["species"], "Mithra")
+        self.assertIn("Mithra", eng.tts.calls[0]["instructions"], "the first line already uses the new casting")
+
+    def test_reinfer_after_restart_reuses_stored_lines(self):
+        inf = self._ahkk_inferer()
+        eng = self.make_engine(inferer=inf)       # fresh sidecar: has not heard her this session
+        eng.lib.put("Ahkk Jharcham", self.arch.sanitize({"gender": "male", "species": "Tarutaru"}),
+                    source="llm:old", game_race="Precomposed NPC", model_id=182, zone=50,
+                    sample="Meow meow, what a beautiful day")
+        eng.handle({"t": "cmd", "name": "voice_reinfer", "npc": "Ahkk Jharcham"})
+        self.assertTrue(wait_for(lambda: eng.lib.local.get("ahkk jharcham", {}).get("meta", {}).get("source")
+                                 == "llm:fake-llm"))
+        self.assertEqual(inf.calls[0]["sample_lines"], ["Meow meow, what a beautiful day"])
+        self.assertEqual(eng.lib.local["ahkk jharcham"]["profile"]["species"], "Mithra")
+
     def test_disabled_manager_is_inert(self):
         eng = self.make_engine()
         from kotodama.protocol import Speaker

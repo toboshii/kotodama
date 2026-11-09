@@ -318,6 +318,16 @@ class RegistryFileTests(unittest.TestCase):
             self.assertEqual(key, f"{e['zone']}:{e['menu']}")
         self.assertEqual(list(seed["events"]), sorted(seed["events"], key=lambda k: tuple(map(int, k.split(":")))))
 
+    def test_model_table_names_real_archetypes(self):
+        a = Addon()
+        self.addCleanup(a.close)
+        table = a.lua.eval(b"require('data/creature_models')")
+        mapped = {int(k): (v.decode() if isinstance(v, bytes) else v) for k, v in table.items()}
+        known = set(json.loads((ROOT / "server" / "archetypes.json").read_text(encoding="utf-8"))["archetypes"])
+        for model, arch in mapped.items():
+            self.assertIn(arch, known, f"model {model} maps to {arch!r}, which the sidecar doesn't know")
+        self.assertEqual(mapped[182], "mithra_child")
+
     def test_corrupt_file_is_ignored(self):
         a = Addon()
         self.addCleanup(a.close)

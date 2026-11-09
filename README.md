@@ -47,7 +47,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `own on/off` | Voice your own character's lines (default on) |
 | `narrator on/off` | Voice lines with no speaker name (default off) |
 | `interrupt on/off` | A new line cuts off the previous one (on), or lines queue (off) |
-| `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on) |
+| `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on). NPCs whose race the game doesn't report are cast from their first line instead |
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
@@ -155,7 +155,7 @@ Cutscene detection is heuristic (see above). `python3 tests/lua/replay_log.py da
 
 Things worth confirming with real play, because they depend on what the game actually sends:
 
-- `//koto inspect t` on a few NPCs: that `race` and `models` are populated. Town NPCs report `spawn_type=2` (used for target prefetch). Non-player creatures carry a model id instead of a race; map them in `data/creature_models.lua` (Moogles are model 82) or use name keywords and overrides.
+- `//koto inspect t` on a few NPCs: that `race` and `models` are populated. Town NPCs report `spawn_type=2` (used for target prefetch). Non-player creatures and some fixed-model townsfolk carry a model id instead of a race (`race=0`); map them to a creature or race archetype in `data/creature_models.lua` (Moogles are model 82, the Whitegate Mithra child is 182) or use name keywords and overrides.
 - That controller button presses cut the current line (the addon uses the event-response packet for this, so it should work without keyboard focus).
 - That ducking finds the game: `python3 server/kotodama_server.py audio list` should show your game's stream marked `DUCK`.
 - That the UDP link comes up (`//koto status` should say `link UP`). The game needs network access to play at all, so a Flatpak that shares the host network should reach the sidecar's loopback socket; this hasn't been verified on a Steam Deck yet, so if the link stays down, check the game's network permission first.
