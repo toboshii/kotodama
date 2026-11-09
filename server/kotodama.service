@@ -1,0 +1,28 @@
+# systemd *user* unit for the Kotodama sidecar.
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp kotodama.service ~/.config/systemd/user/
+#   printf 'OPENAI_API_KEY=sk-...\n' > ~/.config/kotodama.env && chmod 600 ~/.config/kotodama.env
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now kotodama
+#   journalctl --user -u kotodama -f        # logs
+#
+# Run it as a user service (or from a normal host terminal), not from inside a
+# sandboxed terminal: it needs your PipeWire/PulseAudio session for sound and
+# the host's 127.0.0.1 for the game's UDP link.
+
+[Unit]
+Description=Kotodama voiceover sidecar for Windower
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/kotodama.env
+# Adjust the path if your Windower lives elsewhere. If you installed the
+# optional `anthropic` SDK in server/.venv, use .venv/bin/python instead of
+# /usr/bin/python3.
+ExecStart=/usr/bin/python3 %h/.var/app/net.windower.Lumoria/data/prefixes/prefix-1/pfx/drive_c/Windower4/addons/Kotodama/server/kotodama_server.py serve
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

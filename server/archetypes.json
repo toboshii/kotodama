@@ -1,0 +1,154 @@
+{
+  "_comment": "Voice casting defaults. 'voices' lists candidate TTS voices per provider; a stable hash of the NPC name picks one so the same NPC always sounds the same. Verify the voice names against your TTS provider's current list.",
+  "vocab": {
+    "gender": ["male", "female", "neutral"],
+    "age": ["child", "young", "adult", "middle-aged", "elderly"],
+    "pitch": ["very low", "low", "medium", "high", "very high"],
+    "pace": ["slow", "measured", "normal", "brisk", "fast"]
+  },
+  "provider_voices": {
+    "openai": ["alloy", "ash", "ballad", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse", "marin", "cedar"]
+  },
+  "race_map": {
+    "1": "hume_m", "2": "hume_f",
+    "3": "elvaan_m", "4": "elvaan_f",
+    "5": "taru_m", "6": "taru_f",
+    "7": "mithra", "8": "galka",
+    "29": "mithra_child", "30": "child_f", "31": "child_m"
+  },
+  "name_keywords": {
+    "moogle": "moogle",
+    "goblin": "goblin",
+    "yagudo": "yagudo",
+    "quadav": "quadav",
+    "orc": "orc",
+    "tonberry": "tonberry",
+    "antica": "antica",
+    "sahagin": "sahagin",
+    "mamool": "mamool",
+    "lamia": "lamia",
+    "troll": "troll"
+  },
+  "archetypes": {
+    "hume_m": {
+      "gender": "male", "species": "Hume", "age": "adult", "pitch": "medium", "pace": "normal",
+      "personality": "plain-spoken and friendly", "tone": "warm and natural", "accent": "",
+      "voices": {"openai": ["ash", "echo", "verse", "alloy", "cedar"]}
+    },
+    "hume_f": {
+      "gender": "female", "species": "Hume", "age": "adult", "pitch": "medium", "pace": "normal",
+      "personality": "plain-spoken and friendly", "tone": "warm and natural", "accent": "",
+      "voices": {"openai": ["coral", "nova", "sage", "marin", "shimmer"]}
+    },
+    "elvaan_m": {
+      "gender": "male", "species": "Elvaan", "age": "adult", "pitch": "low", "pace": "measured",
+      "personality": "proud, formal and dignified", "tone": "composed, a little stern", "accent": "refined, aristocratic",
+      "voices": {"openai": ["fable", "ash", "onyx", "ballad", "verse"]}
+    },
+    "elvaan_f": {
+      "gender": "female", "species": "Elvaan", "age": "adult", "pitch": "medium", "pace": "measured",
+      "personality": "proud, formal and graceful", "tone": "composed, poised", "accent": "refined, aristocratic",
+      "voices": {"openai": ["sage", "coral", "marin", "shimmer", "nova"]}
+    },
+    "taru_m": {
+      "gender": "male", "species": "Tarutaru", "age": "young", "pitch": "very high", "pace": "brisk",
+      "personality": "bright, bubbly and curious", "tone": "cheerful and excitable", "accent": "",
+      "voices": {"openai": ["fable", "ballad", "echo", "alloy", "verse"]}
+    },
+    "taru_f": {
+      "gender": "female", "species": "Tarutaru", "age": "young", "pitch": "very high", "pace": "brisk",
+      "personality": "bright, bubbly and curious", "tone": "cheerful and excitable", "accent": "",
+      "voices": {"openai": ["shimmer", "nova", "coral", "marin"]}
+    },
+    "mithra": {
+      "gender": "female", "species": "Mithra", "age": "young", "pitch": "medium", "pace": "brisk",
+      "personality": "playful, sly and confident", "tone": "teasing, with a hint of a purr", "accent": "",
+      "voices": {"openai": ["nova", "marin", "coral", "shimmer"]}
+    },
+    "galka": {
+      "gender": "male", "species": "Galka", "age": "adult", "pitch": "very low", "pace": "slow",
+      "personality": "stoic, blunt and honorable", "tone": "deep, gravelly and rumbling", "accent": "",
+      "voices": {"openai": ["onyx", "cedar", "ash"]}
+    },
+    "mithra_child": {
+      "gender": "female", "species": "Mithra", "age": "child", "pitch": "high", "pace": "brisk",
+      "personality": "energetic and mischievous", "tone": "bright and eager", "accent": "",
+      "voices": {"openai": ["shimmer", "nova", "coral"]}
+    },
+    "child_f": {
+      "gender": "female", "species": "Hume or Elvaan", "age": "child", "pitch": "high", "pace": "brisk",
+      "personality": "curious and earnest", "tone": "bright and eager", "accent": "",
+      "voices": {"openai": ["shimmer", "nova", "coral", "marin"]}
+    },
+    "child_m": {
+      "gender": "male", "species": "Hume or Elvaan", "age": "child", "pitch": "high", "pace": "brisk",
+      "personality": "curious and earnest", "tone": "bright and eager", "accent": "",
+      "voices": {"openai": ["ballad", "fable", "echo", "alloy"]}
+    },
+    "moogle": {
+      "gender": "neutral", "species": "Moogle", "age": "young", "pitch": "very high", "pace": "brisk",
+      "personality": "sweet, chirpy and helpful", "tone": "bouncy and squeaky", "accent": "",
+      "voices": {"openai": ["shimmer", "nova", "fable", "coral"]}
+    },
+    "goblin": {
+      "gender": "male", "species": "Goblin", "age": "middle-aged", "pitch": "low", "pace": "brisk",
+      "personality": "sly, grumbling and mercenary", "tone": "raspy and sneering", "accent": "",
+      "voices": {"openai": ["echo", "ash", "fable", "alloy"]}
+    },
+    "yagudo": {
+      "gender": "neutral", "species": "Yagudo", "age": "adult", "pitch": "high", "pace": "fast",
+      "personality": "zealous and shrill", "tone": "harsh and squawking, bird-like cadence", "accent": "",
+      "voices": {"openai": ["fable", "alloy", "echo", "verse"]}
+    },
+    "quadav": {
+      "gender": "male", "species": "Quadav", "age": "adult", "pitch": "very low", "pace": "slow",
+      "personality": "proud, stubborn and gruff", "tone": "heavy, guttural and ponderous", "accent": "",
+      "voices": {"openai": ["onyx", "cedar", "ash"]}
+    },
+    "orc": {
+      "gender": "male", "species": "Orc", "age": "adult", "pitch": "very low", "pace": "measured",
+      "personality": "brutal, aggressive and warlike", "tone": "snarling and menacing", "accent": "",
+      "voices": {"openai": ["onyx", "cedar", "ash"]}
+    },
+    "tonberry": {
+      "gender": "neutral", "species": "Tonberry", "age": "adult", "pitch": "low", "pace": "slow",
+      "personality": "quiet, patient and unsettling", "tone": "soft, slow and eerie, almost a whisper", "accent": "",
+      "voices": {"openai": ["sage", "ballad", "fable"]}
+    },
+    "antica": {
+      "gender": "neutral", "species": "Antica", "age": "adult", "pitch": "medium", "pace": "fast",
+      "personality": "alien and single-minded", "tone": "clicking, chittering and insectoid", "accent": "",
+      "voices": {"openai": ["alloy", "echo", "fable"]}
+    },
+    "sahagin": {
+      "gender": "male", "species": "Sahagin", "age": "adult", "pitch": "medium", "pace": "brisk",
+      "personality": "fierce and tribal", "tone": "gurgling, hissing and aquatic", "accent": "",
+      "voices": {"openai": ["echo", "ash", "alloy"]}
+    },
+    "mamool": {
+      "gender": "male", "species": "Mamool Ja", "age": "adult", "pitch": "medium", "pace": "measured",
+      "personality": "disciplined and warlike", "tone": "hissing and clipped", "accent": "",
+      "voices": {"openai": ["ash", "echo", "alloy"]}
+    },
+    "lamia": {
+      "gender": "female", "species": "Lamia", "age": "adult", "pitch": "medium", "pace": "slow",
+      "personality": "seductive and cruel", "tone": "silky and hissing", "accent": "",
+      "voices": {"openai": ["sage", "coral", "marin"]}
+    },
+    "troll": {
+      "gender": "male", "species": "Troll", "age": "adult", "pitch": "very low", "pace": "slow",
+      "personality": "blunt and heavy-handed", "tone": "booming and thick", "accent": "",
+      "voices": {"openai": ["onyx", "cedar"]}
+    },
+    "unknown": {
+      "gender": "neutral", "species": "", "age": "adult", "pitch": "medium", "pace": "normal",
+      "personality": "ordinary townsperson", "tone": "natural", "accent": "",
+      "voices": {"openai": ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer", "verse"]}
+    },
+    "narrator": {
+      "gender": "neutral", "species": "", "age": "adult", "pitch": "medium", "pace": "measured",
+      "personality": "calm storyteller", "tone": "warm, steady and atmospheric", "accent": "",
+      "voices": {"openai": ["fable", "sage", "ballad"]}
+    }
+  }
+}

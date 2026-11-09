@@ -1,0 +1,12 @@
+# Local state and secrets: never commit or share these.
+server/config.json
+server/.venv/
+__pycache__/
+*.pyc
+cache/
+config/overrides.json
+data/settings.xml
+data/*.log
+library/packs/
+
+# library/npcs.json is meant to be shared.

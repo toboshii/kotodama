@@ -1,0 +1,53 @@
+{
+  "_comment": "Copy to server/config.json and edit. Every key is optional; these are the defaults except where noted. API keys are better kept in the environment (see README) than in this file.",
+
+  "listen": { "host": "127.0.0.1", "port": 47123 },
+  "interrupt": true,
+  "volume": 100,
+
+  "audio": {
+    "_comment": "Fixed boost applied before playback; //koto volume scales on top (100 = this baseline).",
+    "makeup_db": 9.0
+  },
+
+  "duck": {
+    "_comment": "Lower the game's audio while a line is spoken (needs pactl). See `kotodama_server.py audio list`.",
+    "enabled": true,
+    "level": 40,
+    "attack_ms": 120,
+    "release_ms": 700,
+    "hold_ms": 500,
+    "match": ["windower", "playonline", "ffxi", "pol.exe"]
+  },
+
+  "tts": {
+    "provider": "openai",
+    "model": "gpt-4o-mini-tts",
+    "api_key": null,
+    "api_key_env": "OPENAI_API_KEY"
+  },
+
+  "inference": {
+    "_comment": "Optional voice casting for NPCs nobody has described yet. provider: none | anthropic | openai",
+    "provider": "none",
+    "_model_comment": "claude-haiku-5-5 is the default: cheap and fast, and plenty for casting a voice. Use claude-opus-5-5 for more considered casting.",
+    "model": "claude-haiku-5-5",
+    "effort": "low",
+    "wait_ms": 2500,
+    "max_per_minute": 6,
+    "api_key": null,
+    "api_key_env": "ANTHROPIC_API_KEY"
+  },
+
+  "cache": {
+    "dir": "cache",
+    "max_mb": 2048,
+    "finish_download_on_stop": true
+  },
+
+  "library": {
+    "file": "library/npcs.json",
+    "packs_dir": "library/packs",
+    "overrides": "config/overrides.json"
+  }
+}
