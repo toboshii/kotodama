@@ -82,7 +82,9 @@ end
 local function save()
     windower.create_dir(windower.addon_path .. 'library')
     local tmp = full_path() .. '.tmp'
-    local f = io.open(tmp, 'w')
+    -- Binary mode: Windows text mode writes \r\n, which makes every learned
+    -- event rewrite every line of this (shared, version-controlled) file.
+    local f = io.open(tmp, 'wb')
     if not f then return false end
     f:write(serialize())
     f:close()

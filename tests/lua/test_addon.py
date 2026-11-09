@@ -311,6 +311,26 @@ class RegistryFileTests(unittest.TestCase):
         self.assertEqual((a.dir / "library" / "cutscenes.json").read_text(encoding="utf-8"), first,
                          "a load/save round trip is byte-identical")
 
+    def test_registry_is_written_in_binary_mode(self):
+        # Windows text mode turns every \n into \r\n, so one learned cutscene
+        # rewrote every line of the tracked file. Linux can't show that, so
+        # check the mode the file is written with.
+        a = Addon()
+        self.addCleanup(a.close)
+        a.lua.execute(b"""
+            MODES = {}
+            local real_open = io.open
+            io.open = function(path, mode) MODES[#MODES + 1] = tostring(mode); return real_open(path, mode) end
+            local c = require('lib/cutscenes')
+            c.load()
+            c.learn(1, 2, 'x', 'y')
+            io.open = real_open
+        """)
+        modes = [m.decode() if isinstance(m, bytes) else m for m in a.lua.globals().MODES.values()]
+        writes = [m for m in modes if "w" in m]
+        self.assertTrue(writes, modes)
+        self.assertTrue(all("b" in m for m in writes), modes)
+
     def test_shipped_seed_is_valid(self):
         seed = json.loads((ROOT / "library" / "cutscenes.json").read_text(encoding="utf-8"))
         self.assertEqual(seed["format"], 1)
