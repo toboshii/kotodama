@@ -1,16 +1,16 @@
-"""ElevenLabs voice catalog and automatic casting.
+"""Voice catalogs and automatic casting, for every provider without a fixed
+voice per archetype (ElevenLabs, Replicate models, OpenAI-compatible servers).
 
-ElevenLabs voices are account-specific: the stock defaults plus whatever the
-player has added from the voice library, designed or cloned. So instead of a
-fixed list, the sidecar fetches what this account can use and casts each NPC
-by scoring every voice against the NPC's profile: gender, age, pitch, and
-descriptive words from tone/personality/accent, matched against the voice's
-labels and description. The top few are tie-broken by a stable hash of the
-NPC's name, so casting is varied but repeatable.
+A catalog is either fetched (ElevenLabs: whatever this account can use) or
+static (an adapter's voice list, a voice bank). Each NPC is cast by scoring
+every voice against its profile: gender, age, pitch, and descriptive words
+from tone/personality/accent, matched against the voice's labels and
+description. The top few are tie-broken by a stable hash of the NPC's name,
+so casting is varied but repeatable.
 
 Once an NPC has been cast, the choice is remembered (casting memory) so that
-adding voices to the account later doesn't re-cast everyone. A changed
-profile (an override, a new LLM description) does re-cast.
+adding voices later doesn't re-cast everyone. A changed profile (an
+override, a new LLM description) does re-cast.
 """
 
 from __future__ import annotations
@@ -147,6 +147,61 @@ class Voice:
                    description=str(raw.get("description") or ""))
 
 
+GENDER_WORDS = {
+    "male": {"man", "male", "men", "guy", "boy", "gentleman", "bloke", "knight", "king", "lord", "sir",
+             "father", "grandpa", "grandfather", "uncle", "son", "husband", "prince", "monk", "brother"},
+    "female": {"woman", "female", "women", "lady", "girl", "queen", "abbess", "mother", "grandma",
+               "grandmother", "aunt", "daughter", "wife", "princess", "nun", "madam", "sister"},
+}
+AGE_WORDS = {
+    "young": {"boy", "girl", "teen", "young", "kid", "child", "youth", "junior"},
+    "old": {"old", "elder", "elderly", "wise", "grandma", "grandpa", "grandmother", "grandfather",
+            "abbess", "aged", "senior", "ancient"},
+    "middle_aged": {"mature", "middle"},
+}
+# Kokoro-style ids: <language><f|m>_<name> (af_bella, bm_george).
+_PREFIX_ID = re.compile(r"^([a-z])([fm])_[a-z]")
+_PREFIX_ACCENT = {"a": "american", "b": "british"}
+_NAME_STOP = {"english", "voice", "voiced", "with", "the", "and", "of", "a", "an", "en", "us", "uk"}
+_COMPOUNDS = {"wiselady": ("wise", "lady"), "kindhearted": ("kind", "hearted"), "jovialman": ("jovial", "man")}
+
+
+def _name_tokens(name: str) -> list[str]:
+    spaced = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)          # ManWithDeepVoice -> Man With Deep Voice
+    tokens: list[str] = []
+    for t in _WORD.findall(spaced.lower()):
+        tokens.extend(_COMPOUNDS.get(t, (t,)))
+    return tokens
+
+
+def derive_labels(name: str) -> dict[str, str]:
+    """Best-effort labels from a voice's id or display name, for voices that
+    come without any (schema enums, bank clips named by the user). Whole
+    words only: 'ImposingManner' must not read as a man."""
+    labels: dict[str, str] = {}
+    m = _PREFIX_ID.match(name)
+    if m:
+        labels["gender"] = "female" if m.group(2) == "f" else "male"
+        if m.group(1) in _PREFIX_ACCENT:
+            labels["accent"] = _PREFIX_ACCENT[m.group(1)]
+        return labels
+    tokens = _name_tokens(name)
+    words = set(tokens)
+    for gender, vocab in GENDER_WORDS.items():
+        if words & vocab:
+            labels["gender"] = gender
+            break
+    for age, vocab in AGE_WORDS.items():
+        if words & vocab:
+            labels["age"] = age
+            break
+    used = GENDER_WORDS["male"] | GENDER_WORDS["female"] | _NAME_STOP
+    descriptive = [t for t in tokens if t not in used and len(t) > 2]
+    if descriptive:
+        labels["descriptive"] = " ".join(descriptive)
+    return labels
+
+
 def _atomic_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
@@ -155,12 +210,14 @@ def _atomic_json(path: Path, data: Any) -> None:
 
 
 class VoiceCatalog:
-    """The voices this account can use, cached on disk."""
+    """The voices a provider can use: fetched and cached on disk (path +
+    fetch), or a fixed list (VoiceCatalog.static)."""
 
-    def __init__(self, path: Path, fetch: Callable[[], list[dict[str, Any]]] | None = None,
-                 refresh_hours: float = 24.0, exclude: list[str] | None = None):
-        self.path = Path(path)
+    def __init__(self, path: Path | None, fetch: Callable[[], list[dict[str, Any]]] | None = None,
+                 refresh_hours: float = 24.0, exclude: list[str] | None = None, label: str = "voice"):
+        self.path = Path(path) if path is not None else None
         self.fetch = fetch
+        self.label = label
         self.refresh_s = max(0.0, refresh_hours) * 3600
         self.exclude = {e.strip().lower() for e in (exclude or []) if e and e.strip()}
         self.voices: list[Voice] = []
@@ -169,7 +226,21 @@ class VoiceCatalog:
         self._syncing = False
         self.load()
 
+    @classmethod
+    def static(cls, voices: list[Voice], exclude: list[str] | None = None, label: str = "voice") -> "VoiceCatalog":
+        catalog = cls(None, exclude=exclude, label=label, refresh_hours=0)
+        catalog.replace(voices)
+        return catalog
+
+    def replace(self, voices: list[Voice]) -> None:
+        """Swap in a new fixed list (e.g. after the voice bank changed)."""
+        with self._lock:
+            self.voices = self._filter(list(voices))
+            self.fetched_at = time.time()
+
     def load(self) -> int:
+        if self.path is None:
+            return 0
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -185,6 +256,8 @@ class VoiceCatalog:
 
     @property
     def stale(self) -> bool:
+        if self.fetch is None:
+            return False
         return not self.voices or (self.refresh_s > 0 and time.time() - self.fetched_at > self.refresh_s)
 
     def sync(self) -> int:
@@ -195,13 +268,14 @@ class VoiceCatalog:
         voices = [v for v in (Voice.from_api(r) for r in raw) if v]
         voices.sort(key=lambda v: (v.name.lower(), v.id))
         now = time.time()
-        _atomic_json(self.path, {"fetched_at": now, "voices": [
-            {"voice_id": v.id, "name": v.name, "category": v.category, "labels": v.labels,
-             "description": v.description} for v in voices]})
+        if self.path is not None:
+            _atomic_json(self.path, {"fetched_at": now, "voices": [
+                {"voice_id": v.id, "name": v.name, "category": v.category, "labels": v.labels,
+                 "description": v.description} for v in voices]})
         with self._lock:
             self.voices = self._filter(voices)
             self.fetched_at = now
-        log.info("ElevenLabs voice catalog: %d voices", len(self.voices))
+        log.info("%s catalog: %d voices", self.label, len(self.voices))
         return len(self.voices)
 
     def sync_in_background(self, on_done: Callable[[int | None, Exception | None], None] | None = None) -> bool:

@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import __version__
+from .adapters import Adapter, load_adapters
 from .archetypes import Archetypes, PROFILE_FIELDS
 from .audio import Ducker, Limiter, db_to_gain
 from .cache import AudioCache, make_key
@@ -32,8 +33,10 @@ from .protocol import Speak, Speaker, log_msg, parse_speak, parse_speaker
 from .textnorm import normalize, scrub_player
 from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
+from .tts_generic import GenericTTS
 from .tts_openai import OpenAITTS
 from .usage import Usage
+from .voice_bank import VoiceBank
 
 PROVIDERS = {"openai": OpenAITTS, "elevenlabs": ElevenLabsTTS}
 PROVIDER_KEYS = {"openai": "OPENAI_API_KEY", "elevenlabs": "ELEVENLABS_API_KEY"}
@@ -88,7 +91,8 @@ class Engine:
                  reply: Callable[[dict[str, Any]], None] | None = None,
                  ducker: Ducker | None = None,
                  provider_factory: Callable[[str], Any] | None = None,
-                 inferer_factory: Callable[[Any], Any] | None = None):
+                 inferer_factory: Callable[[Any], Any] | None = None,
+                 provider_info: dict[str, tuple[str, bool]] | None = None):
         self.cfg = cfg
         self.arch = arch
         self.lib = library
@@ -105,8 +109,11 @@ class Engine:
         self.default_provider = tts.name
         self._provider_factory = provider_factory
         self._inferer_factory = inferer_factory
-        if hasattr(tts, "notify"):
-            tts.notify = self.say
+        # Every provider name that can be switched to, with a description and
+        # whether its key is configured (//koto providers).
+        self.provider_info = dict(provider_info) if provider_info else {n: (n, True) for n in PROVIDERS}
+        self.provider_info.setdefault(tts.name, (tts.name, True))
+        self._attach(tts)
 
         self.volume = max(0, min(MAX_VOLUME, int(cfg.get("volume", 100))))
         self.makeup_db = float(cfg.get("audio.makeup_db", 9.0))
@@ -205,12 +212,18 @@ class Engine:
 
     # -- providers --------------------------------------------------------
 
+    def _attach(self, prov: Any) -> None:
+        """Route a provider's chat notices and usage into this engine."""
+        if hasattr(prov, "notify"):
+            prov.notify = self.say
+        if hasattr(prov, "usage"):
+            prov.usage = self.usage
+
     def _get_provider(self, name: str) -> Any | None:
         prov = self.providers.get(name)
-        if prov is None and self._provider_factory is not None and name in PROVIDERS:
+        if prov is None and self._provider_factory is not None and name in self.provider_info:
             prov = self._provider_factory(name)
-            if hasattr(prov, "notify"):
-                prov.notify = self.say
+            self._attach(prov)
             self.providers[name] = prov
         return prov
 
@@ -219,8 +232,8 @@ class Engine:
         provider they started with; each provider keeps its own cached audio."""
         if name == self.tts.name:
             return True
-        if name not in PROVIDERS:
-            self.say(f"unknown voice provider '{name}' (choose: {', '.join(PROVIDERS)})")
+        if name not in self.provider_info:
+            self.say(f"unknown voice provider '{name}' (choose: {', '.join(self.provider_info)})")
             return False
         try:
             prov = self._get_provider(name)
@@ -230,8 +243,9 @@ class Engine:
         if prov is None:
             self.say(f"voice provider '{name}' is not available")
             return False
-        if not getattr(prov, "api_key", None):
-            self.say(f"{name} needs an API key ({PROVIDER_KEYS.get(name, 'see README')}); staying on {self.tts.name}")
+        if getattr(prov, "needs_key", True) and not getattr(prov, "api_key", None):
+            hint = getattr(prov, "key_hint", None) or PROVIDER_KEYS.get(name, "see README")
+            self.say(f"{name} needs an API key ({hint}); staying on {self.tts.name}")
             return False
         with self._lock:
             self.tts = prov
@@ -354,7 +368,9 @@ class Engine:
             return
 
         req = tts.voice_request(res.profile, res.key)
-        key = make_key(tts.name, tts.model, req.voice, req.cache_tag, text, tts.response_format)
+        # cache_name: a renamed provider keeps finding the audio cached under its old name.
+        key = make_key(getattr(tts, "cache_name", tts.name), tts.model, req.voice, req.cache_tag, text,
+                       tts.response_format)
         self.last = {"key": key, "text": text, "npc": sp.speaker.name}
         log.debug("line npc=%s kind=%s voice=%s sources=%s", sp.speaker.name, sp.kind, req.label, res.sources)
 
@@ -523,6 +539,9 @@ class Engine:
         if name in ("voices_sync", "voices_info"):
             self._voices_command(name == "voices_sync")
             return
+        if name == "providers_info":
+            self._providers_info()
+            return
         if not npc:
             self.say("no NPC given")
             return
@@ -615,10 +634,25 @@ class Engine:
             if forget:
                 forget(npc)
 
+    def _providers_info(self) -> None:
+        self.say("voice providers (* = active):")
+        for name, (desc, has_key) in self.provider_info.items():
+            mark = "*" if name == self.tts.name else " "
+            self.say(f" {mark} {name}: {desc}{'' if has_key else ' (no API key)'}")
+
     def _voices_command(self, sync: bool) -> None:
+        if isinstance(self.tts, GenericTTS):
+            # Adapter voices are a fixed list plus the voice bank and the
+            # model's schema: "sync" re-reads the bank and the schema.
+            prov = self.tts
+            if sync:
+                prov.refresh_voices()
+            self.say(f"{prov.status_text()}. Full list: kotodama_server.py voices list --provider {prov.name}")
+            return
         prov = self._get_provider("elevenlabs")
         if prov is None or not getattr(prov, "api_key", None):
-            self.say("voice lists only apply to ElevenLabs, and it needs ELEVENLABS_API_KEY")
+            self.say("voice lists apply to ElevenLabs (needs ELEVENLABS_API_KEY) and the Replicate/"
+                     "OpenAI-compatible models; switch to one first (//koto providers)")
             return
         if not sync:
             age = time.time() - prov.catalog.fetched_at if prov.catalog.fetched_at else None
@@ -671,11 +705,32 @@ def make_ducker(cfg: Config, *, enabled: bool = True) -> Ducker:
     )
 
 
-def make_provider(cfg: Config, name: str) -> Any:
-    try:
+def provider_catalog(cfg: Config, adapters: dict[str, Adapter]) -> dict[str, tuple[str, bool]]:
+    """name -> (description, has the key it needs), built-ins first."""
+    info = {
+        "openai": ("OpenAI gpt-4o-mini-tts", bool(cfg.api_key("tts"))),
+        "elevenlabs": ("ElevenLabs", bool(cfg.api_key("elevenlabs"))),
+    }
+    replicate_key = bool(cfg.api_key("replicate"))
+    minimax_key = bool(cfg.api_key("minimax"))
+    for name, ad in adapters.items():
+        if ad.transport == "replicate":
+            info[name] = (f"{ad.label} on Replicate", replicate_key)
+        elif ad.transport == "minimax":
+            info[name] = (f"{ad.label} (MiniMax API, streaming)", minimax_key)
+        else:
+            info[name] = (f"{ad.label} at {ad.base_url}", True)
+    return info
+
+
+def make_provider(cfg: Config, name: str, *, adapters: dict[str, Adapter] | None = None,
+                  bank: VoiceBank | None = None) -> Any:
+    if name in PROVIDERS:
         return PROVIDERS[name](cfg)
-    except KeyError:
-        raise ValueError(f"unknown tts.provider '{name}' (choose: {', '.join(PROVIDERS)})") from None
+    adapters = adapters if adapters is not None else load_adapters(cfg)
+    if name in adapters:
+        return GenericTTS(cfg, adapters[name], bank=bank)
+    raise ValueError(f"unknown tts.provider '{name}' (choose: {', '.join([*PROVIDERS, *adapters])})")
 
 
 def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
@@ -688,7 +743,9 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
                       cfg.path("library.overrides"))
     cache = AudioCache(cfg.path("cache.dir"), int(cfg.get("cache.max_mb", 2048)))
     usage = Usage(cfg.path("cache.dir") / "usage.json")
-    factory = provider_factory or (lambda name: make_provider(cfg, name))
+    adapters = load_adapters(cfg)
+    bank = VoiceBank(cfg.path("voice_bank.dir"))
+    factory = provider_factory or (lambda name: make_provider(cfg, name, adapters=adapters, bank=bank))
     tts = tts or factory((provider or str(cfg.get("tts.provider", "openai"))).strip().lower())
     if player is None:
         command = cfg.get("player.command")
@@ -706,4 +763,5 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
     return Engine(cfg, arch=arch, library=library, cache=cache, tts=tts, player=player,
                   inference=inference, usage=usage, reply=reply, ducker=ducker,
                   provider_factory=factory,
-                  inferer_factory=None if fixed_inferer else inferer_factory)
+                  inferer_factory=None if fixed_inferer else inferer_factory,
+                  provider_info=provider_catalog(cfg, adapters))

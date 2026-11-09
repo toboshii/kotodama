@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
 
-from kotodama.audio import Ducker
+# Tests that run the CLI must never pick up the developer's real
+# ~/.config/kotodama.env (API keys) into this process's environment.
+os.environ["KOTODAMA_ENV_FILE"] = str(Path(tempfile.gettempdir()) / "kotodama-tests-no-such-env-file")
+
+from kotodama.audio import Ducker  # noqa: E402
 from kotodama.config import Config
 from kotodama.engine import build_engine
 from kotodama.profiles import describe

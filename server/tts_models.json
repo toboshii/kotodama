@@ -1,0 +1,418 @@
+{
+  "_comment": "Kotodama model adapters. Each entry under 'models' becomes a voice provider (//koto provider <name>). Override or add entries in server/config.json under 'models' (same shape; fields merge by name). See README: Replicate and other backends. minimax / minimax-hd use MiniMax's own streaming API (MINIMAX_API_KEY); minimax-replicate / minimax-replicate-hd run the same models through Replicate.",
+
+  "models": {
+    "minimax": {
+      "transport": "minimax",
+      "model": "speech-2.8-turbo",
+      "label": "MiniMax Speech 2.8 Turbo",
+      "sample_rate": 24000,
+      "input": {
+        "voice_setting": {
+          "voice_id": "{voice}",
+          "speed": "{speed}",
+          "pitch": "{pitch}",
+          "vol": 1
+        }
+      },
+      "controls": {
+        "pitch": {
+          "very low": -3,
+          "low": -1,
+          "medium": 0,
+          "high": 1,
+          "very high": 3
+        }
+      },
+      "ranges": {
+        "voice_setting.speed": [
+          0.5,
+          2.0
+        ],
+        "voice_setting.pitch": [
+          -12,
+          12
+        ]
+      },
+      "voices": [
+        "@minimax_en",
+        "@minimax_legacy",
+        "account"
+      ],
+      "default_voice": "English_Trustworth_Man"
+    },
+
+    "minimax-hd": {
+      "transport": "minimax",
+      "model": "speech-2.8-hd",
+      "label": "MiniMax Speech 2.8 HD",
+      "sample_rate": 24000,
+      "input": {
+        "voice_setting": {
+          "voice_id": "{voice}",
+          "speed": "{speed}",
+          "pitch": "{pitch}",
+          "vol": 1
+        }
+      },
+      "controls": {
+        "pitch": {
+          "very low": -3,
+          "low": -1,
+          "medium": 0,
+          "high": 1,
+          "very high": 3
+        }
+      },
+      "ranges": {
+        "voice_setting.speed": [
+          0.5,
+          2.0
+        ],
+        "voice_setting.pitch": [
+          -12,
+          12
+        ]
+      },
+      "voices": [
+        "@minimax_en",
+        "@minimax_legacy",
+        "account"
+      ],
+      "default_voice": "English_Trustworth_Man"
+    },
+
+    "minimax-replicate": {
+      "transport": "replicate",
+      "model": "minimax/speech-2.8-turbo",
+      "official": true,
+      "label": "MiniMax Speech 2.8 Turbo",
+      "sample_rate": 24000,
+      "max_chars": 3000,
+      "split": "sentences",
+      "input": {
+        "text": "{text}",
+        "voice_id": "{voice}",
+        "speed": "{speed}",
+        "pitch": "{pitch}",
+        "emotion": "auto",
+        "audio_format": "wav",
+        "sample_rate": 24000,
+        "channel": "mono"
+      },
+      "controls": {
+        "pitch": {
+          "very low": -3,
+          "low": -1,
+          "medium": 0,
+          "high": 1,
+          "very high": 3
+        }
+      },
+      "ranges": {
+        "speed": [
+          0.5,
+          2.0
+        ],
+        "pitch": [
+          -12,
+          12
+        ]
+      },
+      "voices": [
+        "@minimax_en",
+        "@minimax_legacy"
+      ],
+      "cache_name": "minimax"
+    },
+
+    "minimax-replicate-hd": {
+      "transport": "replicate",
+      "model": "minimax/speech-2.8-hd",
+      "official": true,
+      "label": "MiniMax Speech 2.8 HD",
+      "sample_rate": 24000,
+      "max_chars": 3000,
+      "split": "sentences",
+      "input": {
+        "text": "{text}",
+        "voice_id": "{voice}",
+        "speed": "{speed}",
+        "pitch": "{pitch}",
+        "emotion": "auto",
+        "audio_format": "wav",
+        "sample_rate": 24000,
+        "channel": "mono"
+      },
+      "controls": {
+        "pitch": {
+          "very low": -3,
+          "low": -1,
+          "medium": 0,
+          "high": 1,
+          "very high": 3
+        }
+      },
+      "ranges": {
+        "speed": [
+          0.5,
+          2.0
+        ],
+        "pitch": [
+          -12,
+          12
+        ]
+      },
+      "voices": [
+        "@minimax_en",
+        "@minimax_legacy"
+      ],
+      "cache_name": "minimax-hd"
+    },
+
+    "chatterbox-turbo": {
+      "transport": "replicate",
+      "model": "resemble-ai/chatterbox-turbo",
+      "official": true,
+      "label": "Chatterbox Turbo (Resemble AI)",
+      "sample_rate": 24000,
+      "max_chars": 500,
+      "split": "sentences",
+      "input": {
+        "text": "{text}",
+        "voice": "{voice}",
+        "seed": "{seed}"
+      },
+      "input_clone": {
+        "reference_audio": "{reference_audio}",
+        "voice": null
+      },
+      "voices": [
+        "schema",
+        "bank"
+      ]
+    },
+
+    "chatterbox": {
+      "transport": "replicate",
+      "model": "resemble-ai/chatterbox",
+      "official": true,
+      "label": "Chatterbox (Resemble AI)",
+      "sample_rate": 24000,
+      "max_chars": 600,
+      "split": "sentences",
+      "input": {
+        "prompt": "{text}",
+        "exaggeration": "{exaggeration}",
+        "cfg_weight": "{cfg_weight}",
+        "temperature": 0.8,
+        "seed": "{seed}"
+      },
+      "input_clone": {
+        "audio_prompt": "{reference_audio}"
+      },
+      "controls": {
+        "exaggeration": {
+          "expressive": 0.7,
+          "steady": 0.35,
+          "default": 0.5
+        },
+        "cfg_weight": {
+          "expressive": 0.3,
+          "default": 0.5
+        }
+      },
+      "ranges": {
+        "exaggeration": [
+          0.25,
+          2.0
+        ],
+        "cfg_weight": [
+          0.0,
+          1.0
+        ]
+      },
+      "voices": [
+        "bank"
+      ]
+    },
+
+    "kokoro": {
+      "transport": "replicate",
+      "model": "jaaari/kokoro-82m",
+      "official": false,
+      "label": "Kokoro 82M",
+      "sample_rate": 24000,
+      "max_chars": 1000,
+      "split": "sentences",
+      "input": {
+        "text": "{text}",
+        "voice": "{voice}",
+        "speed": "{speed}"
+      },
+      "ranges": {
+        "speed": [
+          0.5,
+          2.0
+        ]
+      },
+      "voices": [
+        "@kokoro_en"
+      ]
+    },
+
+    "qwen3": {
+      "transport": "replicate",
+      "model": "qwen/qwen3-tts",
+      "official": true,
+      "label": "Qwen3-TTS",
+      "sample_rate": 24000,
+      "max_chars": 1000,
+      "split": "sentences",
+      "input": {
+        "mode": "custom_voice",
+        "text": "{text}",
+        "speaker": "{voice}",
+        "language": "English",
+        "style_instruction": "{style}"
+      },
+      "input_clone": {
+        "mode": "voice_clone",
+        "speaker": null,
+        "reference_audio": "{reference_audio}",
+        "reference_text": "{reference_text}"
+      },
+      "voices": [
+        "schema",
+        "bank"
+      ]
+    },
+
+    "kokoro-local": {
+      "enabled": false,
+      "_comment": "Example: a Kokoro-FastAPI server on your network (OpenAI-compatible). Set enabled to true and base_url in server/config.json under models.kokoro-local.",
+      "transport": "openai_compatible",
+      "base_url": "http://127.0.0.1:8880/v1",
+      "model": "kokoro",
+      "label": "Kokoro (self-hosted)",
+      "response_format": "pcm",
+      "sample_rate": 24000,
+      "voices": [
+        "@kokoro_en"
+      ],
+      "default_voice": "af_bella"
+    }
+  },
+
+  "designers": {
+    "qwen3": {
+      "transport": "replicate",
+      "model": "qwen/qwen3-tts",
+      "official": true,
+      "sample_rate": 24000,
+      "input": {
+        "mode": "voice_design",
+        "text": "{text}",
+        "voice_description": "{voice_description}",
+        "language": "English"
+      }
+    }
+  },
+
+  "voice_sets": {
+    "minimax_en": [
+      {"id": "English_expressive_narrator", "name": "Expressive Narrator", "labels": {"use_case": "narration", "descriptive": "expressive storyteller"}},
+      {"id": "English_radiant_girl", "name": "Radiant Girl", "labels": {"gender": "female", "age": "young", "descriptive": "radiant bright cheerful"}},
+      {"id": "English_magnetic_voiced_man", "name": "Magnetic-voiced Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "magnetic smooth deep"}},
+      {"id": "English_compelling_lady1", "name": "Compelling Lady", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "compelling confident"}},
+      {"id": "English_Aussie_Bloke", "name": "Aussie Bloke", "labels": {"gender": "male", "age": "middle_aged", "accent": "australian", "descriptive": "casual friendly"}},
+      {"id": "English_captivating_female1", "name": "Captivating Female", "labels": {"gender": "female", "age": "young", "descriptive": "captivating smooth"}},
+      {"id": "English_Upbeat_Woman", "name": "Upbeat Woman", "labels": {"gender": "female", "age": "young", "descriptive": "upbeat cheerful energetic"}},
+      {"id": "English_Trustworth_Man", "name": "Trustworthy Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "trustworthy warm calm"}},
+      {"id": "English_CalmWoman", "name": "Calm Woman", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "calm soothing"}},
+      {"id": "English_UpsetGirl", "name": "Upset Girl", "labels": {"gender": "female", "age": "young", "descriptive": "upset emotional"}},
+      {"id": "English_Gentle-voiced_man", "name": "Gentle-voiced Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "gentle soft warm"}},
+      {"id": "English_Whispering_girl", "name": "Whispering Girl", "labels": {"gender": "female", "age": "young", "descriptive": "whispery soft"}},
+      {"id": "English_Diligent_Man", "name": "Diligent Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "diligent serious"}},
+      {"id": "English_Graceful_Lady", "name": "Graceful Lady", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "graceful elegant refined"}},
+      {"id": "English_ReservedYoungMan", "name": "Reserved Young Man", "labels": {"gender": "male", "age": "young", "descriptive": "reserved calm soft"}},
+      {"id": "English_PlayfulGirl", "name": "Playful Girl", "labels": {"gender": "female", "age": "young", "descriptive": "playful sassy upbeat"}},
+      {"id": "English_ManWithDeepVoice", "name": "Man With Deep Voice", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "deep resonant gravelly"}},
+      {"id": "English_MaturePartner", "name": "Mature Partner", "labels": {"age": "middle_aged", "descriptive": "mature warm"}},
+      {"id": "English_FriendlyPerson", "name": "Friendly Guy", "labels": {"gender": "male", "age": "young", "descriptive": "friendly warm casual"}},
+      {"id": "English_MatureBoss", "name": "Bossy Lady", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "authoritative firm"}},
+      {"id": "English_Debator", "name": "Male Debater", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "confident crisp formal"}},
+      {"id": "English_LovelyGirl", "name": "Lovely Girl", "labels": {"gender": "female", "age": "young", "descriptive": "sweet cute"}},
+      {"id": "English_Steadymentor", "name": "Reliable Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "steady calm wise"}},
+      {"id": "English_Deep-VoicedGentleman", "name": "Deep-voiced Gentleman", "labels": {"gender": "male", "age": "old", "descriptive": "deep resonant refined"}},
+      {"id": "English_Wiselady", "name": "Wise Lady", "labels": {"gender": "female", "age": "old", "descriptive": "wise calm warm"}},
+      {"id": "English_CaptivatingStoryteller", "name": "Captivating Storyteller", "labels": {"age": "old", "use_case": "narration", "descriptive": "storyteller captivating"}},
+      {"id": "English_DecentYoungMan", "name": "Decent Young Man", "labels": {"gender": "male", "age": "young", "descriptive": "polite friendly"}},
+      {"id": "English_SentimentalLady", "name": "Sentimental Lady", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "sentimental soft"}},
+      {"id": "English_ImposingManner", "name": "Imposing Queen", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "imposing authoritative regal"}},
+      {"id": "English_SadTeen", "name": "Teen Boy", "labels": {"gender": "male", "age": "young", "descriptive": "sad soft"}},
+      {"id": "English_PassionateWarrior", "name": "Passionate Warrior", "labels": {"descriptive": "passionate intense heroic"}},
+      {"id": "English_WiseScholar", "name": "Wise Scholar", "labels": {"age": "old", "descriptive": "wise calm"}},
+      {"id": "English_Soft-spokenGirl", "name": "Soft-Spoken Girl", "labels": {"gender": "female", "age": "young", "descriptive": "soft gentle"}},
+      {"id": "English_SereneWoman", "name": "Serene Woman", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "serene calm soothing"}},
+      {"id": "English_ConfidentWoman", "name": "Confident Woman", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "confident"}},
+      {"id": "English_PatientMan", "name": "Patient Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "patient calm gentle"}},
+      {"id": "English_Comedian", "name": "Comedian", "labels": {"descriptive": "playful animated upbeat"}},
+      {"id": "English_BossyLeader", "name": "Bossy Leader", "labels": {"descriptive": "authoritative firm"}},
+      {"id": "English_Strong-WilledBoy", "name": "Strong-Willed Boy", "labels": {"gender": "male", "age": "young", "descriptive": "determined energetic"}},
+      {"id": "English_StressedLady", "name": "Stressed Lady", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "nervous anxious"}},
+      {"id": "English_AssertiveQueen", "name": "Assertive Queen", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "assertive authoritative regal"}},
+      {"id": "English_AnimeCharacter", "name": "Female Narrator", "labels": {"gender": "female", "age": "young", "descriptive": "animated bright"}},
+      {"id": "English_Jovialman", "name": "Jovial Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "jovial cheerful warm"}},
+      {"id": "English_WhimsicalGirl", "name": "Whimsical Girl", "labels": {"gender": "female", "age": "young", "descriptive": "whimsical playful"}},
+      {"id": "English_Kind-heartedGirl", "name": "Kind-hearted Girl", "labels": {"gender": "female", "age": "young", "descriptive": "kind warm gentle"}}
+    ],
+    "minimax_legacy": [
+      {"id": "Wise_Woman", "name": "Wise Woman", "labels": {"gender": "female", "age": "old", "descriptive": "wise calm"}},
+      {"id": "Friendly_Person", "name": "Friendly Person", "labels": {"descriptive": "friendly warm"}},
+      {"id": "Inspirational_girl", "name": "Inspirational Girl", "labels": {"gender": "female", "age": "young", "descriptive": "inspirational bright"}},
+      {"id": "Deep_Voice_Man", "name": "Deep Voice Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "deep resonant"}},
+      {"id": "Calm_Woman", "name": "Calm Woman (legacy)", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "calm soothing"}},
+      {"id": "Casual_Guy", "name": "Casual Guy", "labels": {"gender": "male", "age": "young", "descriptive": "casual friendly"}},
+      {"id": "Lively_Girl", "name": "Lively Girl", "labels": {"gender": "female", "age": "young", "descriptive": "lively energetic bright"}},
+      {"id": "Patient_Man", "name": "Patient Man (legacy)", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "patient calm gentle"}},
+      {"id": "Young_Knight", "name": "Young Knight", "labels": {"gender": "male", "age": "young", "descriptive": "confident heroic"}},
+      {"id": "Determined_Man", "name": "Determined Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "determined serious firm"}},
+      {"id": "Lovely_Girl", "name": "Lovely Girl (legacy)", "labels": {"gender": "female", "age": "young", "descriptive": "sweet cute bright"}},
+      {"id": "Decent_Boy", "name": "Decent Boy", "labels": {"gender": "male", "age": "young", "descriptive": "polite youthful"}},
+      {"id": "Imposing_Manner", "name": "Imposing Manner", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "imposing authoritative"}},
+      {"id": "Elegant_Man", "name": "Elegant Man", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "elegant refined smooth"}},
+      {"id": "Abbess", "name": "Abbess", "labels": {"gender": "female", "age": "old", "descriptive": "calm serene formal"}},
+      {"id": "Sweet_Girl_2", "name": "Sweet Girl", "labels": {"gender": "female", "age": "young", "descriptive": "sweet soft cute"}},
+      {"id": "Exuberant_Girl", "name": "Exuberant Girl", "labels": {"gender": "female", "age": "young", "descriptive": "exuberant energetic bubbly"}}
+    ],
+    "kokoro_en": [
+      {"id": "af_alloy", "labels": {"descriptive": "neutral clear"}},
+      {"id": "af_aoede", "labels": {"descriptive": "smooth"}},
+      {"id": "af_bella", "labels": {"descriptive": "warm friendly"}},
+      {"id": "af_jessica", "labels": {"descriptive": "bright"}},
+      {"id": "af_kore", "labels": {"descriptive": "calm"}},
+      {"id": "af_nicole", "labels": {"descriptive": "soft whispery"}},
+      {"id": "af_nova", "labels": {"descriptive": "bright upbeat"}},
+      {"id": "af_river", "labels": {"descriptive": "calm"}},
+      {"id": "af_sarah", "labels": {"descriptive": "calm mature"}},
+      {"id": "af_sky", "labels": {"age": "young", "descriptive": "bright youthful"}},
+      {"id": "am_adam", "labels": {"descriptive": "clear"}},
+      {"id": "am_echo", "labels": {"descriptive": "smooth"}},
+      {"id": "am_eric", "labels": {"descriptive": "confident"}},
+      {"id": "am_fenrir", "labels": {"descriptive": "deep rough"}},
+      {"id": "am_liam", "labels": {"age": "young", "descriptive": "friendly"}},
+      {"id": "am_michael", "labels": {"descriptive": "deep calm"}},
+      {"id": "am_onyx", "labels": {"descriptive": "deep resonant"}},
+      {"id": "am_puck", "labels": {"descriptive": "playful animated"}},
+      {"id": "bf_alice", "labels": {"descriptive": "refined"}},
+      {"id": "bf_emma", "labels": {"descriptive": "refined warm"}},
+      {"id": "bf_isabella", "labels": {"descriptive": "smooth"}},
+      {"id": "bf_lily", "labels": {"age": "young", "descriptive": "soft"}},
+      {"id": "bm_daniel", "labels": {"descriptive": "calm refined"}},
+      {"id": "bm_fable", "labels": {"use_case": "narration", "descriptive": "storyteller"}},
+      {"id": "bm_george", "labels": {"age": "middle_aged", "descriptive": "deep refined mature"}},
+      {"id": "bm_lewis", "labels": {"descriptive": "deep"}}
+    ]
+  }
+}

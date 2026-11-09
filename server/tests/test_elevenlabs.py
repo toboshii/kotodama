@@ -20,7 +20,7 @@ from kotodama.tts_base import TTSError, VoiceRequest
 from kotodama.tts_elevenlabs import ElevenLabsTTS
 from kotodama.tts_openai import OpenAITTS
 from kotodama.usage import Usage
-from kotodama.voices_elevenlabs import CastingMemory, VoiceCatalog, cast, rank
+from kotodama.casting import CastingMemory, VoiceCatalog, cast, rank
 
 from helpers import FakeTTS, KotodamaTestCase, speak_msg
 

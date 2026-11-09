@@ -8,24 +8,32 @@ import logging
 import os
 import shutil
 import signal
+import re
 import socket
 import sys
 import time
+import urllib.parse
 from pathlib import Path
+from typing import Any
 
-from . import __version__
-from .config import Config
-from .audio import is_game_stream, parse_sink_inputs, run_pactl
-from .console import KeyControls, reexec
+from . import __version__, envfile
+from .adapters import (build_adapter, check_fields, draft_adapter, input_properties, load_adapters,
+                       load_models_file, render)
 from .archetypes import Archetypes
-from .engine import PROVIDER_KEYS, build_engine, make_ducker
+from .audio import is_game_stream, parse_sink_inputs, run_pactl
+from .casting import cast, rank
+from .config import Config
+from .console import KeyControls, reexec
+from .engine import PROVIDER_KEYS, build_engine, make_ducker, provider_catalog
 from .library import Library
 from .net import UDPServer
 from .profiles import ProfileResolver
 from .protocol import Speaker, parse_speak
 from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
-from .voices_elevenlabs import cast, rank
+from .tts_generic import GenericTTS, ReplicateClient
+from .tts_minimax import MiniMaxClient, unknown_fields as minimax_unknown_fields
+from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 
 
 def _setup_logging(debug: bool) -> None:
@@ -40,9 +48,9 @@ def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.exe
     engine = engine or build_engine(cfg)
     if not engine.player.available:
         logging.error("no audio player available; install pipewire (pw-play), pulseaudio-utils or ffmpeg")
-    if not engine.tts.api_key:
-        logging.warning("no %s API key: only already-cached lines will play (set %s)",
-                        engine.tts.name, PROVIDER_KEYS.get(engine.tts.name, "the provider key"))
+    if getattr(engine.tts, "needs_key", True) and not engine.tts.api_key:
+        logging.warning("no %s API key: only already-cached lines will play (set %s)", engine.tts.name,
+                        getattr(engine.tts, "key_hint", None) or PROVIDER_KEYS.get(engine.tts.name, "the provider key"))
     server = UDPServer(cfg, engine)
     old_term = signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
     chosen: list[str] = []
@@ -77,7 +85,11 @@ def cmd_test(cfg: Config, args: argparse.Namespace) -> int:
         if msg.get("t") == "log":
             print(f"[addon] {msg['msg']}")
 
-    engine = build_engine(cfg, reply=show, null_player=args.no_audio, provider=args.provider)
+    try:
+        engine = build_engine(cfg, reply=show, null_player=args.no_audio, provider=args.provider)
+    except ValueError as exc:
+        print(exc)
+        return 1
     text = " ".join(args.text)
     speaker = {"name": args.name, "race": args.race, "creature": args.creature,
                "narrator": args.name is None}
@@ -177,7 +189,24 @@ def cmd_audio(cfg: Config, args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def _bank(cfg: Config) -> VoiceBank:
+    bank = VoiceBank(cfg.path("voice_bank.dir"))
+    bank.refresh()
+    return bank
+
+
 def cmd_voices(cfg: Config, args: argparse.Namespace) -> int:
+    if args.action == "bank":
+        return _voices_bank(cfg)
+    if args.action == "design":
+        return _voices_design(cfg, args)
+    name = (args.provider or "elevenlabs").lower()
+    if name == "openai":
+        print("OpenAI voices are fixed per archetype (see server/archetypes.json); "
+              "pick --provider elevenlabs or a model adapter (`kotodama_server.py providers`)")
+        return 1
+    if name != "elevenlabs":
+        return _voices_adapter(cfg, args, name)
     el = ElevenLabsTTS(cfg)
     if args.action == "sync" or (not el.catalog.voices and el.api_key):
         if not el.api_key:
@@ -194,6 +223,33 @@ def cmd_voices(cfg: Config, args: argparse.Namespace) -> int:
     if not voices:
         print("no voices cached yet: run `voices sync`")
         return 1
+    return _voices_show(cfg, args, el.catalog, "elevenlabs")
+
+
+def _voices_adapter(cfg: Config, args: argparse.Namespace, name: str) -> int:
+    adapters = load_adapters(cfg)
+    if name not in adapters:
+        print(f"unknown provider '{name}' (model adapters: {', '.join(adapters)})")
+        return 1
+    prov = GenericTTS(cfg, adapters[name], bank=_bank(cfg))
+    try:
+        prov.load_remote_voices()                    # the CLI can wait for the bank, schema, account voices
+        if args.action == "sync":
+            print(prov.status_text())
+            return 0
+        if not prov.catalog.voices:
+            hint = (" (set REPLICATE_API_TOKEN so the model's own voice list can be read)"
+                    if prov.adapter.uses_schema and not prov.api_key else "")
+            print(f"{name} has no voices to cast from{hint}; lines use the model's default voice"
+                  + (". Add clips to the voice bank (`voices bank`, `voices design`)" if prov.adapter.uses_bank else ""))
+            return 0 if args.action == "list" else 1
+        return _voices_show(cfg, args, prov.catalog, name)
+    finally:
+        prov.close()
+
+
+def _voices_show(cfg: Config, args: argparse.Namespace, catalog: Any, provider: str) -> int:
+    voices = catalog.snapshot()
 
     if args.action == "list":
         for v in voices:
@@ -205,7 +261,7 @@ def cmd_voices(cfg: Config, args: argparse.Namespace) -> int:
     arch = Archetypes.load()
     if args.npc:
         lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"))
-        resolved = ProfileResolver(arch, lib, provider="elevenlabs").resolve(
+        resolved = ProfileResolver(arch, lib, provider=provider).resolve(
             Speaker(name=args.npc, race=args.race, creature=args.creature), None)
         targets = [(args.npc, resolved.key, resolved.profile)]
     else:
@@ -214,9 +270,136 @@ def cmd_voices(cfg: Config, args: argparse.Namespace) -> int:
                    for key, a in arch.items.items()]
         targets = [(label, "@narrator" if label == "narrator" else ident, p) for label, ident, p in targets]
     for label, ident, profile in targets:
-        chosen = el.catalog.get(cast(el.catalog, profile, ident, memory=None))
-        runners = ", ".join(f"{v.name} ({s:g})" for s, v in rank(el.catalog, profile, ident)[:3])
-        print(f"{label:<16} -> {chosen.name if chosen else 'NO MATCH':<18} top: {runners}")
+        chosen = catalog.get(cast(catalog, profile, ident, memory=None))
+        runners = ", ".join(f"{v.name} ({s:g})" for s, v in rank(catalog, profile, ident)[:3])
+        print(f"{label:<16} -> {chosen.name if chosen else 'NO MATCH':<22} top: {runners}")
+    return 0
+
+
+def _voices_bank(cfg: Config) -> int:
+    bank = _bank(cfg)
+    print(f"voice bank: {bank.dir}")
+    for clip in bank.clips.values():
+        ref = "transcript" if clip.reference_text else "no transcript"
+        print(f"  {clip.id:<32} {clip.seconds:4.1f} s  {ref:<13} {clip.voice.summary()}")
+    for problem in bank.problems:
+        print(f"  [skipped] {problem}")
+    if not bank.clips:
+        print("  (empty) add 5.5-7.5 s WAV clips here, or run `voices design`")
+    return 0
+
+
+def _voices_design(cfg: Config, args: argparse.Namespace) -> int:
+    data = load_models_file()
+    designer_name = str(cfg.get("voice_bank.designer", "qwen3"))
+    spec = (data.get("designers") or {}).get(designer_name)
+    if not isinstance(spec, dict):
+        print(f"no designer '{designer_name}' in tts_models.json")
+        return 1
+    designer = build_adapter(f"design-{designer_name}", spec, data.get("voice_sets", {}))
+    key = cfg.api_key("replicate")
+    if not key:
+        print("voice design runs on Replicate: set REPLICATE_API_TOKEN first")
+        return 1
+    directory = cfg.path("voice_bank.dir")
+    only = [o.strip() for o in args.only.split(",")] if args.only else None
+    arch = Archetypes.load()
+    if only:
+        unknown = [o for o in only if o not in arch.items]
+        if unknown:
+            print(f"unknown archetype(s): {', '.join(unknown)} (choose from {', '.join(arch.items)})")
+            return 1
+    jobs = design_jobs(arch.items, args.variants, only, directory)
+    if not jobs:
+        print(f"nothing to do: every clip already exists in {directory}")
+        return 0
+    print(f"{len(jobs)} reference clip(s) to design with {designer.model} -> {directory}")
+    print("each is one Replicate prediction, billed to your account")
+    if not args.yes:
+        try:
+            answer = input("continue? [y/N] ").strip().lower()
+        except EOFError:
+            answer = ""
+        if answer not in ("y", "yes"):
+            print("cancelled")
+            return 1
+    client = ReplicateClient(str(cfg.get("replicate.base_url")), key,
+                             wait_s=int(cfg.get("replicate.wait_seconds", 30)),
+                             timeout=float(cfg.get("replicate.timeout", 120)), cache_dir=cfg.path("cache.dir"))
+    failures = 0
+    try:
+        for job in jobs:
+            inp = render(designer.input, {"text": DESIGN_TEXT, "voice_description": job.description})
+            try:
+                audio, _ = client.run(designer, inp)
+                path = save_designed(directory, job, audio)
+                print(f"  {path.name}: {job.description}")
+            except (TTSError, OSError) as exc:
+                failures += 1
+                print(f"  {job.stem}: FAILED ({exc})")
+    finally:
+        client.close()
+    bank = _bank(cfg)
+    print(f"voice bank now holds {len(bank.clips)} clip(s)"
+          + (f"; {len(bank.problems)} skipped (see `voices bank`)" if bank.problems else ""))
+    return 1 if failures else 0
+
+
+def cmd_providers(cfg: Config, args: argparse.Namespace) -> int:
+    problems: list[str] = []
+    adapters = load_adapters(cfg, problems)
+    active = str(cfg.get("tts.provider", "openai"))
+    catalog = provider_catalog(cfg, adapters)
+    width = max(len(n) for n in catalog) + 2
+    for name, (desc, has_key) in catalog.items():
+        print(f"{'*' if name == active else ' '} {name:<{width}}{desc}{'' if has_key else '  (no API key)'}")
+    for p in problems:
+        print(f"  [skipped] {p}")
+    return 0
+
+
+def cmd_replicate(cfg: Config, args: argparse.Namespace) -> int:
+    key = cfg.api_key("replicate")
+    if not key:
+        print("set REPLICATE_API_TOKEN (or replicate.api_key in server/config.json) first")
+        return 1
+    ref = args.model.strip()
+    if not re.fullmatch(r"[\w.-]+/[\w.-]+", ref):
+        print("give the model as owner/name, e.g. resemble-ai/chatterbox-turbo")
+        return 1
+    client = ReplicateClient(str(cfg.get("replicate.base_url")), key, cache_dir=cfg.path("cache.dir"))
+    try:
+        data = client.model_json(ref, refresh=True)
+    except TTSError as exc:
+        print(f"could not read {ref}: {exc}")
+        return 1
+    finally:
+        client.close()
+    props, required = input_properties(data)
+    if not props:
+        print(f"{ref} publishes no input schema")
+        return 1
+    print(f"{ref} inputs:")
+    for k, p in props.items():
+        bits = [str(p.get("type") or "?")]
+        if p.get("format"):
+            bits.append(p["format"])
+        if "minimum" in p or "maximum" in p:
+            bits.append(f"{p.get('minimum', '')}..{p.get('maximum', '')}")
+        if p.get("enum"):
+            enum = [str(e) for e in p["enum"]]
+            bits.append("one of " + ", ".join(enum[:10]) + (f" (+{len(enum) - 10})" if len(enum) > 10 else ""))
+        if "default" in p:
+            bits.append(f"default {p['default']!r}")
+        desc = str(p.get("description") or "")[:70]
+        print(f"  {k + ('*' if k in required else ''):<22} {'; '.join(bits)}{('  - ' + desc) if desc else ''}")
+    official = bool(data.get("is_official")) if "is_official" in data else False
+    name = re.sub(r"[^a-z0-9_-]", "-", ref.split("/")[1].lower())[:32]
+    draft = draft_adapter(ref, props, required, official)
+    print(f"\nA starting adapter (put it in server/config.json under \"models\", then edit):\n")
+    print(json.dumps({name: draft}, indent=2))
+    if "is_official" not in data:
+        print("\nnote: if predictions fail asking for a version, this is an official model: set \"official\": true")
     return 0
 
 
@@ -236,7 +419,6 @@ def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
     if not live:
         print(f"[info] ElevenLabs model {el.configured_model}: run `doctor --live` to try it (uses a few credits)")
         return
-    from .tts_base import VoiceRequest
     req = el.voice_request({"voice": el.catalog.voices[0].id, "pace": "normal"}, "@doctor")
     started, first, total = time.monotonic(), None, 0
     try:
@@ -252,6 +434,90 @@ def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
         el.close()
 
 
+def _doctor_models(cfg: Config, live: bool, check, active: str) -> None:
+    problems: list[str] = []
+    adapters = load_adapters(cfg, problems)
+    for p in problems:
+        check("model adapter", False, p)
+    replicate = {n: a for n, a in adapters.items() if a.transport == "replicate"}
+    compat = {n: a for n, a in adapters.items() if a.transport == "openai_compatible"}
+    key = cfg.api_key("replicate")
+    if replicate and not key:
+        print(f"[info] Replicate: no token (REPLICATE_API_TOKEN); {', '.join(replicate)} unavailable")
+    elif replicate:
+        client = ReplicateClient(str(cfg.get("replicate.base_url")), key, cache_dir=cfg.path("cache.dir"))
+        try:
+            account = client.account()
+            check("Replicate token", True, f"account {account.get('username', '?')}")
+            for name, ad in replicate.items():
+                try:
+                    props, _ = input_properties(client.model_json(ad.model, refresh=True))
+                except TTSError as exc:
+                    print(f"[warn] {name} ({ad.model}): {exc}")
+                    continue
+                issues = check_fields(ad, props)
+                if not issues:
+                    print(f"[ok] {name}: {ad.model} matches its adapter")
+                elif name == active:
+                    check(name, False, "; ".join(issues))
+                else:
+                    print(f"[warn] {name}: " + "; ".join(issues))
+        except TTSError as exc:
+            check("Replicate token", False, str(exc))
+        finally:
+            client.close()
+    minimax = {n: a for n, a in adapters.items() if a.transport == "minimax"}
+    mm_key = cfg.api_key("minimax")
+    if minimax and not mm_key:
+        print(f"[info] MiniMax: no key (MINIMAX_API_KEY); {', '.join(minimax)} unavailable")
+    elif minimax:
+        first = next(iter(minimax.values()))
+        client = MiniMaxClient(first.base_url or str(cfg.get("minimax.base_url")), mm_key,
+                               group_id=str(cfg.get("minimax.group_id")) if cfg.get("minimax.group_id") else None)
+        try:
+            data = client.fetch_voices()
+            own = len(data.get("voice_cloning") or []) + len(data.get("voice_generation") or [])
+            check("MiniMax key", True, f"{len(data.get('system_voice') or [])} system voices, {own} of your own")
+        except TTSError as exc:
+            check("MiniMax key", False, str(exc))
+        finally:
+            client.close()
+    for name, ad in minimax.items():
+        bad = minimax_unknown_fields(ad.input)
+        if bad:
+            msg = (f"{', '.join(bad)} aren't MiniMax API request fields (an override written for the Replicate "
+                   f"version? those belong under models.minimax-replicate)")
+            if name == active:
+                check(name, False, msg)
+            else:
+                print(f"[warn] {name}: {msg}")
+    for name, ad in compat.items():
+        p = urllib.parse.urlparse(ad.base_url)
+        try:
+            with socket.create_connection((p.hostname, p.port or (443 if p.scheme == "https" else 80)), timeout=2):
+                print(f"[ok] {name}: {ad.base_url} reachable")
+        except OSError as exc:
+            print(f"[{'FAIL' if name == active else 'warn'}] {name}: {ad.base_url} not reachable ({exc})")
+    bank = _bank(cfg)
+    print(f"[info] voice bank: {len(bank.clips)} clip(s) in {bank.dir}"
+          + (f", {len(bank.problems)} skipped (see `voices bank`)" if bank.problems else ""))
+    print(f"[info] ffmpeg: {shutil.which('ffmpeg') or 'not found'} (only needed for models that return MP3/FLAC)")
+    if live and active in adapters:
+        prov = GenericTTS(cfg, adapters[active], bank=bank)
+        try:
+            req = prov.voice_request({"pace": "normal"}, "@doctor")
+            started, first, total = time.monotonic(), None, 0
+            for chunk in prov.stream("Hello.", req):
+                first = first if first is not None else (time.monotonic() - started) * 1000
+                total += len(chunk)
+            check(f"{active} synthesis", total > 0,
+                  f"first audio {first:.0f} ms, {total / 2 / prov.sample_rate:.2f} s of audio")
+        except TTSError as exc:
+            check(f"{active} synthesis", False, str(exc))
+        finally:
+            prov.close()
+
+
 def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     ok = True
 
@@ -261,6 +527,15 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
         print(f"[{'ok' if good else 'FAIL'}] {label}{(': ' + detail) if detail else ''}")
 
     check("python", sys.version_info >= (3, 10), sys.version.split()[0])
+    env_path = Path(args.env_file).expanduser() if args.env_file else envfile.default_path()
+    from_file = [n for n in os.environ.get(envfile.MARKER, "").split(",") if n]
+    if from_file:
+        state = "supplied " + ", ".join(from_file)
+    elif env_path.exists():
+        state = "found; everything in it is already set in your environment"
+    else:
+        state = "not found (keys must come from your environment)"
+    print(f"[info] keys file {env_path}: {state}")
     engine = build_engine(cfg, null_player=False)
     check("audio player", engine.player.available, engine.player.kind or "none found")
     active = engine.tts.name
@@ -269,6 +544,7 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     check("OpenAI API key", openai_key or active != "openai",
           "set" if openai_key else "missing (OPENAI_API_KEY / tts.api_key)")
     _doctor_elevenlabs(cfg, args.live, check)
+    _doctor_models(cfg, args.live, check, active)
     provider = cfg.get("inference.provider")
     print(f"[info] voice casting: {provider}")
     if provider == "anthropic":
@@ -304,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="kotodama_server.py", description="Kotodama voiceover sidecar")
     parser.add_argument("-c", "--config", help="path to config.json (default: server/config.json)")
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
+    parser.add_argument("--env-file", help="API keys file to load (default: ~/.config/kotodama.env, "
+                                           "or $KOTODAMA_ENV_FILE); shell variables take precedence")
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("serve", help="run the sidecar (default)")
@@ -317,7 +595,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--zone-name")
     t.add_argument("--player", default="Adventurer", help="player name (scrubbed from shared files)")
     t.add_argument("--no-audio", action="store_true", help="synthesize and cache but do not play")
-    t.add_argument("--provider", choices=["openai", "elevenlabs"], help="override tts.provider for this test")
+    t.add_argument("--provider", help="override tts.provider for this test (openai, elevenlabs, minimax, ...)")
     t.add_argument("text", nargs="+")
 
     lib = sub.add_parser("library", help="share NPC voice libraries")
@@ -341,22 +619,42 @@ def main(argv: list[str] | None = None) -> int:
     ausub.add_parser("restore", help="put back game volume left lowered by a crashed run")
     ausub.add_parser("duck-test", help="duck the game audio for 3 seconds, then restore it")
 
-    vo = sub.add_parser("voices", help="ElevenLabs voices: sync, list, and preview auto-casting")
+    prov_opt = argparse.ArgumentParser(add_help=False)
+    prov_opt.add_argument("--provider", help="elevenlabs (default) or a model adapter such as minimax, kokoro")
+    vo = sub.add_parser("voices", help="voices to cast from: sync, list, preview casting, voice bank")
     vosub = vo.add_subparsers(dest="action", required=True)
-    vosub.add_parser("sync", help="fetch the voices your ElevenLabs account can use")
-    vosub.add_parser("list", help="list cached voices with their labels")
-    vc = vosub.add_parser("cast", help="show which voice each archetype (or one NPC) gets")
+    vosub.add_parser("sync", parents=[prov_opt], help="refresh the voice list (ElevenLabs account, model schema, bank)")
+    vosub.add_parser("list", parents=[prov_opt], help="list voices with their labels")
+    vc = vosub.add_parser("cast", parents=[prov_opt], help="show which voice each archetype (or one NPC) gets")
     vc.add_argument("--npc", help="an NPC name (uses your library/overrides)")
     vc.add_argument("--race", type=int)
     vc.add_argument("--creature")
+    vosub.add_parser("bank", help="list the reference clips in the voice bank (for cloning models)")
+    vd = vosub.add_parser("design", help="generate labelled reference clips per race/creature (Replicate)")
+    vd.add_argument("--variants", type=int, default=3, help="clips per archetype (default 3)")
+    vd.add_argument("--only", help="comma-separated archetypes, e.g. galka,taru_m")
+    vd.add_argument("--yes", action="store_true", help="don't ask before spending")
+
+    sub.add_parser("providers", help="list every voice provider and whether its key is set")
+    rp = sub.add_parser("replicate", help="Replicate model tools")
+    rpsub = rp.add_subparsers(dest="action", required=True)
+    rs = rpsub.add_parser("schema", help="show a model's inputs and draft an adapter for it")
+    rs.add_argument("model", help="owner/name, e.g. resemble-ai/chatterbox-turbo")
 
     dr = sub.add_parser("doctor", help="check the setup")
-    dr.add_argument("--live", action="store_true", help="also synthesize one word with ElevenLabs (uses credits)")
+    dr.add_argument("--live", action="store_true",
+                    help="also synthesize one word with the active provider (ElevenLabs or a model; uses credits)")
 
     args = parser.parse_args(argv)
     _setup_logging(args.verbose)
+    # Before the config: the env file may hold API keys and KOTODAMA_CONFIG.
+    env_path, env_names = envfile.load(Path(args.env_file).expanduser() if args.env_file else None)
+    if env_names:
+        level = logging.INFO if args.command in (None, "serve") else logging.DEBUG
+        logging.log(level, "loaded %s from %s", ", ".join(env_names), env_path)
     cfg = Config.load(args.config)
 
     handlers = {None: cmd_serve, "serve": cmd_serve, "test": cmd_test, "library": cmd_library,
-                "cache": cmd_cache, "audio": cmd_audio, "voices": cmd_voices, "doctor": cmd_doctor}
+                "cache": cmd_cache, "audio": cmd_audio, "voices": cmd_voices, "doctor": cmd_doctor,
+                "providers": cmd_providers, "replicate": cmd_replicate}
     return handlers[args.command](cfg, args)

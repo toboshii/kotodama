@@ -11,13 +11,17 @@ The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed be
 
 ## What gets sent where
 
-Dialog text is sent to the voice provider you use (OpenAI or ElevenLabs) to be turned into speech. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
+Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
 
 ## Setup
 
-You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, or both (see **Voice providers**).
+You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Replicate, or any mix (see **Voice providers**, **MiniMax** and **Replicate and other backends**).
 
-1. **Give it a key.** Put `OPENAI_API_KEY=sk-...` and/or `ELEVENLABS_API_KEY=...` in `~/.config/kotodama.env` (used by the systemd unit below), or export them in your shell.
+1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
+   - A variable already set in your shell takes precedence over the file.
+   - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
+   - To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
+   - The file can also set `KOTODAMA_CONFIG` to keep your `config.json` outside the addon folder.
 2. **Check the setup:**
    ```
    python3 server/kotodama_server.py doctor
@@ -53,8 +57,9 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
-| `provider openai` / `elevenlabs` / `default` | Switch the voice provider live; `default` uses `tts.provider` from `server/config.json` |
-| `voices` / `voices sync` | ElevenLabs: how many voices are known / refresh the list from your account |
+| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
+| `providers` | List every provider the sidecar knows and whether its key is set |
+| `voices` / `voices sync` | How many voices the active provider can cast from / refresh that list (ElevenLabs account, model voice list, voice bank) |
 | `deny <name\|t\|last>` / `allow <...>` / `deny list` | Silence specific NPCs. `t` is your target, `last` is whoever spoke last. Names accept `*` wildcards, e.g. `deny Moogle*` |
 | `voice <name\|t\|last>` | Show the voice an NPC will get and why |
 | `voice <name> key=value ...` | Override it. Keys: `gender` `age` `species` `personality` `tone` `accent` `pitch` `pace` `voice` `direction`. Use `_` for spaces: `//koto voice t age=elderly tone=gruff_and_weary` |
@@ -64,7 +69,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `test [event\|cutscene\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
 | `debug on/off`, `inspect [t]` | Write `data/debug.log`; dump the target's fields to `data/inspect.log` |
 
-Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account (`kotodama_server.py voices list`), e.g. `voice=George`.
+Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account, e.g. `voice=George`; for a model, any name from `kotodama_server.py voices list --provider <model>`, e.g. `voice=English_ManWithDeepVoice`.
 
 Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xml`.
 
@@ -91,6 +96,104 @@ python3 server/kotodama_server.py test --provider elevenlabs --name Rok --race 8
 ```
 
 To keep a voice out of casting, add its name or id to `elevenlabs.voices.exclude`. The voice list refreshes itself daily (`elevenlabs.voices.refresh_hours`).
+
+## MiniMax
+
+`minimax` and `minimax-hd` speak through MiniMax's own API, which **streams**: audio starts playing a fraction of a second after the line appears, much like OpenAI and ElevenLabs. They use MiniMax Speech 2.8 Turbo and HD, with 62 labelled English voices and real pitch control (Galka lower, Tarutaru higher).
+
+Put `MINIMAX_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider minimax`. To check it first:
+
+```
+python3 server/kotodama_server.py doctor            # key, voice count
+python3 server/kotodama_server.py doctor --live     # time to first audio (one short line)
+python3 server/kotodama_server.py voices cast --provider minimax
+```
+
+- **Your own voices are included.** Voices you've cloned or designed on your MiniMax account appear in casting automatically (refreshed daily, or with `//koto voices sync`), as do any English system voices beyond the built-in list.
+- **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
+- **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account still needs one.
+- The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`). Those were called `minimax` and `minimax-hd` before; lines already cached under the old names still play from the cache.
+
+## Replicate and other backends
+
+Beyond OpenAI and ElevenLabs, Kotodama can speak through text-to-speech models hosted on [Replicate](https://replicate.com) and through any server that speaks OpenAI's `/v1/audio/speech` API. Each model is described by a small **adapter** (in `server/tts_models.json`), and each adapter is a provider you can switch to in game: `//koto provider chatterbox-turbo`. Voices are auto-cast the same way as with ElevenLabs.
+
+Put `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, then:
+
+```
+python3 server/kotodama_server.py providers                    # what's available
+python3 server/kotodama_server.py doctor                       # token, and each model's inputs still match
+python3 server/kotodama_server.py voices cast --provider kokoro
+python3 server/kotodama_server.py test --provider minimax-replicate --name Rok --race 8 "Hm."
+```
+
+Shipped models:
+
+| Provider | Model | Good for |
+|---|---|---|
+| `minimax-replicate` | `minimax/speech-2.8-turbo` | MiniMax through Replicate: 62 labelled English voices, real pitch control. With a MiniMax key, `minimax` (above) is the same model and streams |
+| `minimax-replicate-hd` | `minimax/speech-2.8-hd` | The same voices at higher quality, a little slower |
+| `chatterbox-turbo` | `resemble-ai/chatterbox-turbo` | Fast open-source model; preset voices plus cloning from your voice bank |
+| `chatterbox` | `resemble-ai/chatterbox` | Expressive open-source model with emotion intensity; voices come only from your voice bank |
+| `kokoro` | `jaaari/kokoro-82m` | Small, cheap open-source model with 26 English voices (a community model, so it can be slow to wake up) |
+| `qwen3` | `qwen/qwen3-tts` | Takes acting directions (tone, character, pace) as text; preset speakers plus cloning from the voice bank |
+
+**Latency.** Replicate returns finished audio files, not a stream. So each line is split at sentence boundaries: the first sentence is made on its own and starts playing while the rest is made in parallel. Expect the first word a second or two after the line appears, depending on the model. Official models (everything above except Kokoro) are kept warm by Replicate; a community model that hasn't run lately can take a minute to start, and the sidecar says so in chat. Lines are cached like any other provider's, so repeats are instant and free.
+
+**Cost.** Replicate bills your account per run; check each model's page for its price. `//koto status` shows characters and compute seconds per model. Add `"price": {"per_1k_chars": 0.0}` or `{"per_second": 0.0}` to a model in `server/config.json` to get a dollar estimate too.
+
+### The voice bank (for cloning models)
+
+Original Chatterbox has no preset voices, and Chatterbox Turbo and Qwen3 can also clone. They take a short reference clip of the voice to use. Kotodama keeps these clips in `voices/` (not committed) and casts NPCs to them by their labels:
+
+- **Make some automatically:** `python3 server/kotodama_server.py voices design` generates labelled clips for every race and creature with Qwen3-TTS voice design (3 variants each by default, about 70 predictions; it asks before spending). `--only galka,taru_m` and `--variants 2` narrow it down. Re-running only makes what's missing.
+- **Add your own:** drop a 5.5–7.5 second WAV of clean speech in `voices/`, optionally with a same-named `.json` holding `{"name", "gender", "age", "description", "reference_text"}` (the transcript helps Qwen3). Without one, labels are guessed from the file name (`old_man_gruff.wav` = old, male, gruff). Longer clips are trimmed.
+- `python3 server/kotodama_server.py voices bank` lists what's there and why anything was skipped. In game, `//koto voices sync` picks up changes.
+
+### Adding another model
+
+Any Replicate TTS model can be added without code. Ask the sidecar to read its inputs and draft an adapter:
+
+```
+python3 server/kotodama_server.py replicate schema zsxkib/dia
+```
+
+Paste the printed adapter into `server/config.json` under `"models"`, adjust it, and press R in the sidecar terminal. An adapter maps the model's input fields to placeholders filled from each NPC's profile:
+
+```json
+"models": {
+  "my-model": {
+    "model": "owner/name", "official": false,
+    "input": {"text": "{text}", "voice": "{voice}", "speed": "{speed}", "seed": "{seed}"},
+    "voices": ["schema", "bank"]
+  }
+}
+```
+
+Placeholders:
+- `{text}` and `{voice}`;
+- `{speed}`, from pace;
+- `{pitch}`, through the adapter's `controls.pitch` table;
+- `{emotion}`;
+- `{exaggeration}` and `{cfg_weight}`, from temperament, through `controls`;
+- `{style}`, a short acting direction;
+- `{voice_description}`;
+- `{seed}`, stable per NPC;
+- `{reference_audio}` and `{reference_text}`, from the voice bank.
+
+`input_clone` holds fields that change when the voice is a bank clip (`null` removes a field). `voices` can list voices, name a set from `tts_models.json` (`"@kokoro_en"`), and include `"schema"` (the model's own voice list) and `"bank"`. To change a shipped model, override only what differs, e.g. `"kokoro": {"controls": {"speed": {"normal": 1.1}}}`; `"enabled": false` hides one.
+
+### Self-hosted and other OpenAI-compatible servers
+
+Servers such as Kokoro-FastAPI, Chatterbox TTS servers, or hosted services with an OpenAI-style speech endpoint stream audio directly, so they're the lowest-latency option if you have one. An example is included, disabled:
+
+```json
+"models": {
+  "kokoro-local": {"enabled": true, "base_url": "http://192.168.1.20:8880/v1"}
+}
+```
+
+Fields: `transport: "openai_compatible"`, `base_url` (including `/v1`), `model`, `voices`, `response_format` (`pcm` or `wav`), an optional `api_key_env`, and `extra` for any additional request fields (same placeholders).
 
 ## How voices are chosen
 

@@ -78,6 +78,7 @@ class HTTPStreamer:
         self.timeout = timeout
         self._pool: list[tuple[http.client.HTTPConnection, float]] = []
         self._lock = threading.Lock()
+        self._closed = False
 
     def _new_conn(self) -> http.client.HTTPConnection:
         cls = http.client.HTTPSConnection if self.https else http.client.HTTPConnection
@@ -96,7 +97,10 @@ class HTTPStreamer:
 
     def _give_back(self, conn: http.client.HTTPConnection) -> None:
         with self._lock:
-            self._pool.append((conn, time.monotonic()))
+            if not self._closed:
+                self._pool.append((conn, time.monotonic()))
+                return
+        conn.close()                 # closed meanwhile (e.g. a warm-up finishing late)
 
     @property
     def pooled(self) -> int:
@@ -119,16 +123,19 @@ class HTTPStreamer:
 
     def close(self) -> None:
         with self._lock:
+            self._closed = True
             pool, self._pool = self._pool, []
         for conn, _ in pool:
             conn.close()
 
     def stream(self, method: str, path: str, body: bytes | None, headers: dict[str, str],
-               on_error: Callable[[int, bytes], TTSError]) -> Iterator[bytes]:
-        """Yield the response body in sample-aligned (even-length) chunks as
-        soon as they arrive. A non-200 status raises on_error(status, body)
-        before anything is yielded. Closing the generator early drops the
-        connection instead of returning it to the pool."""
+               on_error: Callable[[int, bytes], TTSError], align: bool = True) -> Iterator[bytes]:
+        """Yield the response body as soon as it arrives: in sample-aligned
+        (even-length) chunks for raw PCM, or as-is with align=False (text
+        such as server-sent events). A non-200 status raises
+        on_error(status, body) before anything is yielded. Closing the
+        generator early drops the connection instead of returning it to the
+        pool."""
         resp = None
         conn = None
         for attempt in (0, 1):
@@ -156,6 +163,9 @@ class HTTPStreamer:
                 chunk = resp.read1(CHUNK)
                 if not chunk:
                     break
+                if not align:
+                    yield chunk
+                    continue
                 chunk = carry + chunk
                 if len(chunk) % 2:
                     chunk, carry = chunk[:-1], chunk[-1:]
@@ -171,6 +181,29 @@ class HTTPStreamer:
                 self._give_back(conn)
             else:
                 conn.close()
+
+    def request(self, method: str, path: str, body: bytes | None,
+                headers: dict[str, str]) -> tuple[int, dict[str, str], bytes]:
+        """One whole request on a pooled keep-alive connection:
+        (status, lower-cased headers, body). Any status is returned."""
+        for attempt in (0, 1):
+            conn, pooled = self._take()
+            try:
+                conn.request(method, self.prefix + path, body=body, headers=headers)
+                resp = conn.getresponse()
+                data = resp.read()
+            except (http.client.HTTPException, ConnectionError, OSError) as exc:
+                conn.close()
+                # A stale pooled connection fails once; retry on a fresh one.
+                if not (pooled and attempt == 0):
+                    raise TTSError(f"request failed: {exc}", code="network") from exc
+                continue
+            if resp.will_close:
+                conn.close()
+            else:
+                self._give_back(conn)
+            return resp.status, {k.lower(): v for k, v in resp.getheaders()}, data
+        raise TTSError("request failed", code="network")       # pragma: no cover - loop always returns
 
     def get_json(self, path: str, headers: dict[str, str],
                  on_error: Callable[[int, bytes], TTSError]) -> Any:

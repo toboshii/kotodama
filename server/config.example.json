@@ -21,7 +21,7 @@
   },
 
   "tts": {
-    "_comment": "provider: openai | elevenlabs (the default; //koto provider switches live). The other keys here are OpenAI's.",
+    "_comment": "provider: openai (the default) | elevenlabs | a model adapter such as minimax, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
     "provider": "openai",
     "model": "gpt-4o-mini-tts",
     "api_key": null,
@@ -39,6 +39,36 @@
     "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true},
     "voices": {"refresh_hours": 24, "exclude": []},
     "credits_per_char": null
+  },
+
+  "minimax": {
+    "_comment": "MiniMax's own streaming API, used by the minimax / minimax-hd providers.",
+    "api_key": null,
+    "api_key_env": "MINIMAX_API_KEY",
+    "base_url": "https://api.minimax.io",
+    "group_id": null,
+    "timeout": 30,
+    "voices": {"refresh_hours": 24}
+  },
+
+  "replicate": {
+    "_comment": "Shared by every Replicate model (minimax-replicate, chatterbox, kokoro, qwen3...). Lines are split by sentence because Replicate returns whole files.",
+    "api_key": null,
+    "api_key_env": "REPLICATE_API_TOKEN",
+    "wait_seconds": 30,
+    "timeout": 120
+  },
+
+  "models": {
+    "_comment": "Add model adapters or override fields of the presets in server/tts_models.json, by name. `kotodama_server.py replicate schema owner/name` drafts one. Example: give MiniMax per-NPC emotions, and enable a self-hosted Kokoro server.",
+    "minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}},
+    "kokoro-local": {"enabled": false, "base_url": "http://127.0.0.1:8880/v1"}
+  },
+
+  "voice_bank": {
+    "_comment": "Reference clips for cloning models (chatterbox, chatterbox-turbo, qwen3). `voices design` fills it; `voices bank` lists it.",
+    "dir": "voices",
+    "designer": "qwen3"
   },
 
   "inference": {

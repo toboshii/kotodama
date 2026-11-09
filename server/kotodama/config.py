@@ -48,6 +48,31 @@ DEFAULTS: dict[str, Any] = {
         # null = 0.5 for eleven_flash models, 1.0 otherwise.
         "credits_per_char": None,
     },
+    "replicate": {
+        # Used by every Replicate model adapter (minimax, chatterbox, kokoro, qwen3...).
+        "api_key": None,
+        "api_key_env": "REPLICATE_API_TOKEN",
+        "base_url": "https://api.replicate.com",
+        "wait_seconds": 30,     # Prefer: wait=N (1-60); longer predictions are polled
+        "timeout": 120,         # give up on one prediction after this many seconds
+    },
+    "minimax": {
+        # MiniMax's own streaming API, used by the minimax / minimax-hd providers.
+        "api_key": None,
+        "api_key_env": "MINIMAX_API_KEY",
+        "base_url": "https://api.minimax.io",   # or your region's host
+        "group_id": None,       # only for older accounts that still need ?GroupId=
+        "timeout": 30,
+        "voices": {"refresh_hours": 24},
+    },
+    # Model adapters: add new ones or override fields of the presets in
+    # server/tts_models.json, by name. See README: Replicate and other backends.
+    "models": {},
+    "voice_bank": {
+        # Reference clips for voice-cloning models (Chatterbox, Qwen3-TTS clone).
+        "dir": "voices",
+        "designer": "qwen3",    # entry under "designers" in tts_models.json
+    },
     "inference": {
         # none | anthropic | openai.  "none" = archetypes + overrides only.
         "provider": "none",

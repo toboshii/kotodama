@@ -53,7 +53,9 @@ local state = {
 }
 
 local MODES = { all = true, events = true, cutscenes = true }
-local PROVIDERS = { openai = true, elevenlabs = true }
+-- Provider names are checked by the sidecar (openai, elevenlabs, and every
+-- model adapter it knows: minimax, chatterbox, kokoro, ...); here only the shape.
+local PROVIDER_NAME = '^[%l%d][%l%d_%-]*$'
 local ONOFF = { on = true, off = false }
 
 -- Output -------------------------------------------------------------------
@@ -466,8 +468,9 @@ local function show_help()
         '  volume <0-400>                voice loudness in percent (100 = normal)',
         '  duck on|off | duck <0-100>    lower the game audio while speaking / how much is kept',
         '  stop   replay',
-        '  provider [openai|elevenlabs|default]   switch the voice provider live (default = server config)',
-        '  voices | voices sync          ElevenLabs voice list status / refresh it',
+        '  provider <name|default>       switch the voice provider live (default = server config)',
+        '  providers                     list voice providers (openai, elevenlabs, minimax, kokoro, ...)',
+        '  voices | voices sync          voice list status for the active provider / refresh it',
         '  deny <name|t|last>   allow <name|t|last>   deny list   (names accept * wildcards)',
         '  voice <name|t|last>           show the resolved voice profile',
         '  voice <name|t|last> key=value ...   set overrides: gender age species personality',
@@ -618,12 +621,15 @@ windower.register_event('addon command', function(command, ...)
             settings.provider = ''
             send_config()
             say('voice provider: default (server config)')
-        elseif PROVIDERS[p] then
+        elseif p:match(PROVIDER_NAME) and #p <= 32 then
             settings.provider = p
             send_config()    -- the sidecar confirms, or explains why it can't switch
         else
-            say('usage: //koto provider [openai|elevenlabs|default]')
+            say('usage: //koto provider <name|default>   (//koto providers lists them)')
         end
+
+    elseif cmd == 'providers' then
+        bridge.send({ t = 'cmd', name = 'providers_info' })
 
     elseif cmd == 'voices' then
         bridge.send({ t = 'cmd', name = (args[2] == 'sync') and 'voices_sync' or 'voices_info' })

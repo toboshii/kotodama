@@ -481,9 +481,20 @@ class AddonSmokeTests(unittest.TestCase):
         a.command("provider", "default")
         self.assertEqual(a.sent("config")[-1]["provider"], "", "empty = use the server's configured provider")
         a.clear_sent()
-        a.command("provider", "bogus")
-        self.assertEqual(a.sent("config"), [])
+        a.command("provider", "bad/name!")
+        self.assertEqual(a.sent("config"), [], "only the name's shape is checked here")
         self.assertIn("usage: //koto provider", a.chat()[-1])
+
+    def test_model_adapter_providers_go_to_the_sidecar(self):
+        a = self.a
+        a.clear_sent()
+        a.command("provider", "MiniMax")              # case-insensitive
+        self.assertEqual(a.sent("config")[-1]["provider"], "minimax")
+        a.command("provider", "chatterbox-turbo")
+        self.assertEqual(a.sent("config")[-1]["provider"], "chatterbox-turbo",
+                         "the sidecar decides which names exist")
+        a.command("providers")
+        self.assertEqual(a.sent("cmd")[-1]["name"], "providers_info")
 
     def test_quick_sidecar_restart_gets_hello_and_settings_again(self):
         a = self.a

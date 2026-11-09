@@ -1,7 +1,7 @@
 """ElevenLabs text-to-speech.
 
 ElevenLabs has no free-text acting directions, so a profile becomes:
-  - a voice, auto-cast from this account's voices (voices_elevenlabs.py)
+  - a voice, auto-cast from this account's voices (casting.py)
     unless the profile names one explicitly;
   - voice_settings: speed from pace, stability from temperament;
   - on models that understand them (eleven_v4*, eleven_v3*), at most one
@@ -21,36 +21,15 @@ import time
 import urllib.parse
 from typing import Any, Callable, Iterator
 
+from .casting import CastingMemory, VoiceCatalog, cast
 from .config import Config
+from .delivery import speed_for, tag_for, temperament
 from .tts_base import HTTPStreamer, TTSError, VoiceRequest, error_detail
-from .voices_elevenlabs import CastingMemory, VoiceCatalog, cast
 
 log = logging.getLogger("kotodama.tts")
 
 TAG_MODEL_PREFIXES = ("eleven_v4", "eleven_v3")
 RETRY_DELAY = 0.7
-
-PACE_SPEED = {"slow": 0.88, "measured": 0.94, "normal": 1.0, "brisk": 1.06, "fast": 1.12}
-
-EXPRESSIVE = {"excitable", "bubbly", "zealous", "aggressive", "energetic", "shrill", "playful", "eager",
-              "snarling", "excited", "mischievous", "brutal", "fierce"}
-STEADY = {"calm", "stoic", "formal", "dignified", "composed", "poised", "patient", "measured", "steady",
-          "serious", "stern"}
-
-# Documented v4 delivery tags, first match wins.
-TAG_RULES = [
-    ("[whispers]", {"whisper", "whispering", "eerie", "hushed"}),
-    ("[sarcastic]", {"sarcastic", "sly", "teasing", "sneering", "mocking", "smug"}),
-    ("[excited]", {"excited", "excitable", "cheerful", "bubbly", "eager", "energetic", "gleeful"}),
-    ("[curious]", {"curious", "inquisitive"}),
-    ("[sighs]", {"weary", "melancholy", "tired", "resigned", "sad"}),
-]
-
-_WORD = re.compile(r"[a-z]+")
-
-
-def _words(*texts: Any) -> set[str]:
-    return set(_WORD.findall(" ".join(str(t or "") for t in texts).lower()))
 
 
 class ElevenLabsTTS:
@@ -82,7 +61,8 @@ class ElevenLabsTTS:
         cache_dir = cfg.path("cache.dir")
         self.catalog = VoiceCatalog(cache_dir / "elevenlabs_voices.json", fetch=self.fetch_voices,
                                     refresh_hours=float(cfg.get("elevenlabs.voices.refresh_hours", 24)),
-                                    exclude=list(cfg.get("elevenlabs.voices.exclude", []) or []))
+                                    exclude=list(cfg.get("elevenlabs.voices.exclude", []) or []),
+                                    label="ElevenLabs voice")
         self.memory = CastingMemory(cache_dir / "elevenlabs_casting.json")
         self.notify = notify or (lambda _msg: None)
         self._sync_lock = threading.Lock()
@@ -166,24 +146,20 @@ class ElevenLabsTTS:
 
     def voice_settings(self, profile: dict[str, Any], ident: str) -> dict[str, Any]:
         settings = dict(self.base_settings)
-        words = _words(profile.get("tone"), profile.get("personality"))
+        mood = temperament(profile)
         if ident.lower() == "@narrator":
             settings["stability"] = 0.6
-        elif words & EXPRESSIVE:
+        elif mood == "expressive":
             settings["stability"] = 0.35
-        elif words & STEADY:
+        elif mood == "steady":
             settings["stability"] = 0.65
-        settings["speed"] = PACE_SPEED.get(str(profile.get("pace") or "normal"), 1.0)
+        settings["speed"] = speed_for(profile)
         return settings
 
     def audio_tag(self, profile: dict[str, Any]) -> str | None:
         if not (self.audio_tags and self.supports_tags()):
             return None
-        words = _words(profile.get("tone"), profile.get("personality"), profile.get("direction"))
-        for tag, triggers in TAG_RULES:
-            if words & triggers:
-                return tag
-        return None
+        return tag_for(profile)
 
     def voice_request(self, profile: dict[str, Any], ident: str) -> VoiceRequest:
         self.ensure_catalog()
