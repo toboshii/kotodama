@@ -465,6 +465,36 @@ class AddonSmokeTests(unittest.TestCase):
         self.assertEqual(a.sent("config"), [])
         self.assertIn("usage: //koto provider", a.chat()[-1])
 
+    def test_quick_sidecar_restart_gets_hello_and_settings_again(self):
+        a = self.a
+        a.command("volume", "250")
+        a.command("provider", "elevenlabs")
+        a.queue_from_sidecar({"t": "pong"})                 # link up: the addon greets on connect
+        a.advance(1)
+        a.prerender()
+        a.clear_sent()
+        a.queue_from_sidecar({"t": "pong", "want_hello": True})
+        a.advance(0.5)
+        a.prerender()
+        self.assertEqual(a.sent("hello"), [], "just greeted on connect; no second hello")
+
+        # Restarted (R in the sidecar terminal) well inside the 15 s link timeout.
+        a.advance(5)
+        a.queue_from_sidecar({"t": "pong", "want_hello": True})
+        a.advance(0.2)
+        a.prerender()
+        self.assertEqual(len(a.sent("hello")), 1)
+        cfg = a.sent("config")[-1]
+        self.assertEqual((cfg["volume"], cfg["provider"]), (250, "elevenlabs"))
+        self.assertTrue(any("voice server restarted" in m for m in a.chat()))
+
+        a.clear_sent()
+        a.advance(5)
+        a.queue_from_sidecar({"t": "pong"})
+        a.advance(0.2)
+        a.prerender()
+        self.assertEqual(a.sent("hello"), [], "plain pongs change nothing")
+
     def test_provider_defaults_to_the_server_config(self):
         a = self.a
         a.clear_sent()

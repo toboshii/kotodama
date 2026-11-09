@@ -116,6 +116,7 @@ class Engine:
         self.interrupt = bool(cfg.get("interrupt", True))
         self.debug = False
         self.player_name: str | None = None
+        self.greeted = False          # has the addon said hello to this process?
         self.max_chars = int(cfg.get("max_text_chars", 1500))
         self.finish_on_stop = bool(cfg.get("cache.finish_download_on_stop", True))
 
@@ -149,10 +150,14 @@ class Engine:
     def handle(self, msg: dict[str, Any]) -> None:
         kind = msg.get("t")
         if kind == "ping":
-            self.reply({"t": "pong"})
+            # Until the addon says hello (a sidecar restart is quicker than
+            # the addon's link timeout), ask for it so the player's settings
+            # (volume, provider, ducking) come back without a reload.
+            self.reply({"t": "pong", "want_hello": True} if not self.greeted else {"t": "pong"})
         elif kind == "hello":
             name = msg.get("player")
             self.player_name = name if isinstance(name, str) and name else self.player_name
+            self.greeted = True
             self.reply({"t": "pong"})
             self._warm()
         elif kind == "config":

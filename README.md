@@ -33,6 +33,8 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
    systemctl --user daemon-reload && systemctl --user enable --now kotodama
    ```
    Don't run it from a sandboxed terminal (e.g. a Flatpak editor's terminal): it needs your real audio session and the host's loopback.
+
+   In a terminal (`python3 server/kotodama_server.py`), press **R** to restart it (picks up code and config changes) or **Q** to quit. No Enter or Ctrl+C needed, which helps with the Steam Deck's on-screen keyboard. The game stays connected across a restart: the addon notices, says "voice server restarted." and sends your settings (volume, provider, ducking) again. Under systemd there's no terminal, so use `systemctl --user restart kotodama`.
 5. **Load the addon** in game: `//lua load kotodama`. To load it automatically, add `lua load kotodama` to your Windower `scripts/init.txt`. If the sidecar isn't running you'll get one chat warning and the game is otherwise unaffected.
 
 ## In-game commands

@@ -124,6 +124,7 @@ end
 
 local function send_hello()
     local zid, zname = zone_info()
+    state.hello_at = os.clock()
     bridge.send({
         t = 'hello',
         version = _addon.version,
@@ -135,7 +136,15 @@ local function send_hello()
 end
 
 local handlers = {
-    pong = function() end,
+    pong = function(msg)
+        -- A sidecar that hasn't heard our hello was restarted faster than the
+        -- link timeout: resend hello + config so it gets our settings back.
+        -- (Skipped right after a hello, e.g. the one sent on connect.)
+        if msg.want_hello and os.clock() - (state.hello_at or -10) > 2 then
+            say('voice server restarted.')
+            send_hello()
+        end
+    end,
     log = function(msg)
         if type(msg.msg) == 'string' then say(msg.msg) end
     end,

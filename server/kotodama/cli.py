@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import shutil
 import signal
 import socket
@@ -15,6 +16,7 @@ from pathlib import Path
 from . import __version__
 from .config import Config
 from .audio import is_game_stream, parse_sink_inputs, run_pactl
+from .console import KeyControls, reexec
 from .archetypes import Archetypes
 from .engine import PROVIDER_KEYS, build_engine, make_ducker
 from .library import Library
@@ -34,23 +36,39 @@ def _setup_logging(debug: bool) -> None:
     )
 
 
-def cmd_serve(cfg: Config, args: argparse.Namespace) -> int:
-    engine = build_engine(cfg)
+def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.execv, engine=None) -> int:
+    engine = engine or build_engine(cfg)
     if not engine.player.available:
         logging.error("no audio player available; install pipewire (pw-play), pulseaudio-utils or ffmpeg")
     if not engine.tts.api_key:
         logging.warning("no %s API key: only already-cached lines will play (set %s)",
                         engine.tts.name, PROVIDER_KEYS.get(engine.tts.name, "the provider key"))
     server = UDPServer(cfg, engine)
-    signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
+    old_term = signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
+    chosen: list[str] = []
+
+    def on_key(action: str) -> None:
+        chosen.append(action)
+        logging.info("%s requested from the keyboard", action)
+        server.shutdown()
+
+    keys = KeyControls(on_key, stdin)
     logging.info("Kotodama sidecar %s ready (player: %s, casting: %s)", __version__, engine.player.kind,
                  engine.inference.inferer.model if engine.inference.enabled else "off")
+    if keys.start():
+        logging.info("press R to restart (reloads code and config) or Q to quit")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        keys.stop()
+        server.shutdown()
         engine.close()
+        signal.signal(signal.SIGTERM, old_term)
+    if chosen and chosen[0] == "restart":
+        logging.info("restarting...")
+        reexec(execv)
     return 0
 
 
