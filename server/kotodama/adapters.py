@@ -15,7 +15,8 @@ Each adapter becomes a provider name (//koto provider minimax).
 Placeholders:
   text, voice, speed (from pace), pitch (profile pitch via the adapter's
   table), emotion (tone words), exaggeration / cfg_weight (temperament),
-  style (short acting direction), voice_description, seed (stable per
+  style (short acting direction), steering (the same, as plain lower-case
+  words for Inworld), voice_description, seed (stable per
   NPC), reference_audio / reference_text (a voice-bank clip).
 
 A value that is exactly "{name}" keeps its type; an unresolved placeholder
@@ -41,9 +42,9 @@ log = logging.getLogger("kotodama.adapters")
 MODELS_FILE = SERVER_DIR / "tts_models.json"
 RESERVED = {"openai", "elevenlabs", "default"}
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
-TRANSPORTS = ("replicate", "openai_compatible", "minimax", "gemini")
+TRANSPORTS = ("replicate", "openai_compatible", "minimax", "gemini", "inworld")
 PLACEHOLDERS = {"text", "voice", "speed", "pitch", "emotion", "exaggeration", "cfg_weight", "style",
-                "voice_description", "seed", "reference_audio", "reference_text"}
+                "steering", "voice_description", "seed", "reference_audio", "reference_text"}
 MARKERS = ("bank", "schema", "account")
 TEXT_SENTINEL = "\x00TEXT\x00"
 
@@ -75,7 +76,7 @@ class Adapter:
     voice_sources: tuple[str, ...] = ()          # "bank" and/or "schema", resolved at run time
     default_voice: str | None = None
     price: dict[str, float] = field(default_factory=dict)
-    # openai_compatible
+    # openai_compatible (minimax, gemini, inworld: overrides the section's base_url)
     base_url: str = ""
     api_key: str | None = None
     api_key_env: str | None = None
@@ -187,13 +188,13 @@ def build_adapter(name: str, raw: dict[str, Any], voice_sets: dict[str, Any]) ->
             raise AdapterError(f"{name}: openai_compatible needs base_url")
         if not model:
             raise AdapterError(f"{name}: openai_compatible needs model")
-    if transport in ("minimax", "gemini") and not model:
-        example = "speech-2.8-turbo" if transport == "minimax" else "gemini-3.8-flash-tts"
+    if transport in ("minimax", "gemini", "inworld") and not model:
+        example = {"minimax": "speech-2.8-turbo", "gemini": "gemini-3.8-flash-tts"}.get(transport, "inworld-tts-2")
         raise AdapterError(f"{name}: {transport} needs model (e.g. {example})")
     # replicate: the model's whole input; minimax: request fields besides the
-    # text and audio format (voice_setting, language_boost...); openai_compatible:
-    # extra request fields.
-    template = raw.get("extra", {}) if transport == "openai_compatible" else raw.get("input", {})
+    # text and audio format (voice_setting, language_boost...); openai_compatible
+    # and inworld (the same request format): extra request fields.
+    template = raw.get("extra", {}) if transport in ("openai_compatible", "inworld") else raw.get("input", {})
     if not isinstance(template, dict) or (transport == "replicate" and not template):
         raise AdapterError(f"{name}: 'input' must be an object of model fields")
     clone = raw.get("input_clone")

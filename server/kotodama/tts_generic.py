@@ -5,7 +5,8 @@ Replicate returns finished audio files, never a stream, so a line is split
 at sentence boundaries: the first sentence is synthesized on its own and
 starts playing while the rest (at most two predictions in flight) are made,
 and the audio is yielded strictly in order. OpenAI-compatible servers stream
-PCM/WAV directly.
+PCM/WAV directly, and so does Inworld, which speaks the same request format;
+MiniMax and Gemini stream through their own clients.
 
 The Replicate token is only ever sent to the configured API host. Output
 files live on replicate.delivery and are fetched without credentials;
@@ -33,10 +34,11 @@ from .archetypes import stable_hash
 from .casting import CastingMemory, Voice, VoiceCatalog, cast, derive_labels
 from .config import Config
 from .decode import DecodeError, PCMDecoder, decode_all
-from .delivery import (PACE_SPEED, control, emotion_for, mood_control, speed_for, style_text,
-                       voice_description)
+from .delivery import (PACE_SPEED, control, emotion_for, mood_control, speed_for, steering_text,
+                       style_text, voice_description)
 from .tts_base import CHUNK, HTTPStreamer, TTSError, VoiceRequest, error_detail
 from .tts_gemini import GeminiClient
+from .tts_inworld import SPEECH_PATH as INWORLD_SPEECH_PATH, InworldClient, inworld_error, inworld_voice
 from .tts_minimax import MiniMaxClient
 from .voice_bank import VoiceBank
 
@@ -46,10 +48,12 @@ POLL_EVERY = 0.5
 COLD_NOTICE_AFTER = 4.0
 RETRY_DELAY = 1.0
 SCHEMA_MAX_AGE = 24 * 3600
-SCHEMA_RETRY = 300.0
+SCHEMA_RETRY = 300.0          # after a failed schema fetch, wait this long before trying again
 MINIMAX_MAX_CHARS = 9500      # per request (the API allows under 10,000)
 GEMINI_MAX_CHARS = 4000       # per request; FFXI lines are far shorter
-LIVE_RETRY_DELAY = 0.7        # streaming transports: one retry on a rate limit, before any audio          # after a failed schema fetch, wait this long before trying again
+LIVE_RETRY_DELAY = 0.7        # streaming transports: one retry on a rate limit, before any audio
+# Square brackets steer Inworld TTS-2 (silently, and until [reset]): game text must never do that.
+_NO_BRACKETS = str.maketrans("[]", "()")
 FIRST_MIN_CHARS = 12          # a first "sentence" shorter than this joins the next one
 GROUP_CHARS = 280             # later sentences are batched up to this size
 
@@ -431,7 +435,8 @@ class GenericTTS:
 
     def __init__(self, cfg: Config, adapter: Adapter, *, bank: VoiceBank | None = None,
                  notify: Callable[[str], None] | None = None, client: ReplicateClient | None = None,
-                 minimax: MiniMaxClient | None = None, gemini: GeminiClient | None = None):
+                 minimax: MiniMaxClient | None = None, gemini: GeminiClient | None = None,
+                 inworld: InworldClient | None = None):
         self.adapter = adapter
         self.name = adapter.name
         # A renamed adapter can keep the cache keys (and so the audio) of its old name.
@@ -446,6 +451,7 @@ class GenericTTS:
         self.client: ReplicateClient | None = None
         self.minimax: MiniMaxClient | None = None
         self.gemini: GeminiClient | None = None
+        self.inworld: InworldClient | None = None
         self.http: HTTPStreamer | None = None
         self._languages: list[str] = []
         self._voices_file: Path | None = None
@@ -479,6 +485,16 @@ class GenericTTS:
             self._voices_file = cache_dir / "gemini" / "voices.json"
             self._voices_max_age = max(0.0, float(cfg.get("gemini.voices.refresh_hours", 24))) * 3600
             self._languages = [str(x).lower() for x in (cfg.get("gemini.voices.languages", ["en"]) or [])]
+        elif adapter.transport == "inworld":
+            self.api_key = cfg.api_key("inworld")
+            self.needs_key = True
+            self.key_hint = str(cfg.get("inworld.api_key_env") or "INWORLD_API_KEY")
+            self.inworld = inworld or InworldClient(
+                adapter.base_url or str(cfg.get("inworld.base_url", "https://api.inworld.ai")), self.api_key,
+                timeout=float(adapter.timeout or cfg.get("inworld.timeout", 30)))
+            self._voices_file = cache_dir / "inworld" / "voices.json"
+            self._voices_max_age = max(0.0, float(cfg.get("inworld.voices.refresh_hours", 24))) * 3600
+            self._languages = [str(x).lower() for x in (cfg.get("inworld.voices.languages", ["en"]) or [])]
         else:
             env_key = os.environ.get(adapter.api_key_env) if adapter.api_key_env else None
             self.api_key = adapter.api_key or env_key
@@ -488,7 +504,7 @@ class GenericTTS:
         self.bank = bank if adapter.uses_bank else None
         self.memory = CastingMemory(cache_dir / "casting" / f"{adapter.name}.json")
         # Voices and limits learned from the service: a Replicate model's schema
-        # (voice enum, ranges) or the MiniMax account's voice list.
+        # (voice enum, ranges) or a voice list (MiniMax, Gemini, Inworld).
         self._remote_voices: list[Voice] = []
         self._schema_ranges: dict[str, tuple[float, float]] = {}
         self._dead_voices: set[str] = set()
@@ -516,14 +532,18 @@ class GenericTTS:
 
     @property
     def _has_remote(self) -> bool:
-        live = self.minimax is not None or self.gemini is not None
-        return self.client is not None or (live and self.adapter.uses_account)
+        return self.client is not None or (self._live is not None and self.adapter.uses_account)
+
+    @property
+    def _live(self) -> MiniMaxClient | GeminiClient | InworldClient | None:
+        """The client that lists this provider's voices, if any."""
+        return self.minimax or self.gemini or self.inworld
 
     def _rebuild_catalog(self) -> None:
         curated = list(self.adapter.voices)
         remote = list(self._remote_voices)
         if self.adapter.remote_labels:
-            # The service's own labels (Gemini: gender, pitch) beat our fallback set.
+            # The service's own labels (Gemini, Inworld: gender, pitch, age) beat our fallback set.
             seen = {_norm_id(v.id) for v in remote}
             voices = remote + [v for v in curated if _norm_id(v.id) not in seen]
         else:
@@ -558,14 +578,16 @@ class GenericTTS:
         self._remote_voices = voices
         self._rebuild_catalog()
 
-    def _apply_gemini(self, items: list[dict[str, Any]]) -> None:
-        self._remote_voices = [v for v in (gemini_voice(i, self._languages) for i in items if isinstance(i, dict))
-                               if v]
+    def _apply_labelled(self, items: Any, labeller: Callable[[dict[str, Any], list[str]], Voice | None]) -> None:
+        items = items if isinstance(items, list) else []
+        self._remote_voices = [v for v in (labeller(i, self._languages) for i in items if isinstance(i, dict)) if v]
         self._rebuild_catalog()
 
     def _apply_live(self, data: Any) -> None:
         if self.gemini is not None:
-            self._apply_gemini(data if isinstance(data, list) else [])
+            self._apply_labelled(data, gemini_voice)
+        elif self.inworld is not None:
+            self._apply_labelled(data, inworld_voice)
         else:
             self._apply_account(data if isinstance(data, dict) else {})
 
@@ -593,7 +615,7 @@ class GenericTTS:
                 with self._remote_lock:
                     self._apply_schema(data)
             else:
-                live = self.gemini or self.minimax
+                live = self._live
                 assert live is not None
                 data = live.fetch_voices()
                 if self._voices_file is not None:
@@ -679,7 +701,8 @@ class GenericTTS:
 
     def status_text(self) -> str:
         where = ("Replicate" if self.client is not None else "the MiniMax API" if self.minimax is not None
-                 else "the Gemini API" if self.gemini is not None else self.adapter.base_url)
+                 else "the Gemini API" if self.gemini is not None
+                 else "the Inworld API" if self.inworld is not None else self.adapter.base_url)
         bank = f" + {len(self.bank.clips)} bank clips" if self.bank is not None else ""
         return f"{self.name} ({self.label} on {where}), {len(self.catalog.voices)} voices{bank}"
 
@@ -697,6 +720,7 @@ class GenericTTS:
             "exaggeration": mood_control(c.get("exaggeration"), profile),
             "cfg_weight": mood_control(c.get("cfg_weight"), profile),
             "style": style_text(profile),
+            "steering": steering_text(profile),
             "voice_description": voice_description(profile),
             "seed": stable_hash(ident) % 2_147_483_646 + 1,       # 0 means "random" to some models
             "reference_audio": clip.data_uri if clip is not None else None,
@@ -739,6 +763,15 @@ class GenericTTS:
         """Streaming transports: the fields that keep the request streaming
         raw PCM. They override the adapter's template so a config edit can't
         break them."""
+        if self.inworld is not None:
+            # OpenAI's request shape; raw 24 kHz PCM is the only format that streams headerless.
+            fixed = {k: v for k, v in payload.items() if k != "stream_format"}
+            if not (isinstance(fixed.get("instructions"), str) and fixed["instructions"].strip()):
+                fixed.pop("instructions", None)
+            fixed.update(model=self.adapter.model, input=TEXT_SENTINEL, response_format="pcm")
+            if voice_id:
+                fixed["voice"] = voice_id
+            return fixed
         if self.gemini is not None:
             content: dict[str, Any] = {"type": "text", "text": TEXT_SENTINEL}
             style = payload.get("style")
@@ -768,6 +801,18 @@ class GenericTTS:
             counts[f"p:{self.name}:cost"] = self.adapter.price["per_1k_chars"] * billed / 1000
         try:
             self.usage.add(**counts)
+        except Exception:  # noqa: BLE001 - usage is best effort
+            pass
+
+    def _record_chars(self, text: str) -> None:
+        """Estimated cost for services billed per character of input
+        (Inworld, OpenAI-compatible servers given a price). The engine
+        already counts the characters."""
+        per_1k = self.adapter.price.get("per_1k_chars")
+        if self.usage is None or not per_1k:
+            return
+        try:
+            self.usage.add(**{f"p:{self.name}:cost": per_1k * len(text) / 1000})
         except Exception:  # noqa: BLE001 - usage is best effort
             pass
 
@@ -828,8 +873,8 @@ class GenericTTS:
         if self.gemini is not None:
             yield from self._stream_gemini(text, payload, request.voice)
             return
-        if self.client is None:
-            yield from self._stream_compatible(text, payload)
+        if self.client is None:                      # OpenAI-compatible server or Inworld
+            yield from self._stream_compatible(text, payload, request.voice)
             return
         if not self.api_key:
             raise TTSError(f"no Replicate API token (set {self.key_hint})", code="auth")
@@ -928,35 +973,54 @@ class GenericTTS:
 
             yield from self._stream_live(chunks, voice_id)
 
-    def _stream_compatible(self, text: str, payload: dict[str, Any]) -> Iterator[bytes]:
-        assert self.http is not None
-        body = json.dumps(fill_text(payload, text)).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        kind = "pcm" if self.adapter.response_format == "pcm" else "auto"
-        dec = PCMDecoder(self.sample_rate, kind=kind, declared_rate=self.sample_rate)
+    def _compat_error(self, status: int, data: bytes) -> TTSError:
+        code, message = error_detail(data)
+        low = f"{code} {message}".lower()
+        if status in (401, 403):
+            kind: str | None = "auth"
+        elif status == 402 or "insufficient_quota" in low:
+            kind = "quota"
+        elif status == 429:
+            kind = "rate"
+        elif status == 404 and "voice" in low:
+            kind = "voice"
+        else:
+            kind = None
+        return TTSError(f"{self.name} HTTP {status}: {message or code}", status, kind)
 
-        def on_error(status: int, data: bytes) -> TTSError:
-            code, message = error_detail(data)
-            return TTSError(f"{self.name} HTTP {status}: {message or code}", status,
-                            "auth" if status in (401, 403) else ("rate" if status == 429 else None))
+    def _stream_compatible(self, text: str, payload: dict[str, Any], voice_id: str = "") -> Iterator[bytes]:
+        """OpenAI's /audio/speech, streamed: a self-hosted server, or Inworld."""
+        if self.inworld is not None:
+            if not self.api_key:
+                raise TTSError(f"no Inworld API key (set {self.key_hint})", code="auth")
+            http, path = self.inworld.http, INWORLD_SPEECH_PATH
+            headers, on_error = self.inworld.headers(), inworld_error
+            text, kind = text.translate(_NO_BRACKETS), "pcm"
+        else:
+            assert self.http is not None
+            http, path, on_error = self.http, "/audio/speech", self._compat_error
+            headers = {"Content-Type": "application/json"}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
+            kind = "pcm" if self.adapter.response_format == "pcm" else "auto"
+        rate, limit = self.sample_rate, self.adapter.max_chars
+        parts = [text] if len(text) <= limit else split_text(text, limit, "none")
+        for part in parts:
+            body = json.dumps(fill_text(payload, part)).encode("utf-8")
 
-        try:
-            for chunk in self.http.stream("POST", "/audio/speech", body, headers, on_error):
-                out = dec.feed(chunk)
-                if out:
-                    yield out
-            tail = dec.finish()
-        except DecodeError as exc:
-            raise TTSError(f"{self.name}: {exc}", code="format") from exc
-        if tail:
-            yield tail
+            def chunks(body: bytes = body, part: str = part) -> Iterator[tuple[bytes, int, str]]:
+                for chunk in http.stream("POST", path, body, headers, on_error):
+                    yield chunk, rate, kind
+                self._record_chars(part)
+
+            yield from self._stream_live(chunks, voice_id)
 
     # -- connections ------------------------------------------------------
 
     def warm(self) -> None:
-        if self.gemini is not None:
+        if self.inworld is not None:
+            self.inworld.warm()
+        elif self.gemini is not None:
             self.gemini.warm()
         elif self.minimax is not None:
             self.minimax.warm()
@@ -967,6 +1031,8 @@ class GenericTTS:
             self.http.warm()
 
     def close(self) -> None:
+        if self.inworld is not None:
+            self.inworld.close()
         if self.gemini is not None:
             self.gemini.close()
         if self.minimax is not None:

@@ -238,6 +238,7 @@ class _Compat(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     log: list = []
     reply = "pcm"            # pcm | wav
+    errors: list = []        # (status, OpenAI-shaped error) for successive requests
 
     def log_message(self, *a):
         pass
@@ -245,6 +246,14 @@ class _Compat(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         type(self).log.append({"path": self.path, "auth": self.headers.get("Authorization"), "body": body})
+        if type(self).errors:
+            status, err = type(self).errors.pop(0)
+            data = json.dumps({"error": err}).encode()
+            self.send_response(status)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         payload = (make_wav([7] * 1500, streaming=True) if type(self).reply == "wav" else pcm_of([7] * 1500))
         self.send_response(200)
         self.send_header("Transfer-Encoding", "chunked")
@@ -267,7 +276,7 @@ class GenericCase(KotodamaTestCase):
         _API.log, _API.texts, _API.mode, _API.queue_status = [], {}, "sync", []
         _API.slow_text, _API.slow_s, _API.counter, _API.polls_needed = "", 0.0, 0, 2
         _Files.log, _Files.rate, _Files.channels, _Files.min_seconds = [], 24000, 1, 0.0
-        _Compat.log, _Compat.reply = [], "pcm"
+        _Compat.log, _Compat.reply, _Compat.errors = [], "pcm", []
         self.api = _start(_API)
         self.files = _start(_Files)
         self.compat = _start(_Compat)
@@ -661,6 +670,23 @@ class CompatTests(GenericCase):
             pcm = self.synth(prov, "Wav stream.")
         self.assertEqual(samples_of(pcm), [7] * 1500)
         self.assertEqual(_Compat.log[-1]["auth"], "Bearer sekret")
+
+    def test_rate_limit_retry_and_unknown_voice(self):
+        prov = self.provider("local", self.compat_cfg())
+        _Compat.errors = [(429, {"message": "busy", "type": "rate_limit_error"})]
+        with mock.patch.object(tts_generic, "LIVE_RETRY_DELAY", 0.01):
+            self.assertEqual(samples_of(self.synth(prov, "Retried.")), [7] * 1500)
+        self.assertEqual(len(_Compat.log), 2, "one retry before any audio")
+        first = prov.voice_request({"gender": "male", "pace": "slow"}, "Rok").voice
+        _Compat.errors = [(404, {"message": f"Voice {first} not found", "type": "invalid_request_error"})]
+        with self.assertRaises(TTSError) as ctx:
+            self.synth(prov, "Gone.", {"gender": "male", "pace": "slow"})
+        self.assertEqual(ctx.exception.code, "voice")
+        self.assertIsNone(prov.catalog.get(first), "a voice the server doesn't have is dropped")
+        _Compat.errors = [(402, {"message": "out of credit", "type": "insufficient_quota"})]
+        with self.assertRaises(TTSError) as ctx:
+            self.synth(prov, "Broke.")
+        self.assertEqual(ctx.exception.code, "quota")
 
 
 # -- engine ------------------------------------------------------------------------------

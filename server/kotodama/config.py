@@ -75,6 +75,17 @@ DEFAULTS: dict[str, Any] = {
         # language_code) are cast from, plus all of your own custom voices.
         "voices": {"refresh_hours": 24, "languages": ["en"]},
     },
+    "inworld": {
+        # Inworld's OpenAI-compatible endpoint, used by the inworld /
+        # inworld-flash providers. The key is the Base64 one from the portal.
+        "api_key": None,
+        "api_key_env": "INWORLD_API_KEY",
+        "base_url": "https://api.inworld.ai",   # api.eu.inworld.ai / api.in.inworld.ai on regional plans
+        "timeout": 30,
+        # Library voices whose language starts with one of these are cast
+        # from, plus all of your own cloned and designed voices.
+        "voices": {"refresh_hours": 24, "languages": ["en"]},
+    },
     # Model adapters: add new ones or override fields of the presets in
     # server/tts_models.json, by name. See README: Replicate and other backends.
     "models": {},

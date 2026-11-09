@@ -110,6 +110,37 @@ def style_text(profile: dict[str, Any], limit: int = 240) -> str | None:
     return text[:limit] if text else None
 
 
+_NOT_STEERING = re.compile(r"[^a-z0-9' -]+")
+
+
+def _plain(text: Any) -> str:
+    """Lower case, punctuation dropped, single spaces."""
+    return " ".join(_NOT_STEERING.sub(" ", str(text or "").lower()).split())
+
+
+def steering_text(profile: dict[str, Any], limit: int = 200) -> str | None:
+    """Acting direction in the form Inworld TTS-2 steers best from: plain
+    lower-case English without punctuation. Age and gender are left out;
+    they come from the voice."""
+    parts = []
+    tone = _plain(profile.get("tone"))
+    if tone:
+        parts.append(f"in a {tone} tone")
+    personality = _plain(profile.get("personality"))
+    if personality:
+        parts.append(f"with a {personality} manner")
+    pace = _plain(profile.get("pace"))
+    if pace and pace != "normal":
+        parts.append(f"at a {pace} pace")
+    direction = _plain(profile.get("direction"))
+    if not parts and not direction:
+        return None
+    text = " ".join(["speak", *parts]) if parts else ""
+    if direction:
+        text = f"{text} and {direction}" if text else direction
+    return text[:limit].rsplit(" ", 1)[0] if len(text) > limit else text
+
+
 def voice_description(profile: dict[str, Any], flavour: str = "") -> str:
     """Natural-language description of how the character sounds, for models
     that design a voice from text (Qwen3-TTS voice_design)."""

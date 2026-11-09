@@ -202,6 +202,47 @@
       "default_voice": "Kore"
     },
 
+    "inworld": {
+      "_comment": "Inworld Realtime TTS-2 through its OpenAI-compatible endpoint. Steering from the NPC's tone and personality; the price is the pay-as-you-go rate (plans are cheaper).",
+      "transport": "inworld",
+      "model": "inworld-tts-2",
+      "label": "Inworld TTS-2",
+      "sample_rate": 24000,
+      "max_chars": 4000,
+      "extra": {
+        "instructions": "{steering}"
+      },
+      "ranges": {
+        "speed": [0.5, 1.5]
+      },
+      "voices": [
+        "@inworld_en",
+        "account"
+      ],
+      "remote_labels": true,
+      "default_voice": "Sarah",
+      "price": {"per_1k_chars": 0.025}
+    },
+
+    "inworld-flash": {
+      "_comment": "Inworld TTS-2 Flash: the fastest and cheapest; it ignores steering, so none is sent.",
+      "transport": "inworld",
+      "model": "inworld-tts-2-flash",
+      "label": "Inworld TTS-2 Flash",
+      "sample_rate": 24000,
+      "max_chars": 4000,
+      "ranges": {
+        "speed": [0.5, 1.5]
+      },
+      "voices": [
+        "@inworld_en",
+        "account"
+      ],
+      "remote_labels": true,
+      "default_voice": "Sarah",
+      "price": {"per_1k_chars": 0.015}
+    },
+
     "chatterbox-turbo": {
       "transport": "replicate",
       "model": "resemble-ai/chatterbox-turbo",
@@ -477,6 +518,28 @@
       {"id": "Sadachbia", "name": "Sadachbia", "labels": {"gender": "male", "descriptive": "lively"}},
       {"id": "Sadaltager", "name": "Sadaltager", "labels": {"gender": "male", "descriptive": "knowledgeable"}},
       {"id": "Sulafat", "name": "Sulafat", "labels": {"gender": "female", "descriptive": "warm"}}
+    ],
+    "inworld_en": [
+      {"id": "Alex", "name": "Alex", "labels": {"gender": "male", "descriptive": "energetic expressive"}},
+      {"id": "Ashley", "name": "Ashley", "labels": {"gender": "female", "descriptive": "warm natural"}},
+      {"id": "Craig", "name": "Craig", "labels": {"gender": "male", "age": "old", "accent": "british", "descriptive": "refined articulate"}},
+      {"id": "Deborah", "name": "Deborah", "labels": {"gender": "female", "descriptive": "gentle elegant"}},
+      {"id": "Dennis", "name": "Dennis", "labels": {"gender": "male", "age": "middle_aged", "descriptive": "smooth calm friendly"}},
+      {"id": "Edward", "name": "Edward", "labels": {"gender": "male", "descriptive": "emphatic fast"}},
+      {"id": "Elizabeth", "name": "Elizabeth", "labels": {"gender": "female", "age": "middle_aged", "descriptive": "professional"}},
+      {"id": "Hades", "name": "Hades", "labels": {"gender": "male", "descriptive": "commanding gruff deep"}},
+      {"id": "Julia", "name": "Julia", "labels": {"gender": "female", "descriptive": "quirky high"}},
+      {"id": "Mark", "name": "Mark", "labels": {"gender": "male", "age": "young", "descriptive": "energetic"}},
+      {"id": "Olivia", "name": "Olivia", "labels": {"gender": "female", "age": "young", "accent": "british", "descriptive": "upbeat friendly"}},
+      {"id": "Pixie", "name": "Pixie", "labels": {"gender": "female", "age": "young", "descriptive": "high childlike squeaky"}},
+      {"id": "Priya", "name": "Priya", "labels": {"gender": "female", "accent": "indian", "descriptive": "warm"}},
+      {"id": "Ronald", "name": "Ronald", "labels": {"gender": "male", "accent": "british", "descriptive": "confident deep gravelly"}},
+      {"id": "Sarah", "name": "Sarah", "labels": {"gender": "female", "age": "young", "descriptive": "curious fast"}},
+      {"id": "Shaun", "name": "Shaun", "labels": {"gender": "male", "descriptive": "friendly dynamic"}},
+      {"id": "Theodore", "name": "Theodore", "labels": {"gender": "male", "age": "old", "descriptive": "gravelly time-worn"}},
+      {"id": "Timothy", "name": "Timothy", "labels": {"gender": "male", "age": "young", "descriptive": "lively upbeat"}},
+      {"id": "Wendy", "name": "Wendy", "labels": {"gender": "female", "age": "old", "accent": "british", "descriptive": "posh"}},
+      {"id": "Dominus", "name": "Dominus", "labels": {"gender": "male", "descriptive": "deep menacing"}}
     ]
   }
 }

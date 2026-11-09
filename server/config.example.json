@@ -21,7 +21,7 @@
   },
 
   "tts": {
-    "_comment": "provider: openai (the default) | elevenlabs | a model adapter such as minimax, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
+    "_comment": "provider: openai (the default) | elevenlabs | a model adapter such as minimax, gemini, inworld, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
     "provider": "openai",
     "model": "gpt-4o-mini-tts",
     "api_key": null,
@@ -56,6 +56,15 @@
     "api_key": null,
     "api_key_env": "GEMINI_API_KEY",
     "base_url": "https://generativelanguage.googleapis.com",
+    "timeout": 30,
+    "voices": {"refresh_hours": 24, "languages": ["en"]}
+  },
+
+  "inworld": {
+    "_comment": "Inworld's OpenAI-compatible streaming endpoint, used by the inworld / inworld-flash providers. The key is the Base64 credential from platform.inworld.ai. Library voices in these languages, plus your own cloned and designed voices, are cast from.",
+    "api_key": null,
+    "api_key_env": "INWORLD_API_KEY",
+    "base_url": "https://api.inworld.ai",
     "timeout": 30,
     "voices": {"refresh_hours": 24, "languages": ["en"]}
   },

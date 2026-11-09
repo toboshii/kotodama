@@ -33,6 +33,7 @@ from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
 from .tts_gemini import TEMPLATE_FIELDS as GEMINI_TEMPLATE_FIELDS, GeminiClient
 from .tts_generic import GenericTTS, ReplicateClient, gemini_voice
+from .tts_inworld import TEMPLATE_FIELDS as INWORLD_TEMPLATE_FIELDS, InworldClient, inworld_voice
 from .tts_minimax import MiniMaxClient, unknown_fields as minimax_unknown_fields
 from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 
@@ -512,6 +513,31 @@ def _doctor_models(cfg: Config, live: bool, check, active: str) -> None:
         bad = [k for k in ad.input if k not in GEMINI_TEMPLATE_FIELDS]
         if bad:
             msg = f"{', '.join(bad)} aren't used by the Gemini API transport (only style and generation_config are)"
+            if name == active:
+                check(name, False, msg)
+            else:
+                print(f"[warn] {name}: {msg}")
+    inworld = {n: a for n, a in adapters.items() if a.transport == "inworld"}
+    iw_key = cfg.api_key("inworld")
+    if inworld and not iw_key:
+        print(f"[info] Inworld: no key (INWORLD_API_KEY); {', '.join(inworld)} unavailable")
+    elif inworld:
+        first = next(iter(inworld.values()))
+        iw = InworldClient(first.base_url or str(cfg.get("inworld.base_url")), iw_key)
+        try:
+            languages = [str(x).lower() for x in (cfg.get("inworld.voices.languages", ["en"]) or [])]
+            usable = [v for v in (inworld_voice(i, languages) for i in iw.fetch_voices()) if v]
+            custom = sum(1 for v in usable if v.category == "custom")
+            check("Inworld key", True, f"{len(usable) - custom} voices in your languages, {custom} of your own")
+        except TTSError as exc:
+            check("Inworld key", False, str(exc))
+        finally:
+            iw.close()
+    for name, ad in inworld.items():
+        bad = [k for k in ad.input if k not in INWORLD_TEMPLATE_FIELDS]
+        if bad:
+            msg = (f"{', '.join(bad)} aren't sent by the Inworld transport (only "
+                   f"{' and '.join(sorted(INWORLD_TEMPLATE_FIELDS))} are)")
             if name == active:
                 check(name, False, msg)
             else:

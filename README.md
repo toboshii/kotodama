@@ -11,13 +11,13 @@ The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed be
 
 ## What gets sent where
 
-Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
+Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, Google, Inworld, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
 
 ## Setup
 
-You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Gemini, Replicate, or any mix (see **Voice providers**, **MiniMax**, **Gemini** and **Replicate and other backends**).
+You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Gemini, Inworld, Replicate, or any mix (see **Voice providers**, **MiniMax**, **Gemini**, **Inworld** and **Replicate and other backends**).
 
-1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
+1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `INWORLD_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
    - A variable already set in your shell takes precedence over the file.
    - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
    - To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
@@ -57,7 +57,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
-| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
+| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `gemini`, `inworld`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
 | `providers` | List every provider the sidecar knows and whether its key is set |
 | `voices` / `voices sync` | How many voices the active provider can cast from / refresh that list (ElevenLabs account, model voice list, voice bank) |
 | `deny <name\|t\|last>` / `allow <...>` / `deny list` | Silence specific NPCs. `t` is your target, `last` is whoever spoke last. Names accept `*` wildcards, e.g. `deny Moogle*` |
@@ -133,6 +133,27 @@ python3 server/kotodama_server.py voices cast --provider gemini
 - The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
 - Google bills by audio tokens; `//koto status` shows them per day. Add `"models": {"gemini": {"price": {"per_1m_output_tokens": 0.0}}}` with Google's current price for a dollar estimate.
 - Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
+
+## Inworld
+
+`inworld` and `inworld-flash` speak through Inworld's Realtime TTS-2 models, which **stream** raw audio like MiniMax and Gemini. They use Inworld's OpenAI-compatible endpoint, so they share Kotodama's OpenAI-compatible code.
+
+- **`inworld`** (TTS-2) takes **steering**: each line carries a plain direction built from the NPC's tone, personality and pace, such as "speak in a deep gravelly and rumbling tone with a stoic manner at a slow pace". Age and gender come from the voice.
+- **`inworld-flash`** (TTS-2 Flash) is the fastest and cheapest, but it ignores steering, so none is sent.
+- **Voices come from Inworld's library**, labelled with gender, age group and language, so a Galka gets an older, deeper voice and a Tarutaru a young, bright one. Voices you clone or design in the Inworld portal are included automatically.
+
+Create a key at platform.inworld.ai (API Keys) and copy the **Base64** credential. Put `INWORLD_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider inworld`. To check first:
+
+```
+python3 server/kotodama_server.py doctor             # key, how many voices you can cast from
+python3 server/kotodama_server.py doctor --live      # time to first audio (one short line)
+python3 server/kotodama_server.py voices cast --provider inworld
+```
+
+- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' library voices are left out; widen that with `"inworld": {"voices": {"languages": ["en", "ja"]}}`.
+- `//koto status` estimates cost at Inworld's pay-as-you-go price per character ($25 per million for TTS-2, $15 for Flash). Plans are cheaper; set your own rate with `"models": {"inworld": {"price": {"per_1k_chars": 0.02}}}`.
+- Square brackets in game text are spoken as parentheses, because Inworld treats `[...]` as a hidden instruction.
+- On a regional (Enterprise) plan, set `inworld.base_url` to `https://api.eu.inworld.ai` or `https://api.in.inworld.ai`.
 
 ## Replicate and other backends
 
@@ -213,7 +234,7 @@ Servers such as Kokoro-FastAPI, Chatterbox TTS servers, or hosted services with 
 }
 ```
 
-Fields: `transport: "openai_compatible"`, `base_url` (including `/v1`), `model`, `voices`, `response_format` (`pcm` or `wav`), an optional `api_key_env`, and `extra` for any additional request fields (same placeholders).
+Fields: `transport: "openai_compatible"`, `base_url` (including `/v1`), `model`, `voices`, `response_format` (`pcm` or `wav`), an optional `api_key_env`, and `extra` for any additional request fields (same placeholders). A rate limit (429) is retried once before any audio plays, a voice the server says it doesn't have (404) is dropped from casting, and lines over `max_chars` (default 1000) are sent in parts. For a hosted service, add `"price": {"per_1k_chars": ...}` to get a cost estimate in `//koto status`.
 
 ## How voices are chosen
 
