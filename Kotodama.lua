@@ -35,6 +35,7 @@ local defaults = {
     volume    = 100,       -- percent, 0-400 (100 = normal; raise if the voice is quiet)
     duck      = true,      -- lower the game's audio while a line is spoken
     duck_level = 40,       -- percent of the game's volume kept while speaking
+    provider  = '',        -- voice provider: '' = server/config.json, or openai | elevenlabs
     port      = 47123,
     debug     = false,
     deny      = S{},
@@ -52,6 +53,7 @@ local state = {
 }
 
 local MODES = { all = true, events = true, cutscenes = true }
+local PROVIDERS = { openai = true, elevenlabs = true }
 local ONOFF = { on = true, off = false }
 
 -- Output -------------------------------------------------------------------
@@ -112,6 +114,7 @@ local function send_config()
     bridge.send({
         t = 'config',
         volume = settings.volume,
+        provider = settings.provider or '',
         duck = settings.duck,
         duck_level = settings.duck_level,
         interrupt = settings.interrupt,
@@ -454,6 +457,8 @@ local function show_help()
         '  volume <0-400>                voice loudness in percent (100 = normal)',
         '  duck on|off | duck <0-100>    lower the game audio while speaking / how much is kept',
         '  stop   replay',
+        '  provider [openai|elevenlabs|default]   switch the voice provider live (default = server config)',
+        '  voices | voices sync          ElevenLabs voice list status / refresh it',
         '  deny <name|t|last>   allow <name|t|last>   deny list   (names accept * wildcards)',
         '  voice <name|t|last>           show the resolved voice profile',
         '  voice <name|t|last> key=value ...   set overrides: gender age species personality',
@@ -501,9 +506,10 @@ end
 local function print_status()
     local sent, received = bridge.stats()
     local ev = scene.current()
-    say(string.format('%s | link %s (sent %d, received %d) | mode %s | volume %d%% | duck %s (keep %d%%)',
+    say(string.format('%s | link %s (sent %d, received %d) | mode %s | volume %d%% | duck %s (keep %d%%) | provider %s',
         settings.enabled and 'ON' or 'OFF', bridge.is_up() and 'UP' or 'DOWN', sent, received,
-        settings.mode, settings.volume, settings.duck and 'on' or 'off', settings.duck_level))
+        settings.mode, settings.volume, settings.duck and 'on' or 'off', settings.duck_level,
+        (settings.provider or '') ~= '' and settings.provider or 'default'))
     say(string.format('battle=%s own=%s narrator=%s interrupt=%s prefetch=%s debug=%s deny=%d',
         tostring(settings.battle), tostring(settings.own_voice), tostring(settings.narrator),
         tostring(settings.interrupt), tostring(settings.prefetch), tostring(settings.debug),
@@ -594,6 +600,24 @@ windower.register_event('addon command', function(command, ...)
         say(settings.duck
             and ('ducking on: game audio drops to ' .. settings.duck_level .. '% while a line is spoken')
             or 'ducking off')
+
+    elseif cmd == 'provider' then
+        local p = args[2] and args[2]:lower()
+        if p == nil then
+            say('voice provider: ' .. ((settings.provider or '') ~= '' and settings.provider or 'default (server config)'))
+        elseif p == 'default' then
+            settings.provider = ''
+            send_config()
+            say('voice provider: default (server config)')
+        elseif PROVIDERS[p] then
+            settings.provider = p
+            send_config()    -- the sidecar confirms, or explains why it can't switch
+        else
+            say('usage: //koto provider [openai|elevenlabs|default]')
+        end
+
+    elseif cmd == 'voices' then
+        bridge.send({ t = 'cmd', name = (args[2] == 'sync') and 'voices_sync' or 'voices_info' })
 
     elseif cmd == 'stop' then
         bridge.send({ t = 'stop', reason = 'command' })

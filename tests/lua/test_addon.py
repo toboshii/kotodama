@@ -437,6 +437,37 @@ class AddonSmokeTests(unittest.TestCase):
         cmd = a.sent("cmd")[0]
         self.assertEqual((cmd["name"], cmd["params"]["tone"]), ("voice_set", "dry wit"))
 
+    def test_provider_command_is_sent_with_config_and_survives_reconnects(self):
+        a = self.a
+        a.clear_sent()
+        a.command("provider", "elevenlabs")
+        self.assertEqual(a.sent("config")[-1]["provider"], "elevenlabs")
+        # A sidecar restart: the next hello/config exchange carries it again.
+        a.clear_sent()
+        a.queue_from_sidecar({"t": "pong"})
+        a.advance(1)
+        a.prerender()
+        self.assertEqual(a.sent("config")[-1]["provider"], "elevenlabs")
+        a.command("provider", "default")
+        self.assertEqual(a.sent("config")[-1]["provider"], "", "empty = use the server's configured provider")
+        a.clear_sent()
+        a.command("provider", "bogus")
+        self.assertEqual(a.sent("config"), [])
+        self.assertIn("usage: //koto provider", a.chat()[-1])
+
+    def test_provider_defaults_to_the_server_config(self):
+        a = self.a
+        a.clear_sent()
+        a.command("volume", "90")
+        self.assertEqual(a.sent("config")[-1]["provider"], "")
+
+    def test_voices_commands(self):
+        a = self.a
+        a.clear_sent()
+        a.command("voices")
+        a.command("voices", "sync")
+        self.assertEqual([c["name"] for c in a.sent("cmd")], ["voices_info", "voices_sync"])
+
     def test_link_loss_warns_once(self):
         a = self.a
         a.queue_from_sidecar({"t": "pong"})

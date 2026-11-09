@@ -8,6 +8,8 @@ import threading
 from pathlib import Path
 
 # List-price estimate for gpt-4o-mini-tts; check your provider's pricing page.
+# ElevenLabs is billed in credits per character, which depends on the plan, so
+# it is shown as characters and estimated credits rather than dollars.
 EST_USD_PER_AUDIO_MINUTE = 0.015
 EST_USD_PER_MILLION_INPUT_TOKENS = 0.60
 
@@ -46,6 +48,12 @@ class Usage:
         except OSError:
             pass
 
+    def add_tts(self, provider: str, chars: int, seconds: float, credits: float | None = None) -> None:
+        if provider == "elevenlabs":
+            self.add(el_requests=1, el_chars=chars, el_seconds=seconds, el_credits=credits or 0.0)
+        else:
+            self.add(tts_requests=1, tts_chars=chars, tts_seconds=seconds)
+
     def today(self) -> dict[str, float]:
         with self._lock:
             return dict(self._days.get(self._today(), {}))
@@ -55,5 +63,11 @@ class Usage:
         minutes = d.get("tts_seconds", 0) / 60
         chars = d.get("tts_chars", 0)
         cost = minutes * EST_USD_PER_AUDIO_MINUTE + (chars / 4) / 1e6 * EST_USD_PER_MILLION_INPUT_TOKENS
-        return (f"today: {int(d.get('tts_requests', 0))} synthesized, {int(d.get('cache_hits', 0))} from cache, "
-                f"{int(d.get('infer_calls', 0))} voice-casting calls, ~${cost:.3f} est. TTS")
+        text = (f"today: {int(d.get('tts_requests', 0) + d.get('el_requests', 0))} synthesized, "
+                f"{int(d.get('cache_hits', 0))} from cache, {int(d.get('infer_calls', 0))} voice-casting calls")
+        if d.get("tts_requests"):
+            text += f", OpenAI ~${cost:.3f} est."
+        if d.get("el_requests"):
+            text += (f", ElevenLabs {int(d.get('el_chars', 0))} chars"
+                     f" (~{int(d.get('el_credits', 0))} credits est.)")
+        return text

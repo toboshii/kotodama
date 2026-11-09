@@ -27,11 +27,16 @@ from .config import Config
 from .infer import InferenceManager, make_inferer
 from .library import Library
 from .player import Player, PlayerHandle
-from .profiles import ProfileResolver, Resolved, describe
+from .profiles import ProfileResolver, Resolved
 from .protocol import Speak, Speaker, log_msg, parse_speak, parse_speaker
 from .textnorm import normalize, scrub_player
-from .tts_openai import OpenAITTS, TTSError
+from .tts_base import TTSError
+from .tts_elevenlabs import ElevenLabsTTS
+from .tts_openai import OpenAITTS
 from .usage import Usage
+
+PROVIDERS = {"openai": OpenAITTS, "elevenlabs": ElevenLabsTTS}
+PROVIDER_KEYS = {"openai": "OPENAI_API_KEY", "elevenlabs": "ELEVENLABS_API_KEY"}
 
 log = logging.getLogger("kotodama.engine")
 
@@ -81,7 +86,9 @@ class Engine:
     def __init__(self, cfg: Config, *, arch: Archetypes, library: Library, cache: AudioCache,
                  tts: Any, player: Player, inference: InferenceManager, usage: Usage,
                  reply: Callable[[dict[str, Any]], None] | None = None,
-                 ducker: Ducker | None = None):
+                 ducker: Ducker | None = None,
+                 provider_factory: Callable[[str], Any] | None = None,
+                 inferer_factory: Callable[[Any], Any] | None = None):
         self.cfg = cfg
         self.arch = arch
         self.lib = library
@@ -92,6 +99,14 @@ class Engine:
         self.usage = usage
         self.resolver = ProfileResolver(arch, library, provider=tts.name)
         self.reply = reply or (lambda _m: None)
+        # Every provider used this session, so switching back is instant and
+        # each keeps its warm connection and voice catalog.
+        self.providers: dict[str, Any] = {tts.name: tts}
+        self.default_provider = tts.name
+        self._provider_factory = provider_factory
+        self._inferer_factory = inferer_factory
+        if hasattr(tts, "notify"):
+            tts.notify = self.say
 
         self.volume = max(0, min(MAX_VOLUME, int(cfg.get("volume", 100))))
         self.makeup_db = float(cfg.get("audio.makeup_db", 9.0))
@@ -173,11 +188,61 @@ class Engine:
             enabled=msg["duck"] if isinstance(msg.get("duck"), bool) else None,
             level=int(duck_level) if isinstance(duck_level, (int, float)) and not isinstance(duck_level, bool) else None,
         )
+        provider = msg.get("provider")
+        if isinstance(provider, str):
+            # "" means "whatever server/config.json says".
+            self.set_provider(provider.strip().lower() or self.default_provider)
         if isinstance(msg.get("interrupt"), bool):
             self.interrupt = msg["interrupt"]
         if isinstance(msg.get("debug"), bool):
             self.debug = msg["debug"]
             logging.getLogger("kotodama").setLevel(logging.DEBUG if self.debug else logging.INFO)
+
+    # -- providers --------------------------------------------------------
+
+    def _get_provider(self, name: str) -> Any | None:
+        prov = self.providers.get(name)
+        if prov is None and self._provider_factory is not None and name in PROVIDERS:
+            prov = self._provider_factory(name)
+            if hasattr(prov, "notify"):
+                prov.notify = self.say
+            self.providers[name] = prov
+        return prov
+
+    def set_provider(self, name: str) -> bool:
+        """Switch the voice provider live. Lines already playing finish on the
+        provider they started with; each provider keeps its own cached audio."""
+        if name == self.tts.name:
+            return True
+        if name not in PROVIDERS:
+            self.say(f"unknown voice provider '{name}' (choose: {', '.join(PROVIDERS)})")
+            return False
+        try:
+            prov = self._get_provider(name)
+        except Exception as exc:  # noqa: BLE001 - e.g. a bad output_format in config
+            self.say(f"could not start {name}: {exc}")
+            return False
+        if prov is None:
+            self.say(f"voice provider '{name}' is not available")
+            return False
+        if not getattr(prov, "api_key", None):
+            self.say(f"{name} needs an API key ({PROVIDER_KEYS.get(name, 'see README')}); staying on {self.tts.name}")
+            return False
+        with self._lock:
+            self.tts = prov
+            self.resolver = ProfileResolver(self.arch, self.lib, provider=prov.name)
+        if self._inferer_factory is not None:
+            self.inference.retarget(self._inferer_factory(prov), prov.name)
+        self._warm()
+        if getattr(prov, "dynamic_voices", False):
+            threading.Thread(target=prov.ensure_catalog, daemon=True).start()
+        self.say(f"voice provider: {self._provider_status(prov)}")
+        return True
+
+    @staticmethod
+    def _provider_status(prov: Any) -> str:
+        status = getattr(prov, "status_text", None)
+        return status() if status else f"{prov.name}/{prov.model}"
 
     # -- speaking ---------------------------------------------------------
 
@@ -258,17 +323,17 @@ class Engine:
                 self._jobs.discard(job)
                 self.last_job = job
 
-    def _resolve(self, sp: Speak, text: str) -> Resolved:
+    def _resolve(self, sp: Speak, text: str, resolver: ProfileResolver) -> Resolved:
         speaker = sp.speaker
-        res = self.resolver.resolve(speaker, sp.zone)
+        res = resolver.resolve(speaker, sp.zone)
         player = sp.player or self.player_name
         scrubbed = scrub_player(text, player)
-        if self.inference.enabled and self.resolver.needs_inference(speaker):
+        if self.inference.enabled and resolver.needs_inference(speaker):
             fut = self.inference.request(
                 speaker, zone=sp.zone, zone_name=sp.zone_name, samples=[scrubbed], player=player,
                 archetype_key=res.archetype, base_profile=res.profile)
             if self.inference.wait(fut):
-                res = self.resolver.resolve(speaker, sp.zone)
+                res = resolver.resolve(speaker, sp.zone)
         elif speaker.name and not speaker.is_player:
             self.lib.note_seen(speaker.name, sp.zone, scrubbed)
         return res
@@ -277,15 +342,16 @@ class Engine:
         sp = job.speak
         assert sp is not None
         text = normalize(sp.text)
-        res = self._resolve(sp, text)
+        with self._lock:                     # one provider for the whole line
+            tts, resolver = self.tts, self.resolver
+        res = self._resolve(sp, text, resolver)
         if job.cancel.is_set():
             return
 
-        voice = res.profile["voice"] or ""
-        instructions = describe(res.profile)
-        key = make_key(self.tts.name, self.tts.model, voice, instructions, text, self.tts.response_format)
+        req = tts.voice_request(res.profile, res.key)
+        key = make_key(tts.name, tts.model, req.voice, req.cache_tag, text, tts.response_format)
         self.last = {"key": key, "text": text, "npc": sp.speaker.name}
-        log.debug("line npc=%s kind=%s voice=%s sources=%s", sp.speaker.name, sp.kind, voice, res.sources)
+        log.debug("line npc=%s kind=%s voice=%s sources=%s", sp.speaker.name, sp.kind, req.label, res.sources)
 
         if job.prev_done is not None:
             job.prev_done.wait(120)
@@ -307,12 +373,14 @@ class Engine:
 
         try:
             job.source = "tts"
-            self._synthesize(job, key, text, voice, instructions, sp)
+            self._synthesize(job, key, text, tts, req, sp)
         finally:
             self.cache.release(key)
 
     def _play_file(self, job: Job, path: Path) -> None:
         """Stream a cached WAV through the same gain stage as live audio."""
+        # (The sample rate comes from the WAV header, so audio cached by either
+        # provider plays correctly whichever one is active.)
         try:
             wav = wave.open(str(path), "rb")
         except (wave.Error, OSError, EOFError) as exc:
@@ -344,9 +412,8 @@ class Engine:
         finally:
             job.unduck()
 
-    def _synthesize(self, job: Job, key: str, text: str, voice: str, instructions: str,
-                    sp: Speak) -> None:
-        rate = int(getattr(self.tts, "sample_rate", 24000))
+    def _synthesize(self, job: Job, key: str, text: str, tts: Any, req: Any, sp: Speak) -> None:
+        rate = int(getattr(tts, "sample_rate", 24000))
         writer = self.cache.begin(key, {"npc": sp.speaker.name, "zone": sp.zone, "text": text}, rate)
         # Start the player before the HTTP request so its startup overlaps the network wait.
         handle = self.player.start_stream(100, rate)   # gain is applied here, not by the player
@@ -358,7 +425,7 @@ class Engine:
         started = time.monotonic()
         stream = None
         try:
-            stream = self.tts.stream(text=text, voice=voice, instructions=instructions)
+            stream = tts.stream(text, req)
             for chunk in stream:
                 if job.ttfb_ms is None:
                     job.ttfb_ms = (time.monotonic() - started) * 1000
@@ -371,7 +438,8 @@ class Engine:
                     writer.abort()
                     return
             seconds = writer.commit()
-            self.usage.add(tts_requests=1, tts_chars=len(text), tts_seconds=seconds)
+            per_char = getattr(tts, "credits_per_char", None)
+            self.usage.add_tts(tts.name, len(text), seconds, per_char() * len(text) if per_char else None)
         except TTSError as exc:
             writer.abort()
             handle.kill()
@@ -403,6 +471,8 @@ class Engine:
         zone_name = msg.get("zone_name") if isinstance(msg.get("zone_name"), str) else None
         self._remember(speaker, zone, zone_name)
         self._warm()
+        if getattr(self.tts, "dynamic_voices", False):
+            self.tts.ensure_catalog(wait=False)      # never block the network thread
         if self.inference.enabled and self.resolver.needs_inference(speaker):
             res = self.resolver.resolve(speaker, zone)
             self.inference.request(
@@ -418,8 +488,11 @@ class Engine:
     def _format_profile(self, npc: str, res: Resolved) -> str:
         p = res.profile
         who = " ".join(x for x in (p.get("gender"), p.get("age"), p.get("species")) if x)
+        req = self.tts.voice_request(p, res.key)
+        cast_note = "" if p.get("voice") else " (auto-cast)"
         lines = [
-            f"{npc}: {who or 'unspecified'} | pitch {p.get('pitch')} | pace {p.get('pace')} | voice {p.get('voice')}",
+            f"{npc}: {who or 'unspecified'} | pitch {p.get('pitch')} | pace {p.get('pace')} | "
+            f"{self.tts.name} voice {req.label or req.voice or 'none'}{cast_note}",
             f"  personality: {p.get('personality') or '-'} | tone: {p.get('tone') or '-'} | accent: {p.get('accent') or '-'}",
         ]
         if p.get("direction"):
@@ -435,6 +508,9 @@ class Engine:
 
         if name == "status":
             self._status()
+            return
+        if name in ("voices_sync", "voices_info"):
+            self._voices_command(name == "voices_sync")
             return
         if not npc:
             self.say("no NPC given")
@@ -455,7 +531,16 @@ class Engine:
                 return
             raw = dict(params)
             if "voice" in raw:
-                raw["voice"] = {self.tts.name: str(raw["voice"])}
+                wanted = str(raw["voice"])
+                resolve = getattr(self.tts, "resolve_voice", None)
+                if resolve is not None:            # account voices: name -> id
+                    voice_id = resolve(wanted)
+                    if not voice_id:
+                        self.say(f"no {self.tts.name} voice called '{wanted}' (//koto voices sync, or see "
+                                 "`kotodama_server.py voices list`)")
+                        return
+                    wanted = voice_id
+                raw["voice"] = {self.tts.name: wanted}
             try:
                 clean = self.arch.sanitize(raw, strict=True)
             except ValueError as exc:
@@ -465,13 +550,14 @@ class Engine:
             self.say(self._format_profile(npc, self.resolver.resolve(speaker, zone)))
 
         elif name == "voice_reset":
+            self._forget_casting(npc)
             removed = self.lib.reset_override(npc)
             self.say(f"{npc}: overrides cleared" if removed else f"{npc}: no overrides to clear")
 
         elif name == "voice_promote":
             res = self.resolver.resolve(speaker, zone)
             profile = {k: v for k, v in res.profile.items() if k != "voice" and v}
-            profile["voice"] = {self.tts.name: res.profile["voice"]}
+            profile["voice"] = {self.tts.name: self.tts.voice_request(res.profile, res.key).voice}
             self.lib.put(npc, profile, source="curated", game_race=speaker.race_name,
                          model_id=speaker.model, zone=zone)
             self.say(f"{npc}: saved to the library as curated")
@@ -486,6 +572,7 @@ class Engine:
                 self.say(f"{npc} has a {local['meta'].get('source')} library entry; remove it first to recast")
                 return
             self.lib.delete_local(key)
+            self._forget_casting(npc)
             self.inference.clear_failure(npc)
             res = self.resolver.resolve(speaker, zone)
             fut = self.inference.request(
@@ -506,12 +593,36 @@ class Engine:
         else:
             self.say(f"unknown command {name}")
 
+    def _forget_casting(self, npc: str) -> None:
+        for prov in self.providers.values():
+            forget = getattr(prov, "forget_casting", None)
+            if forget:
+                forget(npc)
+
+    def _voices_command(self, sync: bool) -> None:
+        prov = self._get_provider("elevenlabs")
+        if prov is None or not getattr(prov, "api_key", None):
+            self.say("voice lists only apply to ElevenLabs, and it needs ELEVENLABS_API_KEY")
+            return
+        if not sync:
+            age = time.time() - prov.catalog.fetched_at if prov.catalog.fetched_at else None
+            when = f"{age / 3600:.1f} h ago" if age is not None else "never"
+            self.say(f"ElevenLabs: {len(prov.catalog.voices)} voices (synced {when}). "
+                     "Full list: kotodama_server.py voices list")
+            return
+
+        def done(count: int | None, error: Exception | None) -> None:
+            self.say(f"ElevenLabs voices: {count} available" if error is None
+                     else f"ElevenLabs voice sync failed: {error}")
+        if not prov.catalog.sync_in_background(done):
+            self.say("a voice sync is already running")
+
     def _status(self) -> None:
         stats = self.cache.stats()
         key_state = "key set" if getattr(self.tts, "api_key", None) else "NO API KEY"
         inf = self.inference.inferer.model if self.inference.enabled else "off"
         self.say(
-            f"sidecar {__version__} | tts {self.tts.name}/{self.tts.model} ({key_state}) | "
+            f"sidecar {__version__} | tts {self._provider_status(self.tts)} ({key_state}) | "
             f"player {self.player.kind or 'NONE'} | casting {inf}")
         self.say(f"cache: {stats['files']} lines, {stats['bytes'] / 1048576:.1f} / "
                  f"{stats['max_bytes'] / 1048576:.0f} MB | {self.usage.summary()}")
@@ -524,9 +635,10 @@ class Engine:
         self.stop_all()
         self.wait_idle(3)   # let in-flight downloads land in the cache
         self.lib.flush()
-        close = getattr(self.tts, "close", None)
-        if close:
-            close()
+        for prov in self.providers.values():
+            close = getattr(prov, "close", None)
+            if close:
+                close()
         self.cache.close()
         self.ducker.shutdown()
 
@@ -543,24 +655,39 @@ def make_ducker(cfg: Config, *, enabled: bool = True) -> Ducker:
     )
 
 
+def make_provider(cfg: Config, name: str) -> Any:
+    try:
+        return PROVIDERS[name](cfg)
+    except KeyError:
+        raise ValueError(f"unknown tts.provider '{name}' (choose: {', '.join(PROVIDERS)})") from None
+
+
 def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
                  reply: Callable[[dict[str, Any]], None] | None = None,
                  null_player: bool = False, inferer: Any = None,
-                 ducker: Ducker | None = None) -> Engine:
+                 ducker: Ducker | None = None, provider: str | None = None,
+                 provider_factory: Callable[[str], Any] | None = None) -> Engine:
     arch = Archetypes.load()
     library = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"),
                       cfg.path("library.overrides"))
     cache = AudioCache(cfg.path("cache.dir"), int(cfg.get("cache.max_mb", 2048)))
     usage = Usage(cfg.path("cache.dir") / "usage.json")
-    tts = tts or OpenAITTS(cfg)
+    factory = provider_factory or (lambda name: make_provider(cfg, name))
+    tts = tts or factory((provider or str(cfg.get("tts.provider", "openai"))).strip().lower())
     if player is None:
         command = cfg.get("player.command")
         player = Player(command if isinstance(command, dict) else None, null=null_player)
-    inferer = inferer if inferer is not None else make_inferer(cfg, arch, tts.name)
+    def inferer_factory(prov: Any) -> Any:
+        return make_inferer(cfg, arch, prov.name, include_voice=not getattr(prov, "dynamic_voices", False))
+
+    fixed_inferer = inferer is not None          # tests inject one; keep it across switches
+    inferer = inferer if fixed_inferer else inferer_factory(tts)
     inference = InferenceManager(cfg, arch, library, usage, inferer, tts_provider=tts.name)
     if ducker is None:
         ducker = make_ducker(cfg, enabled=not null_player)
         if not null_player:
             ducker.restore_stale()   # undo a duck left behind by a crashed run
     return Engine(cfg, arch=arch, library=library, cache=cache, tts=tts, player=player,
-                  inference=inference, usage=usage, reply=reply, ducker=ducker)
+                  inference=inference, usage=usage, reply=reply, ducker=ducker,
+                  provider_factory=factory,
+                  inferer_factory=None if fixed_inferer else inferer_factory)

@@ -20,6 +20,7 @@ from kotodama.infer import (InferenceError, InferenceManager, build_schema, pars
 from kotodama.infer_anthropic import AnthropicInferer
 from kotodama.net import UDPServer
 from kotodama.player import Player
+from kotodama.tts_base import VoiceRequest
 from kotodama.tts_openai import OpenAITTS, TTSError
 from kotodama.usage import Usage
 
@@ -142,7 +143,7 @@ class TTSClientTests(KotodamaTestCase):
 
     def test_streams_aligned_pcm_with_expected_request(self):
         tts = self.new_tts()
-        chunks = list(tts.stream(text="Hello", voice="onyx", instructions="Voice: gruff."))
+        chunks = list(tts.stream("Hello", VoiceRequest("onyx", {"instructions": "Voice: gruff."})))
         self.assertTrue(all(len(c) % 2 == 0 for c in chunks))
         # 1001 + 2000 + 777 bytes arrive in odd-sized chunks; every yielded chunk is still sample-aligned.
         self.assertEqual(sum(len(c) for c in chunks), 1001 + 2000 + 777)
@@ -154,32 +155,32 @@ class TTSClientTests(KotodamaTestCase):
 
     def test_connection_is_reused(self):
         tts = self.new_tts()
-        list(tts.stream(text="a", voice="onyx", instructions=""))
-        self.assertEqual(len(tts._pool), 1)
-        conn = tts._pool[0][0]
-        list(tts.stream(text="b", voice="onyx", instructions=""))
-        self.assertIs(tts._pool[0][0], conn)
+        list(tts.stream("a", VoiceRequest("onyx", {"instructions": ""})))
+        self.assertEqual(len(tts.http._pool), 1)
+        conn = tts.http._pool[0][0]
+        list(tts.stream("b", VoiceRequest("onyx", {"instructions": ""})))
+        self.assertIs(tts.http._pool[0][0], conn)
 
     def test_early_close_drops_connection(self):
         tts = self.new_tts()
-        gen = tts.stream(text="a", voice="onyx", instructions="")
+        gen = tts.stream("a", VoiceRequest("onyx", {"instructions": ""}))
         next(gen)
         gen.close()
-        self.assertEqual(tts._pool, [])
+        self.assertEqual(tts.http._pool, [])
 
     def test_error_status_raises_with_message(self):
         _Handler.status = 400
         with self.assertRaises(TTSError) as cm:
-            list(self.new_tts().stream(text="a", voice="nope", instructions=""))
+            list(self.new_tts().stream("a", VoiceRequest("nope", {"instructions": ""})))
         self.assertEqual(cm.exception.status, 400)
         self.assertIn("bad voice", str(cm.exception))
 
     def test_missing_key_and_non_gpt4o_models(self):
         with self.assertRaises(TTSError):
             list(OpenAITTS(Config({"tts": {"api_key": None, "api_key_env": "KOTODAMA_NO_SUCH_ENV"}}))
-                 .stream(text="a", voice="onyx", instructions=""))
+                 .stream("a", VoiceRequest("onyx", {"instructions": ""})))
         cfg = Config({"tts": {"model": "tts-1", "base_url": self.cfg.get("tts.base_url"), "api_key": "k"}})
-        list(self.new_tts(cfg).stream(text="a", voice="onyx", instructions="ignored"))
+        list(self.new_tts(cfg).stream("a", VoiceRequest("onyx", {"instructions": "ignored"})))
         self.assertNotIn("instructions", _Handler.requests[-1]["body"])
 
 

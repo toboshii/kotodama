@@ -28,6 +28,26 @@ DEFAULTS: dict[str, Any] = {
         "timeout": 30,
         "sample_rate": 24000,
     },
+    "elevenlabs": {
+        # Used when tts.provider is "elevenlabs" or after //koto provider elevenlabs.
+        "api_key": None,
+        "api_key_env": "ELEVENLABS_API_KEY",
+        "base_url": "https://api.elevenlabs.io",
+        "model": "eleven_v4_turbo",
+        # Used automatically if the model above is rejected on the streaming endpoint.
+        "fallback_model": "eleven_flash_v2_5",
+        "output_format": "pcm_24000",
+        "timeout": 30,
+        # One leading delivery tag such as [excited] on models that support them
+        # (eleven_v4*, eleven_v3*). Turn off if you ever hear a tag read aloud.
+        "audio_tags": True,
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "style": 0.0,
+                           "use_speaker_boost": True},
+        "voices": {"refresh_hours": 24, "exclude": []},
+        # Credits charged per character, for the //koto status estimate only.
+        # null = 0.5 for eleven_flash models, 1.0 otherwise.
+        "credits_per_char": None,
+    },
     "inference": {
         # none | anthropic | openai.  "none" = archetypes + overrides only.
         "provider": "none",

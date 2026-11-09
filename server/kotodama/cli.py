@@ -1,4 +1,4 @@
-"""Command line: serve, test, library, cache, doctor."""
+"""Command line: serve, test, library, cache, audio, voices, doctor."""
 
 from __future__ import annotations
 
@@ -9,14 +9,21 @@ import shutil
 import signal
 import socket
 import sys
+import time
 from pathlib import Path
 
 from . import __version__
 from .config import Config
 from .audio import is_game_stream, parse_sink_inputs, run_pactl
-from .engine import build_engine, make_ducker
+from .archetypes import Archetypes
+from .engine import PROVIDER_KEYS, build_engine, make_ducker
+from .library import Library
 from .net import UDPServer
-from .protocol import parse_speak
+from .profiles import ProfileResolver
+from .protocol import Speaker, parse_speak
+from .tts_base import TTSError
+from .tts_elevenlabs import ElevenLabsTTS
+from .voices_elevenlabs import cast, rank
 
 
 def _setup_logging(debug: bool) -> None:
@@ -32,8 +39,8 @@ def cmd_serve(cfg: Config, args: argparse.Namespace) -> int:
     if not engine.player.available:
         logging.error("no audio player available; install pipewire (pw-play), pulseaudio-utils or ffmpeg")
     if not engine.tts.api_key:
-        logging.warning("no OpenAI API key: only already-cached lines will play "
-                        "(set OPENAI_API_KEY or tts.api_key in server/config.json)")
+        logging.warning("no %s API key: only already-cached lines will play (set %s)",
+                        engine.tts.name, PROVIDER_KEYS.get(engine.tts.name, "the provider key"))
     server = UDPServer(cfg, engine)
     signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
     logging.info("Kotodama sidecar %s ready (player: %s, casting: %s)", __version__, engine.player.kind,
@@ -52,7 +59,7 @@ def cmd_test(cfg: Config, args: argparse.Namespace) -> int:
         if msg.get("t") == "log":
             print(f"[addon] {msg['msg']}")
 
-    engine = build_engine(cfg, reply=show, null_player=args.no_audio)
+    engine = build_engine(cfg, reply=show, null_player=args.no_audio, provider=args.provider)
     text = " ".join(args.text)
     speaker = {"name": args.name, "race": args.race, "creature": args.creature,
                "narrator": args.name is None}
@@ -63,7 +70,8 @@ def cmd_test(cfg: Config, args: argparse.Namespace) -> int:
     if not engine.wait_idle(60):
         print("timed out waiting for playback")
         return 1
-    print(f"source={job.source} first-audio={'%.0f ms' % job.ttfb_ms if job.ttfb_ms else 'n/a'}")
+    print(f"provider={engine.tts.name}/{engine.tts.model} source={job.source} "
+          f"first-audio={'%.0f ms' % job.ttfb_ms if job.ttfb_ms else 'n/a'}")
     print(engine.usage.summary())
     engine.close()
     return 1 if job.error or not job.source else 0
@@ -151,6 +159,81 @@ def cmd_audio(cfg: Config, args: argparse.Namespace) -> int:
     return 0 if ok else 1
 
 
+def cmd_voices(cfg: Config, args: argparse.Namespace) -> int:
+    el = ElevenLabsTTS(cfg)
+    if args.action == "sync" or (not el.catalog.voices and el.api_key):
+        if not el.api_key:
+            print("set ELEVENLABS_API_KEY (or elevenlabs.api_key in server/config.json) first")
+            return 1
+        try:
+            print(f"synced {el.catalog.sync()} voices -> {el.catalog.path}")
+        except (TTSError, OSError) as exc:
+            print(f"voice sync failed: {exc}")
+            return 1
+        if args.action == "sync":
+            return 0
+    voices = el.catalog.snapshot()
+    if not voices:
+        print("no voices cached yet: run `voices sync`")
+        return 1
+
+    if args.action == "list":
+        for v in voices:
+            print(f"{v.id:<22} {v.summary()}")
+        print(f"-- {len(voices)} voices")
+        return 0
+
+    # cast: show what auto-casting picks, without touching the casting memory
+    arch = Archetypes.load()
+    if args.npc:
+        lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"))
+        resolved = ProfileResolver(arch, lib, provider="elevenlabs").resolve(
+            Speaker(name=args.npc, race=args.race, creature=args.creature), None)
+        targets = [(args.npc, resolved.key, resolved.profile)]
+    else:
+        targets = [(key, key, {f: a.get(f) for f in ("gender", "age", "species", "personality", "tone",
+                                                     "accent", "pitch", "pace")})
+                   for key, a in arch.items.items()]
+        targets = [(label, "@narrator" if label == "narrator" else ident, p) for label, ident, p in targets]
+    for label, ident, profile in targets:
+        chosen = el.catalog.get(cast(el.catalog, profile, ident, memory=None))
+        runners = ", ".join(f"{v.name} ({s:g})" for s, v in rank(el.catalog, profile, ident)[:3])
+        print(f"{label:<16} -> {chosen.name if chosen else 'NO MATCH':<18} top: {runners}")
+    return 0
+
+
+def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
+    el = ElevenLabsTTS(cfg)
+    if not el.api_key:
+        print("[info] ElevenLabs: no key (ELEVENLABS_API_KEY); provider unavailable")
+        return
+    check("ElevenLabs API key", True, "set")
+    try:
+        if not el.catalog.voices:
+            el.catalog.sync()
+        check("ElevenLabs voices", bool(el.catalog.voices), f"{len(el.catalog.voices)} available")
+    except (TTSError, OSError) as exc:
+        check("ElevenLabs voices", False, str(exc))
+        return
+    if not live:
+        print(f"[info] ElevenLabs model {el.configured_model}: run `doctor --live` to try it (uses a few credits)")
+        return
+    from .tts_base import VoiceRequest
+    req = el.voice_request({"voice": el.catalog.voices[0].id, "pace": "normal"}, "@doctor")
+    started, first, total = time.monotonic(), None, 0
+    try:
+        for chunk in el.stream("Hello.", req):
+            first = first if first is not None else (time.monotonic() - started) * 1000
+            total += len(chunk)
+        note = f" (fell back from {el.configured_model})" if el.fell_back else ""
+        check("ElevenLabs synthesis", total > 0,
+              f"{el.model}{note}: first audio {first:.0f} ms, {total / 2 / el.sample_rate:.2f} s of audio")
+    except TTSError as exc:
+        check("ElevenLabs synthesis", False, str(exc))
+    finally:
+        el.close()
+
+
 def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     ok = True
 
@@ -162,8 +245,12 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     check("python", sys.version_info >= (3, 10), sys.version.split()[0])
     engine = build_engine(cfg, null_player=False)
     check("audio player", engine.player.available, engine.player.kind or "none found")
-    check("OpenAI API key", bool(engine.tts.api_key),
-          "set" if engine.tts.api_key else "missing (OPENAI_API_KEY / tts.api_key)")
+    active = engine.tts.name
+    print(f"[info] voice provider: {active} (switch in game with //koto provider)")
+    openai_key = bool(cfg.api_key("tts"))
+    check("OpenAI API key", openai_key or active != "openai",
+          "set" if openai_key else "missing (OPENAI_API_KEY / tts.api_key)")
+    _doctor_elevenlabs(cfg, args.live, check)
     provider = cfg.get("inference.provider")
     print(f"[info] voice casting: {provider}")
     if provider == "anthropic":
@@ -212,6 +299,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--zone-name")
     t.add_argument("--player", default="Adventurer", help="player name (scrubbed from shared files)")
     t.add_argument("--no-audio", action="store_true", help="synthesize and cache but do not play")
+    t.add_argument("--provider", choices=["openai", "elevenlabs"], help="override tts.provider for this test")
     t.add_argument("text", nargs="+")
 
     lib = sub.add_parser("library", help="share NPC voice libraries")
@@ -235,12 +323,22 @@ def main(argv: list[str] | None = None) -> int:
     ausub.add_parser("restore", help="put back game volume left lowered by a crashed run")
     ausub.add_parser("duck-test", help="duck the game audio for 3 seconds, then restore it")
 
-    sub.add_parser("doctor", help="check the setup")
+    vo = sub.add_parser("voices", help="ElevenLabs voices: sync, list, and preview auto-casting")
+    vosub = vo.add_subparsers(dest="action", required=True)
+    vosub.add_parser("sync", help="fetch the voices your ElevenLabs account can use")
+    vosub.add_parser("list", help="list cached voices with their labels")
+    vc = vosub.add_parser("cast", help="show which voice each archetype (or one NPC) gets")
+    vc.add_argument("--npc", help="an NPC name (uses your library/overrides)")
+    vc.add_argument("--race", type=int)
+    vc.add_argument("--creature")
+
+    dr = sub.add_parser("doctor", help="check the setup")
+    dr.add_argument("--live", action="store_true", help="also synthesize one word with ElevenLabs (uses credits)")
 
     args = parser.parse_args(argv)
     _setup_logging(args.verbose)
     cfg = Config.load(args.config)
 
     handlers = {None: cmd_serve, "serve": cmd_serve, "test": cmd_test, "library": cmd_library,
-                "cache": cmd_cache, "audio": cmd_audio, "doctor": cmd_doctor}
+                "cache": cmd_cache, "audio": cmd_audio, "voices": cmd_voices, "doctor": cmd_doctor}
     return handlers[args.command](cfg, args)

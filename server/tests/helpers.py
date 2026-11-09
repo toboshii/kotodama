@@ -11,6 +11,8 @@ from pathlib import Path
 from kotodama.audio import Ducker
 from kotodama.config import Config
 from kotodama.engine import build_engine
+from kotodama.profiles import describe
+from kotodama.tts_base import TTSError, VoiceRequest
 
 
 class FakeTTS:
@@ -27,13 +29,23 @@ class FakeTTS:
         self.completed = 0
         self.lock = threading.Lock()
 
+    dynamic_voices = False
+
     def warm(self) -> None:
         self.warmed += 1
 
-    def stream(self, *, text, voice, instructions):
-        from kotodama.tts_openai import TTSError
+    def close(self) -> None:
+        pass
+
+    def voice_request(self, profile, ident):
+        instructions = describe(profile)
+        voice = profile.get("voice") or ""
+        return VoiceRequest(voice, {"instructions": instructions}, instructions, voice)
+
+    def stream(self, text, request):
         with self.lock:
-            self.calls.append({"text": text, "voice": voice, "instructions": instructions})
+            self.calls.append({"text": text, "voice": request.voice,
+                               "instructions": request.options.get("instructions")})
         if self.fail:
             raise TTSError(self.fail, 500)
         for _ in range(self.chunks):

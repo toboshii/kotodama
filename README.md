@@ -11,13 +11,13 @@ The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed be
 
 ## What gets sent where
 
-Dialog text is sent to OpenAI to be turned into speech. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
+Dialog text is sent to the voice provider you use (OpenAI or ElevenLabs) to be turned into speech. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
 
 ## Setup
 
-You need Python 3.10+ and an audio player (`pw-play`, `paplay`, or `ffplay`), and an OpenAI API key.
+You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, or both (see **Voice providers**).
 
-1. **Give it a key.** Either put `OPENAI_API_KEY=sk-...` in `~/.config/kotodama.env` (used by the systemd unit below) or export it in your shell.
+1. **Give it a key.** Put `OPENAI_API_KEY=sk-...` and/or `ELEVENLABS_API_KEY=...` in `~/.config/kotodama.env` (used by the systemd unit below), or export them in your shell.
 2. **Check the setup:**
    ```
    python3 server/kotodama_server.py doctor
@@ -51,6 +51,8 @@ You need Python 3.10+ and an audio player (`pw-play`, `paplay`, or `ffplay`), an
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
+| `provider openai` / `elevenlabs` / `default` | Switch the voice provider live; `default` uses `tts.provider` from `server/config.json` |
+| `voices` / `voices sync` | ElevenLabs: how many voices are known / refresh the list from your account |
 | `deny <name\|t\|last>` / `allow <...>` / `deny list` | Silence specific NPCs. `t` is your target, `last` is whoever spoke last. Names accept `*` wildcards, e.g. `deny Moogle*` |
 | `voice <name\|t\|last>` | Show the voice an NPC will get and why |
 | `voice <name> key=value ...` | Override it. Keys: `gender` `age` `species` `personality` `tone` `accent` `pitch` `pace` `voice` `direction`. Use `_` for spaces: `//koto voice t age=elderly tone=gruff_and_weary` |
@@ -60,9 +62,33 @@ You need Python 3.10+ and an audio player (`pw-play`, `paplay`, or `ffplay`), an
 | `test [event\|cutscene\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
 | `debug on/off`, `inspect [t]` | Write `data/debug.log`; dump the target's fields to `data/inspect.log` |
 
-Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the TTS provider's voices (OpenAI: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar — check your provider's current list).
+Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account (`kotodama_server.py voices list`), e.g. `voice=George`.
 
 Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xml`.
+
+## Voice providers
+
+Kotodama can speak through **OpenAI** (`gpt-4o-mini-tts`, the default) or **ElevenLabs**. Switch any time in game with `//koto provider elevenlabs` / `//koto provider openai`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To make ElevenLabs the default, set `"tts": {"provider": "elevenlabs"}` in `server/config.json`.
+
+**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through.
+
+**ElevenLabs** voices belong to your account (the stock voices plus any you add from their library, design or clone), and there are no free-text directions. So:
+
+- **Voices are auto-cast.** The sidecar fetches every voice your account can use and scores each against the NPC's profile: gender, age, and descriptive words from its tone, personality and pitch (a Galka's "deep, gravelly" against a voice described as deep and gravelly, a Tarutaru's "bright, bubbly" against bright and youthful voices). Among the best fits, the NPC's name picks one, so the same NPC always gets the same voice. Once cast, an NPC keeps its voice even if you add voices later; changing its profile (an override, a new LLM description) re-casts it. `//koto voice <npc> reset` re-casts by hand.
+- **Personality goes into the delivery:** speed follows the profile's pace, stability follows temperament (lower for excitable characters, higher for calm ones), and on the v4 models one leading audio tag such as `[excited]` or `[sarcastic]` is added when the profile calls for it. ElevenLabs warns a tag is occasionally read aloud; if you hear one, set `"elevenlabs": {"audio_tags": false}`.
+- **Model:** `eleven_v4_turbo` by default (their recommendation for real-time use). If ElevenLabs rejects it on the streaming endpoint, the sidecar switches to `eleven_flash_v2_5` for the session and says so in chat. Both are configurable (`elevenlabs.model`, `elevenlabs.fallback_model`).
+
+Setting up ElevenLabs:
+
+```
+python3 server/kotodama_server.py voices sync      # fetch your account's voices
+python3 server/kotodama_server.py voices cast      # preview which voice each race/creature gets
+python3 server/kotodama_server.py voices cast --npc Prishe --race 4
+python3 server/kotodama_server.py doctor --live    # confirms the model works (uses a few credits)
+python3 server/kotodama_server.py test --provider elevenlabs --name Rok --race 8 "Hm."
+```
+
+To keep a voice out of casting, add its name or id to `elevenlabs.voices.exclude`. The voice list refreshes itself daily (`elevenlabs.voices.refresh_hours`).
 
 ## How voices are chosen
 
@@ -109,7 +135,7 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted). Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts and a rough estimate at list prices; check your provider's pricing for the real figure. `python3 server/kotodama_server.py cache stats` works without the game.
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game.
 
 ## How cutscenes are detected
 

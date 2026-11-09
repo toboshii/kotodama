@@ -51,7 +51,9 @@ class Inferer(Protocol):
     def infer(self, context: dict[str, Any]) -> dict[str, Any]: ...
 
 
-def build_schema(arch: Archetypes, tts_provider: str) -> dict[str, Any]:
+def build_schema(arch: Archetypes, tts_provider: str, include_voice: bool = True) -> dict[str, Any]:
+    """include_voice=False for providers whose voices come from the account
+    (ElevenLabs): the model describes the character and casting picks the voice."""
     voices = arch.provider_voices.get(tts_provider, [])
     props: dict[str, Any] = {
         "gender": {"type": "string", "enum": arch.vocab["gender"]},
@@ -65,6 +67,8 @@ def build_schema(arch: Archetypes, tts_provider: str) -> dict[str, Any]:
         "voice": {"type": "string", "enum": voices} if voices else {"type": "string"},
         "direction": {"type": "string"},
     }
+    if not include_voice:
+        del props["voice"]
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
@@ -111,6 +115,11 @@ class InferenceManager:
     @property
     def enabled(self) -> bool:
         return self.inferer is not None
+
+    def retarget(self, inferer: Inferer | None, tts_provider: str) -> None:
+        """Swap in an inferer built for another TTS provider's voice schema."""
+        self.inferer = inferer
+        self.tts_provider = tts_provider
 
     def clear_failure(self, name: str) -> None:
         with self._lock:
@@ -185,11 +194,12 @@ class InferenceManager:
             return False
 
 
-def make_inferer(cfg: Config, arch: Archetypes, tts_provider: str) -> Inferer | None:
+def make_inferer(cfg: Config, arch: Archetypes, tts_provider: str,
+                 include_voice: bool = True) -> Inferer | None:
     provider = str(cfg.get("inference.provider", "none")).lower()
     if provider in ("", "none", "off"):
         return None
-    schema = build_schema(arch, tts_provider)
+    schema = build_schema(arch, tts_provider, include_voice)
     if provider == "anthropic":
         from .infer_anthropic import AnthropicInferer
         return AnthropicInferer(cfg, arch, schema, tts_provider)
