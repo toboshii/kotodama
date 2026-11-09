@@ -51,6 +51,15 @@
     "voices": {"refresh_hours": 24}
   },
 
+  "gemini": {
+    "_comment": "Google's streaming Interactions API, used by the gemini / gemini-lite providers. Voices in these languages from Google's library, plus your own, are cast from.",
+    "api_key": null,
+    "api_key_env": "GEMINI_API_KEY",
+    "base_url": "https://generativelanguage.googleapis.com",
+    "timeout": 30,
+    "voices": {"refresh_hours": 24, "languages": ["en"]}
+  },
+
   "replicate": {
     "_comment": "Shared by every Replicate model (minimax-replicate, chatterbox, kokoro, qwen3...). Lines are split by sentence because Replicate returns whole files.",
     "api_key": null,

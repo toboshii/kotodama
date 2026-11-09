@@ -36,6 +36,7 @@ from .decode import DecodeError, PCMDecoder, decode_all
 from .delivery import (PACE_SPEED, control, emotion_for, mood_control, speed_for, style_text,
                        voice_description)
 from .tts_base import CHUNK, HTTPStreamer, TTSError, VoiceRequest, error_detail
+from .tts_gemini import GeminiClient
 from .tts_minimax import MiniMaxClient
 from .voice_bank import VoiceBank
 
@@ -47,7 +48,8 @@ RETRY_DELAY = 1.0
 SCHEMA_MAX_AGE = 24 * 3600
 SCHEMA_RETRY = 300.0
 MINIMAX_MAX_CHARS = 9500      # per request (the API allows under 10,000)
-MINIMAX_RETRY_DELAY = 0.7          # after a failed schema fetch, wait this long before trying again
+GEMINI_MAX_CHARS = 4000       # per request; FFXI lines are far shorter
+LIVE_RETRY_DELAY = 0.7        # streaming transports: one retry on a rate limit, before any audio          # after a failed schema fetch, wait this long before trying again
 FIRST_MIN_CHARS = 12          # a first "sentence" shorter than this joins the next one
 GROUP_CHARS = 280             # later sentences are batched up to this size
 
@@ -385,13 +387,51 @@ def _account_voice(item: dict[str, Any], category: str) -> Voice | None:
     return Voice(id=vid, name=name, category=category, labels=labels, description=desc[:200])
 
 
+def _norm_id(voice_id: str) -> str:
+    v = voice_id.lower()
+    return v[len("voices/"):] if v.startswith("voices/") else v
+
+
+def gemini_voice(item: dict[str, Any], languages: list[str]) -> Voice | None:
+    """A voice from Gemini's GET /v1beta/voices, labelled from its structured
+    fields; None if it's in a language we don't speak."""
+    vid = item.get("id") or item.get("name")
+    if not isinstance(vid, str) or not vid:
+        return None
+    kind = str(item.get("type") or "").lower()
+    custom = (kind not in ("", "prebuilt", "voice_type_unspecified", "library")) or _norm_id(vid).startswith("voice_")
+    lang = str(item.get("language_code") or "").lower()
+    if lang and languages and not custom and not any(lang.startswith(l) for l in languages):
+        return None
+    name = str(item.get("display_name") or vid)
+    desc = item.get("description") or ""
+    desc = " ".join(str(d) for d in desc) if isinstance(desc, list) else str(desc)
+    labels: dict[str, str] = {}
+    gender = str(item.get("gender") or "").lower()
+    if gender in ("male", "female"):
+        labels["gender"] = gender
+    if item.get("accent"):
+        labels["accent"] = str(item["accent"]).lower()
+    pitch = str(item.get("pitch") or "").lower()
+    words = (["low", "deep"] if "low" in pitch else ["high", "bright"] if "high" in pitch else [])
+    for key, value in derive_labels(f"{name} {desc}").items():
+        if key == "descriptive":
+            words.append(value)
+        else:
+            labels.setdefault(key, value)
+    if words:
+        labels["descriptive"] = " ".join(words)
+    return Voice(id=vid, name=name, category="custom" if custom else "library", labels=labels,
+                 description=desc[:200])
+
+
 class GenericTTS:
     response_format = "pcm"
     dynamic_voices = True          # voices are auto-cast from a catalog
 
     def __init__(self, cfg: Config, adapter: Adapter, *, bank: VoiceBank | None = None,
                  notify: Callable[[str], None] | None = None, client: ReplicateClient | None = None,
-                 minimax: MiniMaxClient | None = None):
+                 minimax: MiniMaxClient | None = None, gemini: GeminiClient | None = None):
         self.adapter = adapter
         self.name = adapter.name
         # A renamed adapter can keep the cache keys (and so the audio) of its old name.
@@ -405,7 +445,9 @@ class GenericTTS:
         cache_dir = cfg.path("cache.dir")
         self.client: ReplicateClient | None = None
         self.minimax: MiniMaxClient | None = None
+        self.gemini: GeminiClient | None = None
         self.http: HTTPStreamer | None = None
+        self._languages: list[str] = []
         self._voices_file: Path | None = None
         self._voices_max_age = SCHEMA_MAX_AGE
         if adapter.transport == "replicate":
@@ -427,6 +469,16 @@ class GenericTTS:
                 group_id=str(cfg.get("minimax.group_id")) if cfg.get("minimax.group_id") else None)
             self._voices_file = cache_dir / "minimax" / "voices.json"
             self._voices_max_age = max(0.0, float(cfg.get("minimax.voices.refresh_hours", 24))) * 3600
+        elif adapter.transport == "gemini":
+            self.api_key = cfg.api_key("gemini")
+            self.needs_key = True
+            self.key_hint = str(cfg.get("gemini.api_key_env") or "GEMINI_API_KEY")
+            self.gemini = gemini or GeminiClient(
+                adapter.base_url or str(cfg.get("gemini.base_url", "https://generativelanguage.googleapis.com")),
+                self.api_key, timeout=float(adapter.timeout or cfg.get("gemini.timeout", 30)))
+            self._voices_file = cache_dir / "gemini" / "voices.json"
+            self._voices_max_age = max(0.0, float(cfg.get("gemini.voices.refresh_hours", 24))) * 3600
+            self._languages = [str(x).lower() for x in (cfg.get("gemini.voices.languages", ["en"]) or [])]
         else:
             env_key = os.environ.get(adapter.api_key_env) if adapter.api_key_env else None
             self.api_key = adapter.api_key or env_key
@@ -464,12 +516,20 @@ class GenericTTS:
 
     @property
     def _has_remote(self) -> bool:
-        return self.client is not None or (self.minimax is not None and self.adapter.uses_account)
+        live = self.minimax is not None or self.gemini is not None
+        return self.client is not None or (live and self.adapter.uses_account)
 
     def _rebuild_catalog(self) -> None:
         curated = list(self.adapter.voices)
-        known = {v.id for v in curated}              # curated labels win over fetched ones
-        voices = curated + [v for v in self._remote_voices if v.id not in known]
+        remote = list(self._remote_voices)
+        if self.adapter.remote_labels:
+            # The service's own labels (Gemini: gender, pitch) beat our fallback set.
+            seen = {_norm_id(v.id) for v in remote}
+            voices = remote + [v for v in curated if _norm_id(v.id) not in seen]
+        else:
+            # Curated labels win (MiniMax: the ids and names mislead).
+            seen = {_norm_id(v.id) for v in curated}
+            voices = curated + [v for v in remote if _norm_id(v.id) not in seen]
         if self.bank is not None:
             voices += self.bank.voices()
         self.catalog.replace([v for v in voices if v.id not in self._dead_voices])
@@ -498,6 +558,17 @@ class GenericTTS:
         self._remote_voices = voices
         self._rebuild_catalog()
 
+    def _apply_gemini(self, items: list[dict[str, Any]]) -> None:
+        self._remote_voices = [v for v in (gemini_voice(i, self._languages) for i in items if isinstance(i, dict))
+                               if v]
+        self._rebuild_catalog()
+
+    def _apply_live(self, data: Any) -> None:
+        if self.gemini is not None:
+            self._apply_gemini(data if isinstance(data, list) else [])
+        else:
+            self._apply_account(data if isinstance(data, dict) else {})
+
     def _load_cached_remote(self) -> None:
         """Use what an earlier run fetched (no network at startup)."""
         try:
@@ -509,7 +580,7 @@ class GenericTTS:
                     self._remote_state = "loaded"
             elif self._has_remote and self._voices_file and self._voices_file.exists():
                 saved = json.loads(self._voices_file.read_text(encoding="utf-8"))
-                self._apply_account(saved.get("voices") or {})
+                self._apply_live(saved.get("voices"))
                 fresh = time.time() - float(saved.get("fetched_at", 0)) < self._voices_max_age
                 self._remote_state = "loaded" if fresh else "none"    # stale: used, and refreshed later
         except (OSError, ValueError, TypeError):
@@ -522,8 +593,9 @@ class GenericTTS:
                 with self._remote_lock:
                     self._apply_schema(data)
             else:
-                assert self.minimax is not None
-                data = self.minimax.fetch_voices()
+                live = self.gemini or self.minimax
+                assert live is not None
+                data = live.fetch_voices()
                 if self._voices_file is not None:
                     try:
                         self._voices_file.parent.mkdir(parents=True, exist_ok=True)
@@ -533,7 +605,7 @@ class GenericTTS:
                     except OSError:
                         pass
                 with self._remote_lock:
-                    self._apply_account(data)
+                    self._apply_live(data)
             with self._remote_lock:
                 self._remote_state = "loaded"
         except Exception as exc:  # noqa: BLE001 - reported, casting still works without it
@@ -607,7 +679,7 @@ class GenericTTS:
 
     def status_text(self) -> str:
         where = ("Replicate" if self.client is not None else "the MiniMax API" if self.minimax is not None
-                 else self.adapter.base_url)
+                 else "the Gemini API" if self.gemini is not None else self.adapter.base_url)
         bank = f" + {len(self.bank.clips)} bank clips" if self.bank is not None else ""
         return f"{self.name} ({self.label} on {where}), {len(self.catalog.voices)} voices{bank}"
 
@@ -632,8 +704,8 @@ class GenericTTS:
         }
 
     def _template(self, clip: Any) -> dict[str, Any]:
-        if self.adapter.transport == "minimax":
-            return self.adapter.input                    # voice_setting, language_boost, ...
+        if self.adapter.transport in ("minimax", "gemini"):
+            return self.adapter.input                    # minimax: voice_setting...; gemini: style
         if self.adapter.transport == "replicate":
             return overlay(self.adapter.input, self.adapter.input_clone) if clip is not None else self.adapter.input
         base = {"model": self.adapter.model, "input": "{text}", "voice": "{voice}",
@@ -653,19 +725,33 @@ class GenericTTS:
         values = self._values(profile, ident, voice, clip)
         ranges = {**self._schema_ranges, **self.adapter.ranges}
         template = self._template(clip)
-        payload = self._fixed(render(template, values, ranges))
-        tag_values = dict(values, reference_audio=clip.tag if clip is not None else None)
-        cache_tag = json.dumps(self._fixed(render(template, tag_values, ranges)), sort_keys=True,
-                               separators=(",", ":"))
         voice_id = voice.id if voice is not None else ""
+        payload = self._fixed(render(template, values, ranges), voice_id)
+        tag_values = dict(values, reference_audio=clip.tag if clip is not None else None)
+        cache_tag = json.dumps(self._fixed(render(template, tag_values, ranges), voice_id), sort_keys=True,
+                               separators=(",", ":"))
         return VoiceRequest(voice=voice_id, options={"payload": payload}, cache_tag=cache_tag,
                             label=self.display(voice_id or None))
 
     # -- synthesis --------------------------------------------------------
 
-    def _fixed(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """MiniMax: the fields that keep the request streaming raw PCM. They
-        override the adapter's template so a config edit can't break them."""
+    def _fixed(self, payload: dict[str, Any], voice_id: str = "") -> dict[str, Any]:
+        """Streaming transports: the fields that keep the request streaming
+        raw PCM. They override the adapter's template so a config edit can't
+        break them."""
+        if self.gemini is not None:
+            content: dict[str, Any] = {"type": "text", "text": TEXT_SENTINEL}
+            style = payload.get("style")
+            if isinstance(style, str) and style.strip():
+                content["annotations"] = [{"type": "speech_metadata", "style": style.strip()}]
+            gen = dict(payload["generation_config"]) if isinstance(payload.get("generation_config"), dict) else {}
+            gen.pop("speech_config", None)
+            if voice_id:
+                gen["speech_config"] = [{"voice": voice_id}]
+            return {"model": self.adapter.model, "stream": True,
+                    "input": [{"type": "user_input", "content": [content]}],
+                    "response_format": {"type": "audio", "mime_type": "audio/l16", "sample_rate": self.sample_rate},
+                    "generation_config": gen}
         if self.minimax is None:
             return payload
         return {**payload, "model": self.adapter.model, "text": TEXT_SENTINEL, "stream": True,
@@ -684,6 +770,26 @@ class GenericTTS:
             self.usage.add(**counts)
         except Exception:  # noqa: BLE001 - usage is best effort
             pass
+
+    def _record_gemini(self, text: str, usage: dict[str, Any]) -> None:
+        if self.usage is None:
+            return
+        out_t = usage.get("total_output_tokens")
+        in_t = usage.get("total_input_tokens")
+        counts: dict[str, float] = {}
+        if isinstance(out_t, (int, float)):
+            counts[f"p:{self.name}:output_tokens"] = out_t
+        if isinstance(in_t, (int, float)):
+            counts[f"p:{self.name}:input_tokens"] = in_t
+        price = self.adapter.price
+        cost = (price.get("per_1m_output_tokens", 0) * (out_t or 0) + price.get("per_1m_input_tokens", 0) * (in_t or 0)) / 1e6
+        if cost:
+            counts[f"p:{self.name}:cost"] = cost
+        if counts:
+            try:
+                self.usage.add(**counts)
+            except Exception:  # noqa: BLE001 - usage is best effort
+                pass
 
     def _record(self, text: str, metrics: dict[str, Any]) -> None:
         if self.usage is None:
@@ -719,6 +825,9 @@ class GenericTTS:
         if self.minimax is not None:
             yield from self._stream_minimax(text, payload, request.voice)
             return
+        if self.gemini is not None:
+            yield from self._stream_gemini(text, payload, request.voice)
+            return
         if self.client is None:
             yield from self._stream_compatible(text, payload)
             return
@@ -753,38 +862,71 @@ class GenericTTS:
                 f.cancel()
             pool.shutdown(wait=False, cancel_futures=True)
 
+    def _stream_live(self, make_chunks: Callable[[], Iterator[tuple[bytes, int, str]]],
+                     voice_id: str) -> Iterator[bytes]:
+        """Play a streaming transport's (audio, sample rate, kind) chunks as
+        PCM at this provider's rate. One retry on a rate limit, but only
+        before any audio: a retry after audio has played would repeat the
+        start of the line. A voice the service doesn't know is dropped, so
+        the next line re-casts."""
+        retried = False
+        while True:
+            yielded = False
+            dec: PCMDecoder | None = None
+            try:
+                for audio, rate, kind in make_chunks():
+                    if dec is None:
+                        dec = PCMDecoder(self.sample_rate, kind=kind, declared_rate=rate or self.sample_rate)
+                    out = dec.feed(audio)
+                    if out:
+                        yielded = True
+                        yield out
+                if dec is not None:
+                    tail = dec.finish()
+                    if tail:
+                        yield tail
+                return
+            except DecodeError as exc:
+                raise TTSError(f"{self.label}: {exc}", code="format") from exc
+            except TTSError as exc:
+                if exc.code == "rate" and not yielded and not retried:
+                    retried = True
+                    time.sleep(LIVE_RETRY_DELAY)
+                    continue
+                if exc.code == "voice" and voice_id:
+                    self._drop_voice(voice_id)
+                raise
+
     def _stream_minimax(self, text: str, payload: dict[str, Any], voice_id: str) -> Iterator[bytes]:
         if not self.api_key:
             raise TTSError(f"no MiniMax API key (set {self.key_hint})", code="auth")
         assert self.minimax is not None
+        client, rate = self.minimax, self.sample_rate
         # The API takes up to 10,000 characters per request; it streams, so
         # there is nothing to gain from splitting shorter lines.
         parts = [text] if len(text) <= MINIMAX_MAX_CHARS else split_text(text, MINIMAX_MAX_CHARS, "none")
         for part in parts:
             body = fill_text(payload, part)
-            dec = PCMDecoder(self.sample_rate, kind="pcm", declared_rate=self.sample_rate)
-            retried = False
-            while True:
-                yielded = False
-                try:
-                    for audio in self.minimax.stream(body, on_info=lambda info, t=part: self._record_minimax(t, info)):
-                        out = dec.feed(audio)
-                        if out:
-                            yielded = True
-                            yield out
-                    break
-                except TTSError as exc:
-                    # A retry after audio has played would repeat the start of the line.
-                    if exc.code == "rate" and not yielded and not retried:
-                        retried = True
-                        time.sleep(MINIMAX_RETRY_DELAY)
-                        continue
-                    if exc.code == "voice" and voice_id:
-                        self._drop_voice(voice_id)       # the next line re-casts
-                    raise
-            tail = dec.finish()
-            if tail:
-                yield tail
+
+            def chunks(body: dict[str, Any] = body, part: str = part) -> Iterator[tuple[bytes, int, str]]:
+                for audio in client.stream(body, on_info=lambda info: self._record_minimax(part, info)):
+                    yield audio, rate, "pcm"
+
+            yield from self._stream_live(chunks, voice_id)
+
+    def _stream_gemini(self, text: str, payload: dict[str, Any], voice_id: str) -> Iterator[bytes]:
+        if not self.api_key:
+            raise TTSError(f"no Gemini API key (set {self.key_hint})", code="auth")
+        assert self.gemini is not None
+        client, rate = self.gemini, self.sample_rate
+        parts = [text] if len(text) <= GEMINI_MAX_CHARS else split_text(text, GEMINI_MAX_CHARS, "none")
+        for part in parts:
+            body = fill_text(payload, part)
+
+            def chunks(body: dict[str, Any] = body, part: str = part) -> Iterator[tuple[bytes, int, str]]:
+                yield from client.stream(body, rate, on_usage=lambda usage: self._record_gemini(part, usage))
+
+            yield from self._stream_live(chunks, voice_id)
 
     def _stream_compatible(self, text: str, payload: dict[str, Any]) -> Iterator[bytes]:
         assert self.http is not None
@@ -814,7 +956,9 @@ class GenericTTS:
     # -- connections ------------------------------------------------------
 
     def warm(self) -> None:
-        if self.minimax is not None:
+        if self.gemini is not None:
+            self.gemini.warm()
+        elif self.minimax is not None:
             self.minimax.warm()
         elif self.client is not None:
             if self.api_key:
@@ -823,6 +967,8 @@ class GenericTTS:
             self.http.warm()
 
     def close(self) -> None:
+        if self.gemini is not None:
+            self.gemini.close()
         if self.minimax is not None:
             self.minimax.close()
         if self.client is not None:

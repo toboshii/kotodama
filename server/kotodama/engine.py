@@ -713,11 +713,14 @@ def provider_catalog(cfg: Config, adapters: dict[str, Adapter]) -> dict[str, tup
     }
     replicate_key = bool(cfg.api_key("replicate"))
     minimax_key = bool(cfg.api_key("minimax"))
+    gemini_key = bool(cfg.api_key("gemini"))
     for name, ad in adapters.items():
         if ad.transport == "replicate":
             info[name] = (f"{ad.label} on Replicate", replicate_key)
         elif ad.transport == "minimax":
             info[name] = (f"{ad.label} (MiniMax API, streaming)", minimax_key)
+        elif ad.transport == "gemini":
+            info[name] = (f"{ad.label} (Google API, streaming)", gemini_key)
         else:
             info[name] = (f"{ad.label} at {ad.base_url}", True)
     return info

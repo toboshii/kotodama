@@ -65,6 +65,16 @@ DEFAULTS: dict[str, Any] = {
         "timeout": 30,
         "voices": {"refresh_hours": 24},
     },
+    "gemini": {
+        # Google's Interactions API, used by the gemini / gemini-lite providers.
+        "api_key": None,
+        "api_key_env": "GEMINI_API_KEY",
+        "base_url": "https://generativelanguage.googleapis.com",
+        "timeout": 30,
+        # Voices from Google's library in these languages (prefix match on
+        # language_code) are cast from, plus all of your own custom voices.
+        "voices": {"refresh_hours": 24, "languages": ["en"]},
+    },
     # Model adapters: add new ones or override fields of the presets in
     # server/tts_models.json, by name. See README: Replicate and other backends.
     "models": {},

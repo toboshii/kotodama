@@ -93,6 +93,8 @@ class Usage:
             text += f", {name} {int(a.get('chars', 0))} chars"
             if a.get("billed_chars"):
                 text += f" ({int(a['billed_chars'])} billed)"
+            if a.get("output_tokens"):
+                text += f" ({int(a['output_tokens'])} audio tokens)"
             if a.get("predict_s"):
                 text += f" / {a['predict_s']:.0f} s compute"
             if a.get("cost"):

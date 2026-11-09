@@ -214,7 +214,7 @@ class MiniMaxProviderTests(MiniMaxCase):
 
     def test_rate_limit_is_retried_only_before_audio(self):
         _MM.errors = [1002]
-        with mock.patch.object(tts_generic, "MINIMAX_RETRY_DELAY", 0.01):
+        with mock.patch.object(tts_generic, "LIVE_RETRY_DELAY", 0.01):
             self.assertEqual(self.synth(self.provider()), EXPECTED)
             self.assertEqual(len(self.tts_posts()), 2)
             _MM.log.clear()

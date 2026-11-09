@@ -15,9 +15,9 @@ Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, a model o
 
 ## Setup
 
-You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Replicate, or any mix (see **Voice providers**, **MiniMax** and **Replicate and other backends**).
+You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Gemini, Replicate, or any mix (see **Voice providers**, **MiniMax**, **Gemini** and **Replicate and other backends**).
 
-1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
+1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
    - A variable already set in your shell takes precedence over the file.
    - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
    - To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
@@ -57,7 +57,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
-| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
+| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
 | `providers` | List every provider the sidecar knows and whether its key is set |
 | `voices` / `voices sync` | How many voices the active provider can cast from / refresh that list (ElevenLabs account, model voice list, voice bank) |
 | `deny <name\|t\|last>` / `allow <...>` / `deny list` | Silence specific NPCs. `t` is your target, `last` is whoever spoke last. Names accept `*` wildcards, e.g. `deny Moogle*` |
@@ -113,6 +113,26 @@ python3 server/kotodama_server.py voices cast --provider minimax
 - **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
 - **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account still needs one.
 - The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`). Those were called `minimax` and `minimax-hd` before; lines already cached under the old names still play from the cache.
+
+## Gemini
+
+`gemini` and `gemini-lite` speak through Google's Gemini 3.8 Flash TTS models, which **stream** like MiniMax. Two things set them apart:
+
+- **Delivery comes from the NPC's character.** Each line is sent with a short direction built from the NPC's tone, personality and pace, such as "Tone: deep, gravelly and rumbling. Character: stoic. Pace: slow." Age, gender and accent come from the voice, as Google recommends.
+- **A large voice library.** Kotodama casts from Google's whole English voice library, not only the 30 classic voices (Kore, Puck, Charon...). Google labels each voice with gender, pitch and accent, so casting has a lot to work with. Voices you design or clone in Google AI Studio are included automatically.
+
+Get a key at aistudio.google.com, put `GEMINI_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider gemini`. To check first:
+
+```
+python3 server/kotodama_server.py doctor             # key, how many voices you can cast from
+python3 server/kotodama_server.py doctor --live      # time to first audio (one short line)
+python3 server/kotodama_server.py voices cast --provider gemini
+```
+
+- `gemini-lite` uses Flash-Lite: cheaper, slightly less expressive.
+- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
+- Google bills by audio tokens; `//koto status` shows them per day. Add `"models": {"gemini": {"price": {"per_1m_output_tokens": 0.0}}}` with Google's current price for a dollar estimate.
+- Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
 
 ## Replicate and other backends
 

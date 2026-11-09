@@ -20,8 +20,9 @@ from __future__ import annotations
 import json
 import logging
 import urllib.parse
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any, Callable, Iterator
 
+from .sse import iter_events  # noqa: F401 - re-exported for callers and tests
 from .tts_base import HTTPStreamer, TTSError
 
 log = logging.getLogger("kotodama.minimax")
@@ -71,53 +72,6 @@ def _http_error(status: int, body: bytes) -> TTSError:
     if status == 429:
         return TTSError("MiniMax is rate limiting", status, "rate")
     return TTSError(f"MiniMax HTTP {status}: {body[:200].decode(errors='replace')}", status, None)
-
-
-def iter_events(chunks: Iterable[bytes]) -> Iterator[dict[str, Any]]:
-    """JSON events from an SSE stream ("data: {...}" lines), from bare JSON
-    lines, or from a single (possibly pretty-printed) JSON body."""
-    buf = b""
-    pending = ""                      # bare JSON spread over several lines
-
-    def handle(line: bytes) -> dict[str, Any] | None:
-        nonlocal pending
-        text = line.decode("utf-8", "replace").strip()
-        if not pending:
-            if not text or text.startswith((":", "event:", "id:", "retry:")):
-                return None
-            if text.startswith("data:"):
-                text = text[5:].strip()
-                if not text or text == "[DONE]":
-                    return None
-                return json.loads(text)
-        candidate = f"{pending}\n{text}" if pending else text
-        try:
-            obj = json.loads(candidate)
-        except ValueError:
-            pending = candidate
-            return None
-        pending = ""
-        return obj if isinstance(obj, dict) else None
-
-    def lines() -> Iterator[bytes]:
-        nonlocal buf
-        for chunk in chunks:
-            buf += chunk
-            while b"\n" in buf:
-                line, buf = buf.split(b"\n", 1)
-                yield line
-        if buf:
-            yield buf                 # a last line without a newline
-
-    for line in lines():
-        try:
-            event = handle(line)
-        except ValueError as exc:
-            raise TTSError(f"MiniMax sent an unreadable event: {exc}", code="network") from exc
-        if event is not None:
-            yield event
-    if pending.strip():
-        raise TTSError("MiniMax response ended mid-event", code="network")
 
 
 class MiniMaxClient:

@@ -1,5 +1,5 @@
 {
-  "_comment": "Kotodama model adapters. Each entry under 'models' becomes a voice provider (//koto provider <name>). Override or add entries in server/config.json under 'models' (same shape; fields merge by name). See README: Replicate and other backends. minimax / minimax-hd use MiniMax's own streaming API (MINIMAX_API_KEY); minimax-replicate / minimax-replicate-hd run the same models through Replicate.",
+  "_comment": "Kotodama model adapters. Each entry under 'models' becomes a voice provider (//koto provider <name>). Override or add entries in server/config.json under 'models' (same shape; fields merge by name). See README: Replicate and other backends. minimax / minimax-hd use MiniMax's own streaming API (MINIMAX_API_KEY); minimax-replicate / minimax-replicate-hd run the same models through Replicate. gemini / gemini-lite use Google's streaming API (GEMINI_API_KEY).",
 
   "models": {
     "minimax": {
@@ -168,6 +168,38 @@
         "@minimax_legacy"
       ],
       "cache_name": "minimax-hd"
+    },
+
+    "gemini": {
+      "transport": "gemini",
+      "model": "gemini-3.8-flash-tts",
+      "label": "Gemini 3.8 Flash TTS",
+      "sample_rate": 24000,
+      "input": {
+        "style": "{style}"
+      },
+      "voices": [
+        "@gemini_prebuilt",
+        "account"
+      ],
+      "remote_labels": true,
+      "default_voice": "Kore"
+    },
+
+    "gemini-lite": {
+      "transport": "gemini",
+      "model": "gemini-3.8-flash-lite-tts",
+      "label": "Gemini 3.8 Flash-Lite TTS",
+      "sample_rate": 24000,
+      "input": {
+        "style": "{style}"
+      },
+      "voices": [
+        "@gemini_prebuilt",
+        "account"
+      ],
+      "remote_labels": true,
+      "default_voice": "Kore"
     },
 
     "chatterbox-turbo": {
@@ -413,6 +445,38 @@
       {"id": "bm_fable", "labels": {"use_case": "narration", "descriptive": "storyteller"}},
       {"id": "bm_george", "labels": {"age": "middle_aged", "descriptive": "deep refined mature"}},
       {"id": "bm_lewis", "labels": {"descriptive": "deep"}}
+    ],
+    "gemini_prebuilt": [
+      {"id": "Zephyr", "name": "Zephyr", "labels": {"gender": "female", "descriptive": "bright"}},
+      {"id": "Puck", "name": "Puck", "labels": {"gender": "male", "descriptive": "upbeat"}},
+      {"id": "Charon", "name": "Charon", "labels": {"gender": "male", "descriptive": "informative"}},
+      {"id": "Kore", "name": "Kore", "labels": {"gender": "female", "descriptive": "firm"}},
+      {"id": "Fenrir", "name": "Fenrir", "labels": {"gender": "male", "descriptive": "excitable"}},
+      {"id": "Leda", "name": "Leda", "labels": {"gender": "female", "descriptive": "youthful", "age": "young"}},
+      {"id": "Orus", "name": "Orus", "labels": {"gender": "male", "descriptive": "firm"}},
+      {"id": "Aoede", "name": "Aoede", "labels": {"gender": "female", "descriptive": "breezy"}},
+      {"id": "Callirrhoe", "name": "Callirrhoe", "labels": {"gender": "female", "descriptive": "easy-going"}},
+      {"id": "Autonoe", "name": "Autonoe", "labels": {"gender": "female", "descriptive": "bright"}},
+      {"id": "Enceladus", "name": "Enceladus", "labels": {"gender": "male", "descriptive": "breathy"}},
+      {"id": "Iapetus", "name": "Iapetus", "labels": {"gender": "male", "descriptive": "clear"}},
+      {"id": "Umbriel", "name": "Umbriel", "labels": {"gender": "male", "descriptive": "easy-going"}},
+      {"id": "Algieba", "name": "Algieba", "labels": {"gender": "male", "descriptive": "smooth"}},
+      {"id": "Despina", "name": "Despina", "labels": {"gender": "female", "descriptive": "smooth"}},
+      {"id": "Erinome", "name": "Erinome", "labels": {"gender": "female", "descriptive": "clear"}},
+      {"id": "Algenib", "name": "Algenib", "labels": {"gender": "male", "descriptive": "gravelly"}},
+      {"id": "Rasalgethi", "name": "Rasalgethi", "labels": {"gender": "male", "descriptive": "informative"}},
+      {"id": "Laomedeia", "name": "Laomedeia", "labels": {"gender": "female", "descriptive": "upbeat"}},
+      {"id": "Achernar", "name": "Achernar", "labels": {"gender": "female", "descriptive": "soft"}},
+      {"id": "Alnilam", "name": "Alnilam", "labels": {"gender": "male", "descriptive": "firm"}},
+      {"id": "Schedar", "name": "Schedar", "labels": {"gender": "male", "descriptive": "even"}},
+      {"id": "Gacrux", "name": "Gacrux", "labels": {"gender": "female", "descriptive": "mature", "age": "middle_aged"}},
+      {"id": "Pulcherrima", "name": "Pulcherrima", "labels": {"gender": "female", "descriptive": "forward"}},
+      {"id": "Achird", "name": "Achird", "labels": {"gender": "male", "descriptive": "friendly"}},
+      {"id": "Zubenelgenubi", "name": "Zubenelgenubi", "labels": {"gender": "male", "descriptive": "casual"}},
+      {"id": "Vindemiatrix", "name": "Vindemiatrix", "labels": {"gender": "female", "descriptive": "gentle"}},
+      {"id": "Sadachbia", "name": "Sadachbia", "labels": {"gender": "male", "descriptive": "lively"}},
+      {"id": "Sadaltager", "name": "Sadaltager", "labels": {"gender": "male", "descriptive": "knowledgeable"}},
+      {"id": "Sulafat", "name": "Sulafat", "labels": {"gender": "female", "descriptive": "warm"}}
     ]
   }
 }

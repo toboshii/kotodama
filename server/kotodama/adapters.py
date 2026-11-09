@@ -41,7 +41,7 @@ log = logging.getLogger("kotodama.adapters")
 MODELS_FILE = SERVER_DIR / "tts_models.json"
 RESERVED = {"openai", "elevenlabs", "default"}
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
-TRANSPORTS = ("replicate", "openai_compatible", "minimax")
+TRANSPORTS = ("replicate", "openai_compatible", "minimax", "gemini")
 PLACEHOLDERS = {"text", "voice", "speed", "pitch", "emotion", "exaggeration", "cfg_weight", "style",
                 "voice_description", "seed", "reference_audio", "reference_text"}
 MARKERS = ("bank", "schema", "account")
@@ -82,6 +82,7 @@ class Adapter:
     response_format: str = "pcm"
     timeout: float | None = None
     cache_name: str | None = None        # cache keys under another name (a renamed adapter keeps its audio)
+    remote_labels: bool = False          # voices fetched from the service win over the curated set
 
     @property
     def uses_bank(self) -> bool:
@@ -186,8 +187,9 @@ def build_adapter(name: str, raw: dict[str, Any], voice_sets: dict[str, Any]) ->
             raise AdapterError(f"{name}: openai_compatible needs base_url")
         if not model:
             raise AdapterError(f"{name}: openai_compatible needs model")
-    if transport == "minimax" and not model:
-        raise AdapterError(f"{name}: minimax needs model (e.g. speech-2.8-turbo)")
+    if transport in ("minimax", "gemini") and not model:
+        example = "speech-2.8-turbo" if transport == "minimax" else "gemini-3.8-flash-tts"
+        raise AdapterError(f"{name}: {transport} needs model (e.g. {example})")
     # replicate: the model's whole input; minimax: request fields besides the
     # text and audio format (voice_setting, language_boost...); openai_compatible:
     # extra request fields.
@@ -228,6 +230,7 @@ def build_adapter(name: str, raw: dict[str, Any], voice_sets: dict[str, Any]) ->
         response_format=str(raw.get("response_format") or "pcm"),
         timeout=float(raw["timeout"]) if isinstance(raw.get("timeout"), (int, float)) else None,
         cache_name=str(raw["cache_name"]) if raw.get("cache_name") else None,
+        remote_labels=bool(raw.get("remote_labels", False)),
     )
 
 

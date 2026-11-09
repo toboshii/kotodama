@@ -31,7 +31,8 @@ from .profiles import ProfileResolver
 from .protocol import Speaker, parse_speak
 from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
-from .tts_generic import GenericTTS, ReplicateClient
+from .tts_gemini import TEMPLATE_FIELDS as GEMINI_TEMPLATE_FIELDS, GeminiClient
+from .tts_generic import GenericTTS, ReplicateClient, gemini_voice
 from .tts_minimax import MiniMaxClient, unknown_fields as minimax_unknown_fields
 from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 
@@ -487,6 +488,30 @@ def _doctor_models(cfg: Config, live: bool, check, active: str) -> None:
         if bad:
             msg = (f"{', '.join(bad)} aren't MiniMax API request fields (an override written for the Replicate "
                    f"version? those belong under models.minimax-replicate)")
+            if name == active:
+                check(name, False, msg)
+            else:
+                print(f"[warn] {name}: {msg}")
+    gemini = {n: a for n, a in adapters.items() if a.transport == "gemini"}
+    g_key = cfg.api_key("gemini")
+    if gemini and not g_key:
+        print(f"[info] Gemini: no key (GEMINI_API_KEY); {', '.join(gemini)} unavailable")
+    elif gemini:
+        first = next(iter(gemini.values()))
+        client = GeminiClient(first.base_url or str(cfg.get("gemini.base_url")), g_key)
+        try:
+            languages = [str(x).lower() for x in (cfg.get("gemini.voices.languages", ["en"]) or [])]
+            usable = [v for v in (gemini_voice(i, languages) for i in client.fetch_voices()) if v]
+            custom = sum(1 for v in usable if v.category == "custom")
+            check("Gemini key", True, f"{len(usable) - custom} voices in your languages, {custom} of your own")
+        except TTSError as exc:
+            check("Gemini key", False, str(exc))
+        finally:
+            client.close()
+    for name, ad in gemini.items():
+        bad = [k for k in ad.input if k not in GEMINI_TEMPLATE_FIELDS]
+        if bad:
+            msg = f"{', '.join(bad)} aren't used by the Gemini API transport (only style and generation_config are)"
             if name == active:
                 check(name, False, msg)
             else:
