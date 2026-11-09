@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "events": {
+    "50:39": {"menu": 39, "npc": "Fochacha", "reason": "confirmed cutscene from the first line", "source": "confirmed", "zone": 50},
+    "235:361": {"menu": 361, "npc": "Marin", "reason": "multi-speaker", "source": "observed", "zone": 235},
+    "235:434": {"menu": 434, "npc": "Shamarhaan", "reason": "speaker-differs", "source": "observed", "zone": 235}
+  }
+}

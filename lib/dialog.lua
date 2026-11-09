@@ -103,9 +103,19 @@ end
 
 -- Split "Name : text" into name, text. Names are short and contain no
 -- sentence punctuation; anything else is narration (name = nil).
+-- A few NPC names carry a title after a comma, always initials ("Rabid Wolf, I.M.",
+-- "Leonoyne, T.K."). Any other comma means the colon belongs to a sentence.
+local function plausible_name(name)
+    if #name > 31 or name:find('^%s') or name:find('[!?]') then return false end
+    if name:find(',', 1, true) then
+        return name:match('^[^,]+, %u%.[%u%.]*$') ~= nil
+    end
+    return true
+end
+
 function dialog.split_speaker(text)
     local name, rest = text:match('^([^:]+) : (.*)$')
-    if name and #name <= 31 and not name:find('[!?,]') and not name:find('^%s') then
+    if name and plausible_name(name) then
         return name, rest
     end
     return nil, text

@@ -10,5 +10,7 @@
 -- name-keyword matching and your per-NPC overrides, so this file may stay
 -- empty; it only saves you from writing overrides one NPC at a time.
 
+-- Seen in play: Moogle, Repairer Moogle and Porter Moogle all report model 82.
 return {
+    [82] = 'moogle',
 }

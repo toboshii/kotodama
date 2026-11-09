@@ -18,6 +18,7 @@ require('luau')
 local dialog   = require('lib/dialog')
 local bridge   = require('lib/bridge')
 local scene    = require('lib/scene')
+local cutscenes = require('lib/cutscenes')
 local speakers = require('lib/speakers')
 
 local ok_res, res = pcall(require, 'resources')
@@ -186,6 +187,40 @@ local function skip_reason(kind, name, info)
     return nil
 end
 
+-- Packet census (debug) -------------------------------------------------------
+-- When something can't be classified from the logged fields, the packets that
+-- flew by during the scene are the next place to look for a signal.
+
+local census = { ['in'] = {}, out = {} }
+
+local function census_note(dir, id)
+    if settings.debug and not (dir == 'out' and id == 0x015) then   -- 0x015 is position spam
+        census[dir][id] = (census[dir][id] or 0) + 1
+    end
+end
+
+local function census_summary(counts)
+    local ids = {}
+    for id in pairs(counts) do ids[#ids + 1] = id end
+    table.sort(ids)
+    local parts = {}
+    for _, id in ipairs(ids) do parts[#parts + 1] = string.format('0x%03X x%d', id, counts[id]) end
+    return #parts > 0 and table.concat(parts, ' ') or '-'
+end
+
+local function census_flush(label)
+    if settings.debug then
+        debug_log('  packets during %s  in: %s | out: %s', label, census_summary(census['in']),
+            census_summary(census.out))
+    end
+    census = { ['in'] = {}, out = {} }
+end
+
+local function player_status()
+    local p = windower.ffxi.get_player()
+    return p and p.status or nil
+end
+
 -- Dialog pipeline ----------------------------------------------------------
 
 local function send_hint(name, info, reason)
@@ -226,11 +261,14 @@ local function process_line(raw, mode, forced_kind)
 
     local ev = scene.current()
     local info = speakers.resolve(name, ev)
-    local kind, promoted = scene.classify(mode, name, info, timed)
+    local kind, reason = scene.classify(mode, name, info, timed)
     if forced_kind then kind = forced_kind end
 
-    if promoted then
-        debug_log('scene promoted to cutscene: %s', promoted)
+    if reason then
+        debug_log('scene: %s -> %s', reason, kind)
+        if reason == 'untracked-event' then
+            census_flush('untracked scene')
+        end
     end
     debug_log('line mode=%d kind=%s timed=%s speaker=%s race=%s model=%s text=[%s] raw=[%s]',
         mode, kind, tostring(timed), tostring(name), tostring(info.race), tostring(info.model),
@@ -284,36 +322,48 @@ local function stop_audio(reason)
 end
 
 windower.register_event('incoming chunk', function(id, original)
+    census_note('in', id)
     if id == 0x032 or id == 0x033 or id == 0x034 then
         local npc_id = scene.u32(original, 4)
         local menu_off = (id == 0x034) and 0x2C or 0x0C
         local menu = scene.u16(original, menu_off)
-        local ev = scene.begin(npc_id, id, menu)
-        debug_log('event begin packet=0x%03X npc=%s name=%s menu=%s initiated=%s',
-            id, tostring(npc_id), tostring(ev.npc_name), tostring(menu), tostring(ev.initiated))
-        if ev.npc_name then
-            local info = speakers.resolve(ev.npc_name, ev)
-            send_hint(ev.npc_name, info, 'event')
+        local zid = zone_info()
+        local ev, duplicate = scene.begin(npc_id, id, menu, zid)
+        if duplicate then
+            debug_log('event begin (repeat) packet=0x%03X npc=%s menu=%s', id, tostring(npc_id), tostring(menu))
+        else
+            debug_log('event begin packet=0x%03X npc=%s name=%s zone=%s menu=%s initiated=%s known=%s player_status=%s',
+                id, tostring(npc_id), tostring(ev.npc_name), tostring(zid), tostring(menu),
+                tostring(ev.initiated), tostring(ev.reason == 'known-event'), tostring(player_status()))
+            debug_log('  begin packet bytes: %s', hex(original:sub(1, 80)))
+            if ev.npc_name then
+                local info = speakers.resolve(ev.npc_name, ev)
+                send_hint(ev.npc_name, info, 'event')
+            end
         end
     elseif id == 0x052 then
+        census_flush('event')
         local old = scene.finish()
         debug_log('event release (0x052) type=%s lines=%s cutscene=%s reason=%s',
             tostring(original:byte(5)), old and tostring(old.lines) or '-',
             old and tostring(old.cutscene) or '-', old and tostring(old.reason) or '-')
         stop_audio('release')
     elseif id == 0x00B then
-        scene.finish()
+        scene.reset()
         speakers.clear()
         state.hinted = {}
+        census = { ['in'] = {}, out = {} }
         debug_log('zone out (0x00B)')
         stop_audio('zone')
-    elseif id == 0x036 and settings.debug then
-        debug_log('npc chat 0x036 actor=%s msg=%s', tostring(scene.u32(original, 4)),
-            tostring(scene.u16(original, 0x0A)))
+    elseif id == 0x036 then
+        local actor = scene.u32(original, 4)
+        scene.on_npc_chat(actor)
+        debug_log('npc chat 0x036 actor=%s msg=%s', tostring(actor), tostring(scene.u16(original, 0x0A)))
     end
 end)
 
 windower.register_event('outgoing chunk', function(id, original)
+    census_note('out', id)
     if id == 0x01A or id == 0x036 then
         scene.on_outgoing(id, original)
         if settings.debug then
@@ -329,7 +379,7 @@ windower.register_event('outgoing chunk', function(id, original)
 end)
 
 windower.register_event('zone change', function()
-    scene.finish()
+    scene.reset()
     speakers.clear()
     state.hinted = {}
     send_hello()
@@ -368,6 +418,7 @@ end)
 
 local function initialize()
     load_settings()
+    cutscenes.load()
     state.loaded_at = os.clock()
     state.warned_down = false
     open_link()
@@ -408,6 +459,7 @@ local function show_help()
         '  voice <name|t|last> key=value ...   set overrides: gender age species personality',
         '        tone accent pitch pace voice direction  (use _ for spaces, e.g. tone=dry_wit)',
         '  voice <name|t|last> reset | reinfer | promote',
+        '  cutscene | cutscene forget    mark the current/last NPC event as a cutscene (remembered), or undo that',
         '  status | inspect [t] | debug on|off',
         '  test [event|cutscene|ambient|battle] <Name> : <text>',
     }
@@ -462,6 +514,7 @@ local function print_status()
     else
         say('event: none')
     end
+    say(string.format('%d cutscene events known (library/cutscenes.json)', cutscenes.count()))
     bridge.send({ t = 'cmd', name = 'status' })
 end
 
@@ -586,6 +639,21 @@ windower.register_event('addon command', function(command, ...)
             end
         end
 
+    elseif cmd == 'cutscene' then
+        if args[2] == 'forget' then
+            local target, removed = scene.forget_cutscene()
+            say(target and (removed and ('forgot ' .. tostring(target.npc_name) .. ' (menu ' .. tostring(target.menu) .. ')')
+                or 'that event was not in the cutscene list') or 'no event to forget')
+        else
+            local target, result = scene.mark_cutscene()
+            if target then
+                say(string.format('%s (menu %s) is a cutscene: %s', tostring(target.npc_name),
+                    tostring(target.menu), result))
+            else
+                say(result)
+            end
+        end
+
     elseif cmd == 'status' then
         print_status()
 
@@ -617,7 +685,7 @@ windower.register_event('addon command', function(command, ...)
             local raw = text
             pcall(function() raw = windower.to_shift_jis(text) end)
             state.last_line = nil
-            process_line(raw, forced == 'battle' and 142 or 150, forced)
+            process_line(raw, forced == 'battle' and 142 or 150, forced or 'ambient')
         end
 
     else

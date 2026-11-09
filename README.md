@@ -55,6 +55,7 @@ You need Python 3.10+ and an audio player (`pw-play`, `paplay`, or `ffplay`), an
 | `voice <name\|t\|last>` | Show the voice an NPC will get and why |
 | `voice <name> key=value ...` | Override it. Keys: `gender` `age` `species` `personality` `tone` `accent` `pitch` `pace` `voice` `direction`. Use `_` for spaces: `//koto voice t age=elderly tone=gruff_and_weary` |
 | `voice <name> reset` / `reinfer` / `promote` | Clear your overrides / ask the casting model again / save the effective profile to the shared library |
+| `cutscene` / `cutscene forget` | Mark the NPC event you're in (or just finished) as a cutscene, remembered for next time, or undo that |
 | `status` | Link, mode, event state, cache and estimated cost |
 | `test [event\|cutscene\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
 | `debug on/off`, `inspect [t]` | Write `data/debug.log`; dump the target's fields to `data/inspect.log` |
@@ -110,18 +111,30 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted). Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts and a rough estimate at list prices; check your provider's pricing for the real figure. `python3 server/kotodama_server.py cache stats` works without the game.
 
+## How cutscenes are detected
+
+FFXI doesn't flag cutscenes, so `lib/scene.lua` infers them from packet flow and from the dialog itself. Inside an NPC event, it's a cutscene if you didn't start it, a second speaker joins, the speaker isn't the NPC you talked to, your own character speaks, or lines auto-advance. Outside an event:
+
+- A line right after an NPC-chat packet (`0x036`) is a one-liner such as a shop greeting, and stays **ambient** even though it auto-advances.
+- A line that straggles in just after an event was released stays with that event.
+- Any other speech is a scene the server drove without an event packet, such as a zone-in cutscene, and counts as a **cutscene**.
+
+**The known gap:** a cutscene that opens with several lines from the NPC you talked to looks exactly like ordinary dialog until someone else speaks (the opening of the Fochacha scene is one). To close it, the first time an event is recognised as a cutscene by a solid signal, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. The file ships with a few confirmed entries, is plain sorted JSON you can share, and `//koto cutscene` adds an event by hand when you spot one the heuristics missed. In `mode cutscenes`, the first viewing of an unseen scene of that shape can therefore lose its opening lines.
+
+With `//koto debug on`, `data/debug.log` records every decision with its reason, the raw bytes of each event-start packet, the player's status, and a count of the packets that flew by during each event or untracked scene. If you find a scene that's misclassified, that log is what to look at, and the packet counts are the place to look for a real start-of-cutscene signal.
+
 ## Limitations and what to check on first run
 
-Cutscene detection is inferred from packet flow (see `lib/scene.lua`); FFXI has no "cutscene" flag. An event you didn't start (a trigger or zone-in scene), one with several speakers, a line spoken by your own character, or auto-advancing lines are treated as cutscenes. In `mode cutscenes`, the first line before one of those signals appears can be skipped. If something is misclassified, `//koto debug on` logs every line with its classification and the reason to `data/debug.log`.
+Cutscene detection is heuristic (see above). `python3 tests/lua/replay_log.py data/debug.log` replays a recorded log through the current rules and lists every line whose classification changed, which is the way to check a tweak against your real sessions.
 
 Things worth confirming with real play, because they depend on what the game actually sends:
 
-- `//koto inspect t` on a few NPCs: that `race` and `models` are populated, and that town NPCs report `spawn_type=2` (used for target prefetch). Map non-player creature model ids in `data/creature_models.lua` if you want automatic creature voices; otherwise use name keywords and overrides.
+- `//koto inspect t` on a few NPCs: that `race` and `models` are populated. Town NPCs report `spawn_type=2` (used for target prefetch). Non-player creatures carry a model id instead of a race; map them in `data/creature_models.lua` (Moogles are model 82) or use name keywords and overrides.
 - That controller button presses cut the current line (the addon uses the event-response packet for this, so it should work without keyboard focus).
 - That ducking finds the game: `python3 server/kotodama_server.py audio list` should show your game's stream marked `DUCK`.
 - That the UDP link comes up (`//koto status` should say `link UP`). The game needs network access to play at all, so a Flatpak that shares the host network should reach the sidecar's loopback socket; this hasn't been verified on a Steam Deck yet, so if the link stays down, check the game's network permission first.
 
-The sidecar's own tests: `cd server && python3 -m unittest discover -s tests`.
+Tests: `cd server && python3 -m unittest discover -s tests` for the sidecar. The Lua side runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package: `python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua`.
 
 ## Credits
 
