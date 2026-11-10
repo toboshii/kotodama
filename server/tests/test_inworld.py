@@ -322,11 +322,69 @@ class EngineTests(InworldCase):
         results: list = []
         cfg = self.cfg(models={"inworld": {"extra": {"temperature": 0.7}}})
         with contextlib.redirect_stdout(io.StringIO()):
-            cli._doctor_models(cfg, False, lambda *r: results.append(r), "inworld")
+            cli._doctor_models(cfg, lambda *r: results.append(r), "inworld")
         self.assertIn(("Inworld key", True, "4 voices in your languages, 1 of your own"), results)
         bad = [r for r in results if r[0] == "inworld"]
         self.assertTrue(bad and not bad[0][1] and "temperature" in bad[0][2], results)
         self.assertTrue(all(KEY.rstrip("=") not in g["path"] for g in self.gets()))
+
+
+class LiveDoctorTests(InworldCase):
+    NO_KEY = {"api_key": None, "api_key_env": "KOTODAMA_TEST_NO_KEY"}
+
+    def only_inworld_cfg(self) -> Config:
+        """Every other provider's key points at a variable that doesn't exist,
+        so the test can never reach a real service."""
+        cfg = self.cfg()
+        for section in ("tts", "elevenlabs", "minimax", "gemini", "replicate"):
+            cfg.data.setdefault(section, {}).update(self.NO_KEY)
+        return cfg
+
+    def live(self, cfg: Config, only: str | None = None) -> tuple[list, str]:
+        from kotodama import cli
+        results: list = []
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli._doctor_live(cfg, lambda *r: results.append(r), only)
+        return results, out.getvalue()
+
+    def test_every_provider_with_a_key_is_tried(self):
+        results, out = self.live(self.only_inworld_cfg())
+        self.assertEqual(sorted(r[0] for r in results), ["inworld synthesis", "inworld-flash synthesis"])
+        for label, good, detail in results:
+            self.assertTrue(good, detail)
+            self.assertRegex(detail, r"voice \w+: first audio \d+ ms, 0\.1 s of audio in \d+ ms")
+        self.assertEqual(sorted(p["body"]["model"] for p in self.posts()), ["inworld-tts-2", "inworld-tts-2-flash"])
+        self.assertIn("skips providers without a key: openai, elevenlabs", out)
+        self.assertIn("gemini", out.split("skips providers without a key:")[1].splitlines()[0])
+        self.assertIn("fastest first audio: ", out)
+
+    def test_one_provider_unknown_names_failures_and_missing_keys(self):
+        cfg = self.only_inworld_cfg()
+        results, out = self.live(cfg, "inworld-flash")
+        self.assertEqual([(r[0], r[1]) for r in results], [("inworld-flash synthesis", True)])
+        self.assertEqual([p["body"]["model"] for p in self.posts()], ["inworld-tts-2-flash"])
+        self.assertNotIn("fastest", out, "nothing to compare with one provider")
+        results, _ = self.live(cfg, "nonesuch")
+        self.assertEqual(results[0][:2], ("live test", False))
+        self.assertIn("inworld-flash", results[0][2])
+        _Inworld.http_errors = [(402, {"message": "No credits remain", "type": "insufficient_quota"})]
+        results, _ = self.live(cfg, "inworld")
+        self.assertEqual(results[0][:2], ("inworld synthesis", False))
+        self.assertIn("no credits", results[0][2])
+        results, _ = self.live(cfg, "gemini")
+        self.assertEqual(results, [("gemini synthesis", False, "no API key (KOTODAMA_TEST_NO_KEY)")])
+
+    def test_a_provider_that_never_finishes_is_reported_not_waited_for(self):
+        from kotodama import cli
+        _Inworld.gate = threading.Event()
+        self.addCleanup(_Inworld.gate.set)
+        started = time.monotonic()
+        with mock.patch.object(cli, "LIVE_WAIT", 0.4):
+            results, _ = self.live(self.only_inworld_cfg(), "inworld")
+        self.assertLess(time.monotonic() - started, 2.5)
+        self.assertEqual(results[0][:2], ("inworld synthesis", False))
+        self.assertIn("no audio after", results[0][2])
 
 
 if __name__ == "__main__":

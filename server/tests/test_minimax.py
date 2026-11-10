@@ -328,7 +328,7 @@ class CacheAndEngineTests(MiniMaxCase):
         results: list = []
         cfg = self.cfg(models={"minimax": {"input": {"emotion": "{emotion}"}}})
         with contextlib.redirect_stdout(io.StringIO()):
-            cli._doctor_models(cfg, False, lambda *r: results.append(r), "minimax")
+            cli._doctor_models(cfg, lambda *r: results.append(r), "minimax")
         self.assertIn(("MiniMax key", True, "3 system voices, 1 of your own"), results)
         bad = [r for r in results if r[0] == "minimax"]
         self.assertTrue(bad and not bad[0][1] and "models.minimax-replicate" in bad[0][2], results)

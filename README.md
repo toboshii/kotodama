@@ -24,8 +24,11 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
    - The file can also set `KOTODAMA_CONFIG` to keep your `config.json` outside the addon folder.
 2. **Check the setup:**
    ```
-   python3 server/kotodama_server.py doctor
+   python3 server/kotodama_server.py doctor                      # keys, voices, audio, ports
+   python3 server/kotodama_server.py doctor --live               # also speak one short line with every provider that has a key
+   python3 server/kotodama_server.py doctor --provider inworld   # ...or with just one
    ```
+   The live test runs every provider at once, reports each one's time to first audio, and ends with them ranked fastest first. It plays and caches nothing, and costs a fraction of a cent per provider. A cold Replicate model can take a minute.
 3. **Hear it without the game:**
    ```
    python3 server/kotodama_server.py test --name Ayame --race 2 "Welcome to Norg."
@@ -88,10 +91,10 @@ Kotodama can speak through **OpenAI** (`gpt-4o-mini-tts`, the default) or **Elev
 Setting up ElevenLabs:
 
 ```
-python3 server/kotodama_server.py voices sync      # fetch your account's voices
-python3 server/kotodama_server.py voices cast      # preview which voice each race/creature gets
+python3 server/kotodama_server.py voices sync                    # fetch your account's voices
+python3 server/kotodama_server.py voices cast                    # preview which voice each race/creature gets
 python3 server/kotodama_server.py voices cast --npc Prishe --race 4
-python3 server/kotodama_server.py doctor --live    # confirms the model works (uses a few credits)
+python3 server/kotodama_server.py doctor --provider elevenlabs   # confirms the model works (uses a few credits)
 python3 server/kotodama_server.py test --provider elevenlabs --name Rok --race 8 "Hm."
 ```
 
@@ -104,8 +107,8 @@ To keep a voice out of casting, add its name or id to `elevenlabs.voices.exclude
 Put `MINIMAX_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider minimax`. To check it first:
 
 ```
-python3 server/kotodama_server.py doctor            # key, voice count
-python3 server/kotodama_server.py doctor --live     # time to first audio (one short line)
+python3 server/kotodama_server.py doctor                      # key, voice count
+python3 server/kotodama_server.py doctor --provider minimax   # time to first audio (one short line)
 python3 server/kotodama_server.py voices cast --provider minimax
 ```
 
@@ -124,8 +127,8 @@ python3 server/kotodama_server.py voices cast --provider minimax
 Get a key at aistudio.google.com, put `GEMINI_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider gemini`. To check first:
 
 ```
-python3 server/kotodama_server.py doctor             # key, how many voices you can cast from
-python3 server/kotodama_server.py doctor --live      # time to first audio (one short line)
+python3 server/kotodama_server.py doctor                     # key, how many voices you can cast from
+python3 server/kotodama_server.py doctor --provider gemini   # time to first audio (one short line)
 python3 server/kotodama_server.py voices cast --provider gemini
 ```
 
@@ -145,8 +148,8 @@ python3 server/kotodama_server.py voices cast --provider gemini
 Create a key at platform.inworld.ai (API Keys) and copy the **Base64** credential. Put `INWORLD_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider inworld`. To check first:
 
 ```
-python3 server/kotodama_server.py doctor             # key, how many voices you can cast from
-python3 server/kotodama_server.py doctor --live      # time to first audio (one short line)
+python3 server/kotodama_server.py doctor                      # key, how many voices you can cast from
+python3 server/kotodama_server.py doctor --provider inworld   # time to first audio (one short line)
 python3 server/kotodama_server.py voices cast --provider inworld
 ```
 

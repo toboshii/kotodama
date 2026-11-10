@@ -797,7 +797,7 @@ class CliTests(GenericCase):
         import io
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            cli._doctor_models(cfg, False, lambda *r: results.append(r), "minimax-replicate")
+            cli._doctor_models(cfg, lambda *r: results.append(r), "minimax-replicate")
         self.assertIn(("Replicate token", True, "account tester"), results)
         bad = [r for r in results if r[0] == "minimax-replicate"]
         self.assertTrue(bad and not bad[0][1] and "'voice' is not a field" in bad[0][2], results)

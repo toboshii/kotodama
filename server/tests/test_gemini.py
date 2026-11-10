@@ -341,7 +341,7 @@ class EngineTests(GeminiCase):
         results: list = []
         cfg = self.cfg(models={"gemini": {"input": {"voice_setting": {"emotion": "{emotion}"}}}})
         with contextlib.redirect_stdout(io.StringIO()):
-            cli._doctor_models(cfg, False, lambda *r: results.append(r), "gemini")
+            cli._doctor_models(cfg, lambda *r: results.append(r), "gemini")
         self.assertIn(("Gemini key", True, "3 voices in your languages, 1 of your own"), results)
         bad = [r for r in results if r[0] == "gemini"]
         self.assertTrue(bad and not bad[0][1] and "voice_setting" in bad[0][2], results)

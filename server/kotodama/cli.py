@@ -6,11 +6,13 @@ import argparse
 import json
 import logging
 import os
+import queue
 import shutil
 import signal
 import re
 import socket
 import sys
+import threading
 import time
 import urllib.parse
 from pathlib import Path
@@ -24,7 +26,7 @@ from .audio import is_game_stream, parse_sink_inputs, run_pactl
 from .casting import cast, rank
 from .config import Config
 from .console import KeyControls, reexec
-from .engine import PROVIDER_KEYS, build_engine, make_ducker, provider_catalog
+from .engine import PROVIDER_KEYS, build_engine, make_ducker, make_provider, provider_catalog
 from .library import Library
 from .net import UDPServer
 from .profiles import ProfileResolver
@@ -418,25 +420,14 @@ def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
     except (TTSError, OSError) as exc:
         check("ElevenLabs voices", False, str(exc))
         return
-    if not live:
-        print(f"[info] ElevenLabs model {el.configured_model}: run `doctor --live` to try it (uses a few credits)")
-        return
-    req = el.voice_request({"voice": el.catalog.voices[0].id, "pace": "normal"}, "@doctor")
-    started, first, total = time.monotonic(), None, 0
-    try:
-        for chunk in el.stream("Hello.", req):
-            first = first if first is not None else (time.monotonic() - started) * 1000
-            total += len(chunk)
-        note = f" (fell back from {el.configured_model})" if el.fell_back else ""
-        check("ElevenLabs synthesis", total > 0,
-              f"{el.model}{note}: first audio {first:.0f} ms, {total / 2 / el.sample_rate:.2f} s of audio")
-    except TTSError as exc:
-        check("ElevenLabs synthesis", False, str(exc))
     finally:
         el.close()
+    if not live:
+        print(f"[info] ElevenLabs model {el.configured_model}: `doctor --provider elevenlabs` tries it "
+              f"(uses a few credits)")
 
 
-def _doctor_models(cfg: Config, live: bool, check, active: str) -> None:
+def _doctor_models(cfg: Config, check, active: str) -> None:
     problems: list[str] = []
     adapters = load_adapters(cfg, problems)
     for p in problems:
@@ -553,20 +544,83 @@ def _doctor_models(cfg: Config, live: bool, check, active: str) -> None:
     print(f"[info] voice bank: {len(bank.clips)} clip(s) in {bank.dir}"
           + (f", {len(bank.problems)} skipped (see `voices bank`)" if bank.problems else ""))
     print(f"[info] ffmpeg: {shutil.which('ffmpeg') or 'not found'} (only needed for models that return MP3/FLAC)")
-    if live and active in adapters:
-        prov = GenericTTS(cfg, adapters[active], bank=bank)
+
+
+LIVE_LINE = "Welcome, adventurer. Mind the stairs."
+LIVE_SPEAKER = Speaker(name="Kotodama Doctor", race=1)       # a Hume man, cast by each provider's own rules
+LIVE_WAIT = 180.0                                          # a cold Replicate model can take a while
+
+
+def _doctor_live(cfg: Config, check, only: str | None = None) -> None:
+    """Synthesize one short line with every provider that has its key (or
+    only the one named), all at once, and report each one's time to first
+    audio. Nothing is played or cached."""
+    adapters = load_adapters(cfg)
+    catalog = provider_catalog(cfg, adapters)
+    if only:
+        if only not in catalog:
+            check("live test", False, f"unknown provider '{only}' (choose: {', '.join(catalog)})")
+            return
+        names = [only]
+    else:
+        names = [n for n, (_, has_key) in catalog.items() if has_key]
+        skipped = [n for n, (_, has_key) in catalog.items() if not has_key]
+        if skipped:
+            print(f"[info] live test skips providers without a key: {', '.join(skipped)}")
+        if not names:
+            print("[info] live test: no provider has a key")
+            return
+    arch = Archetypes.load()
+    lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"))
+    bank = _bank(cfg)
+    # Resolved up front, one thread: the library isn't shared across threads.
+    profiles = {n: ProfileResolver(arch, lib, provider=n).resolve(LIVE_SPEAKER, None).profile for n in names}
+    results: queue.Queue = queue.Queue()
+
+    def run(name: str) -> None:
+        prov = None
         try:
-            req = prov.voice_request({"pace": "normal"}, "@doctor")
+            prov = make_provider(cfg, name, adapters=adapters, bank=bank)
+            if getattr(prov, "needs_key", True) and not getattr(prov, "api_key", None):
+                hint = getattr(prov, "key_hint", None) or PROVIDER_KEYS.get(name, "see README")
+                raise TTSError(f"no API key ({hint})", code="auth")
+            req = prov.voice_request(profiles[name], "@doctor")          # may fetch a voice list: not timed
             started, first, total = time.monotonic(), None, 0
-            for chunk in prov.stream("Hello.", req):
+            for chunk in prov.stream(LIVE_LINE, req):
                 first = first if first is not None else (time.monotonic() - started) * 1000
                 total += len(chunk)
-            check(f"{active} synthesis", total > 0,
-                  f"first audio {first:.0f} ms, {total / 2 / prov.sample_rate:.2f} s of audio")
-        except TTSError as exc:
-            check(f"{active} synthesis", False, str(exc))
+            if not total:
+                raise TTSError("no audio came back")
+            done = (time.monotonic() - started) * 1000
+            note = f", fell back from {prov.configured_model}" if getattr(prov, "fell_back", False) else ""
+            results.put((name, True, first, f"{prov.model}{note}, voice {req.label or req.voice or 'default'}: "
+                         f"first audio {first:.0f} ms, {total / 2 / prov.sample_rate:.1f} s of audio "
+                         f"in {done:.0f} ms"))
+        except Exception as exc:  # noqa: BLE001 - every provider gets reported, whatever went wrong
+            results.put((name, False, None, str(exc) or type(exc).__name__))
         finally:
-            prov.close()
+            if prov is not None:
+                prov.close()
+
+    print(f"[info] live test: \"{LIVE_LINE}\" with {', '.join(names)} "
+          f"(uses a little credit; a cold Replicate model can take a minute)")
+    for name in names:
+        threading.Thread(target=run, args=(name,), daemon=True, name=f"live-{name}").start()
+    deadline = time.monotonic() + LIVE_WAIT
+    pending, timings = set(names), []
+    while pending:
+        try:
+            name, good, first, detail = results.get(timeout=max(0.05, deadline - time.monotonic()))
+        except queue.Empty:
+            break
+        pending.discard(name)
+        check(f"{name} synthesis", good, detail)
+        if good:
+            timings.append((first, name))
+    for name in sorted(pending):
+        check(f"{name} synthesis", False, f"no audio after {LIVE_WAIT:.0f} s")
+    if len(timings) > 1:
+        print("[info] fastest first audio: " + ", ".join(f"{n} {t:.0f} ms" for t, n in sorted(timings)))
 
 
 def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
@@ -594,8 +648,9 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     openai_key = bool(cfg.api_key("tts"))
     check("OpenAI API key", openai_key or active != "openai",
           "set" if openai_key else "missing (OPENAI_API_KEY / tts.api_key)")
-    _doctor_elevenlabs(cfg, args.live, check)
-    _doctor_models(cfg, args.live, check, active)
+    live = args.live or bool(args.provider)
+    _doctor_elevenlabs(cfg, live, check)
+    _doctor_models(cfg, check, active)
     provider = cfg.get("inference.provider")
     print(f"[info] voice casting: {provider}")
     if provider == "anthropic":
@@ -624,6 +679,10 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
         sock.close()
     for name in ("pw-play", "paplay", "ffplay"):
         print(f"[info] {name}: {shutil.which(name) or 'not found'}")
+    if live:
+        _doctor_live(cfg, check, args.provider)
+    else:
+        print("[info] `doctor --live` tries every provider that has a key; `--provider NAME` just one")
     return 0 if ok else 1
 
 
@@ -694,7 +753,9 @@ def main(argv: list[str] | None = None) -> int:
 
     dr = sub.add_parser("doctor", help="check the setup")
     dr.add_argument("--live", action="store_true",
-                    help="also synthesize one word with the active provider (ElevenLabs or a model; uses credits)")
+                    help="also synthesize one short line with every provider that has a key and report its "
+                         "time to first audio (uses a little credit)")
+    dr.add_argument("--provider", help="live-test only this provider (implies --live)")
 
     args = parser.parse_args(argv)
     _setup_logging(args.verbose)
