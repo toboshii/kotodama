@@ -101,6 +101,10 @@ class GeminiClient:
     def stream(self, body: dict[str, Any], rate: int,
                on_usage: Callable[[dict[str, Any]], None] | None = None) -> Iterator[tuple[bytes, int, str]]:
         """Yield (audio bytes, sample rate, kind) as the deltas arrive."""
+        # Not stored: we never read an interaction back, and storing it
+        # holds back the first audio by about 600 ms. Added here, not in the
+        # request template, so it doesn't change the cache key.
+        body = {**body, "store": False}
         raw = self.http.stream("POST", "/v1beta/interactions", json.dumps(body).encode("utf-8"), self._headers(),
                                _http_error, align=False)
         try:

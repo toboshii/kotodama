@@ -189,6 +189,7 @@ class RequestTests(GeminiCase):
         self.assertEqual((post["key"], post["auth"]), (KEY, None))
         body = post["body"]
         self.assertEqual((body["model"], body["stream"]), ("gemini-3.8-flash-tts", True))
+        self.assertIs(body["store"], False, "a stored interaction starts ~600 ms later")
         self.assertEqual(body["response_format"], {"type": "audio", "mime_type": "audio/l16", "sample_rate": 24000})
         (item,) = body["input"]
         self.assertEqual(item["type"], "user_input")
@@ -202,6 +203,8 @@ class RequestTests(GeminiCase):
             self.assertNotIn(trait, note["style"], "immutable traits come from the voice, not the style")
         (speaker,) = body["generation_config"]["speech_config"]
         self.assertIn(speaker["voice"], {v.id for v in prov.catalog.voices})
+        req = prov.voice_request(PROFILES["Rok"], "Rok")
+        self.assertNotIn("store", req.cache_tag, "the cache key is about the audio; store doesn't change it")
 
     def test_plain_profile_sends_no_style(self):
         self.synth(self.provider(), who="Plain")
