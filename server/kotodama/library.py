@@ -17,12 +17,12 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import logging
-import os
 import threading
 from pathlib import Path
 from typing import Any
 
 from .archetypes import Archetypes
+from .fsutil import replace_file
 
 log = logging.getLogger("kotodama.library")
 
@@ -42,7 +42,7 @@ def _atomic_write(path: Path, data: Any) -> None:
     with open(tmp, "w", encoding="utf-8") as fh:
         json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=True)
         fh.write("\n")
-    os.replace(tmp, path)
+    replace_file(tmp, path)
 
 
 def _norm_key(key: str) -> str:

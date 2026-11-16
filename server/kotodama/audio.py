@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
+from .fsutil import replace_file
+
 log = logging.getLogger("kotodama.audio")
 
 # -- gain ------------------------------------------------------------------
@@ -349,7 +351,7 @@ class Ducker:
             self.state_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.state_path.with_name(self.state_path.name + ".tmp")
             tmp.write_text(json.dumps({"pid": os.getpid(), "streams": self._streams}), encoding="utf-8")
-            os.replace(tmp, self.state_path)
+            replace_file(tmp, self.state_path)
         except OSError as exc:
             log.warning("could not write duck state: %s", exc)
 

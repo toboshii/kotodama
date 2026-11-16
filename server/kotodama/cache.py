@@ -12,6 +12,8 @@ import time
 import wave
 from pathlib import Path
 
+from .fsutil import replace_file
+
 log = logging.getLogger("kotodama.cache")
 
 
@@ -48,7 +50,7 @@ class CacheWriter:
         if self.frames == 0:
             self.abort()
             return 0.0
-        os.replace(self.part, self.final)
+        replace_file(self.part, self.final)
         seconds = self.frames / self.rate
         self.cache._record(self.key, self.final, self.meta, seconds)
         return seconds
@@ -59,6 +61,8 @@ class CacheWriter:
             self.part.unlink()
         except FileNotFoundError:
             pass
+        except OSError as exc:   # e.g. Windows, while a scanner holds the file
+            log.debug("could not remove %s: %s", self.part, exc)
 
     def _close(self) -> None:
         if not self._closed:
@@ -159,6 +163,11 @@ class AudioCache:
                     os.unlink(path)
                 except FileNotFoundError:
                     pass
+                except OSError as exc:
+                    # On Windows a line that's playing can't be deleted. Keep
+                    # its row so a later prune tries again.
+                    log.debug("could not prune %s yet: %s", path, exc)
+                    continue
                 self._db.execute("DELETE FROM audio WHERE key=?", (key,))
                 total -= size
                 removed += 1

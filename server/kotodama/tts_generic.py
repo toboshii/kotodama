@@ -36,6 +36,7 @@ from .config import Config
 from .decode import DecodeError, PCMDecoder, decode_all
 from .delivery import (PACE_SPEED, control, emotion_for, mood_control, speed_for, steering_text,
                        style_text, voice_description)
+from .fsutil import replace_file
 from .tts_base import CHUNK, HTTPStreamer, TTSError, VoiceRequest, error_detail
 from .tts_gemini import GeminiClient
 from .tts_inworld import SPEECH_PATH as INWORLD_SPEECH_PATH, InworldClient, inworld_error, inworld_voice
@@ -253,7 +254,7 @@ class ReplicateClient:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 tmp = path.with_name(path.name + ".tmp")
                 tmp.write_text(json.dumps({"fetched_at": now, "model": data}), encoding="utf-8")
-                os.replace(tmp, path)
+                replace_file(tmp, path)
             except OSError:
                 pass
         return data
@@ -623,7 +624,7 @@ class GenericTTS:
                         self._voices_file.parent.mkdir(parents=True, exist_ok=True)
                         tmp = self._voices_file.with_name(self._voices_file.name + ".tmp")
                         tmp.write_text(json.dumps({"fetched_at": time.time(), "voices": data}), encoding="utf-8")
-                        os.replace(tmp, self._voices_file)
+                        replace_file(tmp, self._voices_file)
                     except OSError:
                         pass
                 with self._remote_lock:

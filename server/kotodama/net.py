@@ -49,6 +49,10 @@ class UDPServer:
                 data, addr = self.sock.recvfrom(protocol.MAX_DATAGRAM + 1)
             except socket.timeout:
                 continue
+            except ConnectionResetError:
+                # Windows reports an earlier reply that hit a closed port (the
+                # addon reloading) as an error on the next receive. Not fatal.
+                continue
             except OSError:
                 break
             msg = protocol.decode(data)

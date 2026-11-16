@@ -41,6 +41,19 @@ from .tts_openai import shutdown_notice
 from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 
 
+def _tolerant_output(streams=None) -> None:
+    """Never crash on a character the console can't show. A Windows console
+    or a redirected log uses the local code page, which can't encode every
+    NPC or zone name; those characters become escapes instead."""
+    for stream in streams if streams is not None else (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(errors="backslashreplace")
+            except (ValueError, OSError):
+                pass
+
+
 def _setup_logging(debug: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if debug else logging.INFO,
@@ -768,6 +781,7 @@ def main(argv: list[str] | None = None) -> int:
     dr.add_argument("--provider", help="live-test only this provider (implies --live)")
 
     args = parser.parse_args(argv)
+    _tolerant_output()
     _setup_logging(args.verbose)
     # Before the config: the env file may hold API keys and KOTODAMA_CONFIG.
     env_path, env_names = envfile.load(Path(args.env_file).expanduser() if args.env_file else None)

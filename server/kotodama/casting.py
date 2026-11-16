@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import threading
 import time
@@ -26,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .archetypes import stable_hash
+from .fsutil import replace_file
 
 log = logging.getLogger("kotodama.voices")
 
@@ -206,7 +206,7 @@ def _atomic_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1, sort_keys=True), encoding="utf-8")
-    os.replace(tmp, path)
+    replace_file(tmp, path)
 
 
 class VoiceCatalog:
