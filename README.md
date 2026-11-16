@@ -254,7 +254,7 @@ Each profile is turned into acting direction for the TTS model ("Voice: elderly 
 
 ### Optional voice casting (LLM)
 
-By default (`inference.provider: "none"`) voices come from archetypes plus your overrides. If you set `inference.provider` to `anthropic` or `openai` in `server/config.json`, the first time an unknown NPC speaks (or you target one, or start an event with them) the model is asked once to describe how they should sound. The answer is validated against a strict schema and saved to `library/npcs.json`; it's never requested again for that NPC. The first line waits up to `wait_ms` for the answer, then falls back to the archetype voice so dialog is never delayed much.
+By default (`inference.provider: "none"`) voices come from archetypes plus your overrides. If you set `inference.provider` to `anthropic` or `openai` in `server/config.json`, the first time an unknown NPC speaks (or you target one, or start an event with them) the model is asked once to describe how they should sound. The answer is validated against a strict schema and saved to `library/npcs.json`; it's never requested again for that NPC. The first line waits up to `wait_ms` (2.5 s) for the answer, then falls back to the archetype voice so dialog is never delayed much. NPCs the game gives no race for (story characters with a fixed "precomposed" model) wait up to `unknown_wait_ms` (8 s) instead: their only stand-in is a genderless voice, and the casting would replace it from their second line on.
 
 - For `anthropic`, install the SDK in a venv: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`, then run the sidecar with that Python.
 - Casting is throttled (`max_per_minute`) and a failed NPC is not retried for ten minutes.

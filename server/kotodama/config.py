@@ -103,6 +103,9 @@ DEFAULTS: dict[str, Any] = {
         "effort": "low",
         "openai_model": "gpt-4o-mini",
         "wait_ms": 2500,
+        # Longer wait for an NPC the game gives no race for: the only stand-in
+        # is a genderless voice, which the casting would then replace.
+        "unknown_wait_ms": 8000,
         "max_per_minute": 6,
         "api_key": None,
         "api_key_env": "ANTHROPIC_API_KEY",

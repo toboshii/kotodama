@@ -351,6 +351,49 @@ class InferenceTests(KotodamaTestCase):
         self.assertEqual(eng.lib.local["ahkk jharcham"]["profile"]["species"], "Mithra")
         self.assertIn("Mithra", eng.tts.calls[0]["instructions"], "the first line already uses the new casting")
 
+    # -- how long a first line waits for its casting ---------------------------
+
+    def _slow_engine(self):
+        """Casting takes longer than wait_ms but well within unknown_wait_ms."""
+        arch = self.arch
+
+        class Inferer:
+            model = "fake-llm"
+
+            def infer(self, ctx):
+                time.sleep(0.4)
+                return arch.sanitize({"gender": "male", "age": "middle-aged", "pitch": "low",
+                                      "tone": "gruff", "personality": "blunt tradesman"})
+
+        cfg = self.make_config(inference={"wait_ms": 50, "unknown_wait_ms": 3000})
+        return self.make_engine(cfg=cfg, inferer=Inferer())
+
+    def _first_lines(self, eng, name, race, race_name):
+        for seq, text in enumerate(("Hah! Yah!", "Looks like someone's come a long way."), 1):
+            msg = speak_msg(text, name=name, race=race, seq=seq, zone=235, zone_name="Bastok Markets")
+            msg["speaker"]["race_name"] = race_name
+            eng.handle(msg)
+            self.assertTrue(eng.wait_idle())
+            self.assertTrue(wait_for(lambda: not eng.inference._inflight), "casting lands before the next line")
+        return eng.tts.calls
+
+    def test_a_raceless_npc_waits_for_their_casting(self):
+        # Degenhard: race 0, so the only stand-in is the genderless "unknown"
+        # voice, and a casting that missed the first line changed his voice.
+        eng = self._slow_engine()
+        first, second = self._first_lines(eng, "Degenhard", 0, "Precomposed NPC")
+        self.assertIn("gruff", first["instructions"], "the first line already has the casting")
+        self.assertEqual(first["instructions"], second["instructions"])
+
+    def test_an_npc_with_a_race_does_not_wait_as_long(self):
+        eng = self._slow_engine()
+        with self.assertLogs("kotodama.engine", "INFO") as logs:
+            first, second = self._first_lines(eng, "Rok", 8, "Galka")
+        self.assertIn("Galka", first["instructions"])
+        self.assertNotIn("gruff", first["instructions"], "spoken with the race's stand-in")
+        self.assertIn("gruff", second["instructions"])
+        self.assertTrue(any("Rok speaks before their casting is ready" in m for m in logs.output))
+
     def test_reinfer_after_restart_reuses_stored_lines(self):
         inf = self._ahkk_inferer()
         eng = self.make_engine(inferer=inf)       # fresh sidecar: has not heard her this session

@@ -115,6 +115,9 @@ class InferenceManager:
         self.tts_provider = tts_provider
         self.max_per_minute = int(cfg.get("inference.max_per_minute", 6))
         self.wait_s = float(cfg.get("inference.wait_ms", 2500)) / 1000.0
+        # With no race from the game the stand-in voice has no gender either,
+        # so a late casting would change the voice completely: wait longer.
+        self.unknown_wait_s = max(self.wait_s, float(cfg.get("inference.unknown_wait_ms", 8000)) / 1000.0)
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="infer")
         self._lock = threading.Lock()
         self._inflight: dict[str, Future] = {}
@@ -193,12 +196,14 @@ class InferenceManager:
         log.info("cast %s: %s", speaker.name, profile)
         return profile
 
-    def wait(self, fut: Future | None) -> bool:
-        """Block up to inference.wait_ms for a casting result."""
+    def wait(self, fut: Future | None, *, unknown: bool = False) -> bool:
+        """Block up to inference.wait_ms for a casting result, or up to
+        unknown_wait_ms when the stand-in would be the genderless "unknown"
+        archetype."""
         if fut is None:
             return False
         try:
-            return fut.result(timeout=self.wait_s) is not None
+            return fut.result(timeout=self.unknown_wait_s if unknown else self.wait_s) is not None
         except Exception:  # noqa: BLE001 - timeout or failure; caller falls back
             return False
 

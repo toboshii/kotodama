@@ -351,8 +351,12 @@ class Engine:
             fut = self.inference.request(
                 speaker, zone=sp.zone, zone_name=sp.zone_name, samples=[scrubbed], player=player,
                 archetype_key=res.archetype, base_profile=res.profile)
-            if self.inference.wait(fut):
+            if self.inference.wait(fut, unknown=res.archetype == "unknown"):
                 res = resolver.resolve(speaker, sp.zone)
+            elif fut is not None and not fut.done():
+                # Their next line will have the real casting, so a different voice.
+                log.info("%s speaks before their casting is ready; this line uses the %s stand-in voice",
+                         speaker.name, res.archetype)
         elif speaker.name and not speaker.is_player:
             self.lib.note_seen(speaker.name, sp.zone, scrubbed)
         return res
