@@ -385,6 +385,185 @@ class DialogTests(unittest.TestCase):
         self.assertEqual(self.split("Who goes there? : friend")[0], None)
         self.assertEqual(self.split("The wind howls.")[0], None)
 
+    def test_an_unintroduced_character_is_a_speaker(self):
+        self.assertEqual(self.split("??? : Hmph!"), ("???", "Hmph!"))
+        self.assertEqual(self.split("?? : Hm.")[0], "??")
+        self.assertEqual(self.split("What?? : said he")[0], None)
+
+
+@unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
+class UnnamedSpeakerTests(unittest.TestCase):
+    """A character the game hasn't introduced yet speaks as "???". Recorded in
+    Ru'Lude Gardens (243): a Nomad Moogle scene where Atori-Tutori argues with
+    a Tarutaru who has no name yet."""
+
+    NOMAD, ATORI, MARKER = 17772661, 17772700, 17772800
+    HMPH = (b"??? : Hmph! And give me justaru one good reason why your associates won't help sell my "
+            b"scrumptious \x1e\x02pickled rarab tails\x1e\x01!\x7f1")
+
+    def setUp(self):
+        self.a = Addon()
+        self.addCleanup(self.a.close)
+        self.a.add_mob(self.NOMAD, "Nomad Moogle", 0, [981])
+        self.a.add_mob(self.ATORI, "Atori-Tutori", 5, [2])
+        self.a.add_mob(self.MARKER, "???", 0, [1234])      # a quest marker in the same zone
+        self.a.set_zone(243)
+        self.a.clock(1)
+
+    def unnamed(self):
+        return [s for s in self.a.speaks() if s["speaker"].get("name", "").startswith("???")]
+
+    def test_voiced_as_a_character_of_its_scene_with_narration_off(self):
+        a = self.a
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(b"Nomad Moogle : Curses and criminy, late again!\x7f1")
+        a.line(b"Maat : Heh, speak o' the devil.\x7f1")
+        a.line(self.HMPH)
+        a.line(b"Atori-Tutori : I could give you a thousand-wousand reasons, my dear.\x7f1")
+        a.line(b"??? : And would it kill you to try to negotiataru!?\x7f1")
+        first, second = self.unnamed()
+        for s in (first, second):
+            self.assertEqual(s["speaker"]["name"], "??? (243:10191)", "one identity for the whole scene")
+            self.assertFalse(s["speaker"]["narrator"])
+            self.assertEqual(s["kind"], "cutscene")
+            self.assertNotIn("race", s["speaker"], "the zone's ??? quest marker is not this character")
+            self.assertNotIn("model", s["speaker"])
+        self.assertEqual(first["text"], "Hmph! And give me justaru one good reason why your associates won't help "
+                                        "sell my scrumptious pickled rarab tails!")
+        self.assertEqual(second["text"], "And would it kill you to try to negotiataru!?")
+
+        a.clear_sent()
+        a.command("voice", "last", "gender=female")
+        (cmd,) = a.sent("cmd")
+        self.assertEqual((cmd["name"], cmd["npc"]), ("voice_set", "??? (243:10191)"),
+                         "//koto voice last fixes this character, not every ???")
+
+    def test_another_scene_is_another_character(self):
+        a = self.a
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(self.HMPH)
+        a.release()
+        a.advance(60)
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10192)
+        a.line(b"??? : Who goes there?\x7f1")
+        a.release()
+        a.advance(60)
+        a.line(b"??? : You there!\x7f1")                   # no event packet: a zone-in style scene
+        self.assertEqual([s["speaker"]["name"] for s in self.unnamed()],
+                         ["??? (243:10191)", "??? (243:10192)", "??? (243)"])
+
+    # -- who the "???" is, and who they turn out to be ------------------------
+
+    CHAMAMA_LOOK = [30, 4107, 8203, 12299, 16395, 20491, 24576, 28672, 0]
+    ACTOR, CHAMAMA = 17772900, 17772901
+    REVEAL = b"Chamama : That's Chamama! And I'll have you know that I run a perfectly reputable restaurantaru!\x7f1"
+
+    def scene_until_reveal(self, reveal=REVEAL):
+        a = self.a
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(b"Maat : Heh, speak o' the devil. And don't look now, but he's brought a friend...\x7f1")
+        a.line(self.HMPH)
+        a.line(b"Atori-Tutori : I could give you a thousand-wousand reasons, my dear.\x7f1")
+        a.line(b"Atori-Tutori : Ah, forgive me. This is Chumbawumba, a purveyor of pickle-wickles.\x7f1")
+        a.line(reveal)
+        return a.speaks()
+
+    def line_of(self, name):
+        (s,) = [s for s in self.a.speaks() if s["speaker"].get("name") == name][:1]
+        return s
+
+    def test_the_actor_shown_as_unnamed_says_who_they_are(self):
+        self.a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=6)
+        self.scene_until_reveal()
+        speaker = self.line_of("??? (243:10191)")["speaker"]
+        self.assertEqual((speaker["race"], speaker["model"]), (6, 30), "a Tarutaru woman, not a guess from one line")
+
+    def test_actors_out_of_range_or_too_many_say_nothing(self):
+        a = self.a
+        a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=80)
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(self.HMPH)
+        self.assertNotIn("race", self.unnamed()[0]["speaker"], "80 yalms away: not in this scene")
+
+        b = Addon()
+        self.addCleanup(b.close)
+        b.set_zone(243)
+        b.add_mob(self.NOMAD, "Nomad Moogle", 0, [981])
+        b.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=5)
+        b.add_mob(self.ACTOR + 50, "???", 8, [1, 2, 3], distance=7)
+        b.talk_to(self.NOMAD)
+        b.event_begin(self.NOMAD, 10191)
+        b.line(self.HMPH)
+        (s,) = [s for s in b.speaks() if s["speaker"]["name"].startswith("???")]
+        self.assertNotIn("race", s["speaker"], "two unnamed actors: nothing says which one is talking")
+
+    def test_what_the_actor_said_holds_for_the_whole_scene(self):
+        a = self.a
+        a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=6)
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(self.HMPH)
+        a.remove_mob(self.ACTOR)
+        a.line(b"??? : And would it kill you to try to negotiataru!?\x7f1")
+        self.assertEqual([s["speaker"].get("race") for s in self.unnamed()], [6, 6])
+
+    def test_introduced_with_the_same_look_keeps_the_voice(self):
+        self.a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=6)
+        self.a.add_mob(self.CHAMAMA, "Chamama", 6, self.CHAMAMA_LOOK, distance=6)
+        self.scene_until_reveal(b"Chamama : Hmph!\x7f1")          # no name said: the look is enough
+        self.assertEqual(self.line_of("Chamama")["speaker"]["was"], "??? (243:10191)")
+        self.assertNotIn("was", self.line_of("Atori-Tutori")["speaker"])
+
+    def test_introduced_by_name_when_looks_are_unknown(self):
+        self.scene_until_reveal()                                   # only the quest marker is "???"
+        self.assertEqual(self.line_of("Chamama")["speaker"]["was"], "??? (243:10191)", "That's Chamama!")
+        self.assertNotIn("was", self.line_of("Atori-Tutori")["speaker"], "he never says his own name")
+
+    def test_named_in_the_line_before(self):
+        a = self.a
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(self.HMPH)
+        a.line(b"Atori-Tutori : Why, Chamama, what a surprise-wise!\x7f1")
+        a.line(b"Chamama : Hmph!\x7f1")
+        self.assertEqual(self.line_of("Chamama")["speaker"]["was"], "??? (243:10191)")
+
+    def test_different_looks_are_different_characters(self):
+        self.a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=6)
+        self.a.add_mob(self.CHAMAMA, "Chamama", 6, [31, 1, 2, 3, 4, 5, 6, 7, 0], distance=6)
+        self.scene_until_reveal()
+        self.assertNotIn("was", self.line_of("Chamama")["speaker"], "says her name, but looks nothing alike")
+
+    def test_only_a_first_line_can_be_a_reveal(self):
+        a = self.a
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(b"Maat : Heh, speak o' the devil.\x7f1")
+        a.line(self.HMPH)
+        a.line(b"Maat : I'm Maat, and I've seen it all.\x7f1")   # spoke before the ??? appeared
+        self.assertEqual([s["speaker"].get("was") for s in a.speaks() if s["speaker"].get("name") == "Maat"],
+                         [None, None])
+
+    def test_a_new_zone_forgets_who_was_who(self):
+        a = self.a
+        a.add_mob(self.ACTOR, "???", 6, self.CHAMAMA_LOOK, distance=6)
+        a.talk_to(self.NOMAD)
+        a.event_begin(self.NOMAD, 10191)
+        a.line(self.HMPH)
+        a.release()
+        a.zone_out()
+        a.remove_mob(self.ACTOR)
+        a.set_zone(230)
+        a.add_mob(self.CHAMAMA, "Chamama", 6, self.CHAMAMA_LOOK, distance=6)   # same look, another zone
+        a.advance(60)
+        a.line(b"Chamama : That's Chamama!\x7f1")
+        self.assertNotIn("was", self.line_of("Chamama")["speaker"])
+
 
 @unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
 class AddonSmokeTests(unittest.TestCase):

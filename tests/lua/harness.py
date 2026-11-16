@@ -67,9 +67,15 @@ package.preload['socket'] = function()
 end
 
 MOBS_BY_ID, MOBS_BY_NAME, TARGET, ZONE = {}, {}, nil, 230
-function add_mob(id, name, race, models, spawn_type)
-  local m = {id = id, name = name, race = race, models = models, spawn_type = spawn_type or 2}
+function add_mob(id, name, race, models, spawn_type, distance)
+  local m = {id = id, name = name, race = race, models = models, spawn_type = spawn_type or 2,
+             distance = distance and distance * distance or nil}     -- Windower reports it squared
   MOBS_BY_ID[id] = m; MOBS_BY_NAME[name] = m
+end
+function remove_mob(id)
+  local m = MOBS_BY_ID[id]
+  MOBS_BY_ID[id] = nil
+  if m and MOBS_BY_NAME[m.name] == m then MOBS_BY_NAME[m.name] = nil end
 end
 
 windower = {
@@ -89,6 +95,7 @@ windower = {
     get_mob_by_id = function(id) return MOBS_BY_ID[id] end,
     get_mob_by_index = function(i) return MOBS_BY_ID[i] end,
     get_mob_by_name = function(n) return MOBS_BY_NAME[n] end,
+    get_mob_array = function() return MOBS_BY_ID end,
     get_mob_by_target = function() return TARGET end,
   },
 }
@@ -131,8 +138,13 @@ class Addon:
     def close(self) -> None:
         self._tmp.cleanup()
 
-    def add_mob(self, mob_id: int, name: str, race: int, models=(0,), spawn_type: int = 2) -> None:
-        self.lua.eval(b"add_mob")(mob_id, name.encode(), race, self.lua.table_from(list(models)), spawn_type)
+    def add_mob(self, mob_id: int, name: str, race: int, models=(0,), spawn_type: int = 2,
+                distance: float | None = None) -> None:
+        self.lua.eval(b"add_mob")(mob_id, name.encode(), race, self.lua.table_from(list(models)), spawn_type,
+                                  distance)
+
+    def remove_mob(self, mob_id: int) -> None:
+        self.lua.eval(b"remove_mob")(mob_id)
 
     def clock(self, seconds: float) -> None:
         self.lua.globals().CLOCK = seconds

@@ -49,6 +49,16 @@ def _norm_key(key: str) -> str:
     return key.strip().lower()
 
 
+# Entries the sidecar worked out for itself, which a community pack outranks
+# and //koto voice reinfer may replace: cast by a model ("llm:<model>"), or
+# carried over from the "???" a character spoke as ("same-as:<identity>").
+LEARNED_SOURCES = ("llm", "same-as")
+
+
+def is_learned(source: Any) -> bool:
+    return str(source or "").startswith(LEARNED_SOURCES)
+
+
 class Library:
     def __init__(self, archetypes: Archetypes, file: Path, packs_dir: Path, overrides_file: Path,
                  save_delay: float = 2.0):
@@ -137,7 +147,7 @@ class Library:
         with self._lock:
             local = self.local.get(key)
             pack = self.packs.get(key)
-            if local and not str(local["meta"].get("source", "")).startswith("llm"):
+            if local and not is_learned(local["meta"].get("source")):
                 return local["profile"], local["meta"]
             if pack:
                 return pack["profile"], pack["meta"]

@@ -363,6 +363,78 @@ class InferenceTests(KotodamaTestCase):
         self.assertEqual(inf.calls[0]["sample_lines"], ["Meow meow, what a beautiful day"])
         self.assertEqual(eng.lib.local["ahkk jharcham"]["profile"]["species"], "Mithra")
 
+    # -- a "???" who is later introduced ---------------------------------------
+
+    UNNAMED = "??? (243:10191)"
+
+    def _race_inferer(self):
+        """Casts from the race the game reports, and guesses male without one
+        (what Haiku did for Chamama's first line)."""
+        arch = self.arch
+
+        class Inferer:
+            model = "fake-llm"
+
+            def __init__(self):
+                self.calls = []
+
+            def infer(self, ctx):
+                self.calls.append(ctx)
+                gender = "female" if ctx.get("game_race") == "Tarutaru Female" else "male"
+                return arch.sanitize({"gender": gender, "age": "adult", "species": "Tarutaru",
+                                      "tone": "sharp and haughty", "personality": "pushy"})
+
+        return Inferer()
+
+    def _line(self, text, name, seq, race=None, was=None):
+        msg = speak_msg(text, name=name, race=race, seq=seq, zone=243, zone_name="Ru'Lude Gardens")
+        msg["speaker"]["race_name"] = "Tarutaru Female" if race == 6 else None
+        if was:
+            msg["speaker"]["was"] = was
+        return msg
+
+    def test_an_introduced_unnamed_character_keeps_their_voice(self):
+        inf = self._race_inferer()
+        eng = self.make_engine(inferer=inf)
+        eng.handle(self._line("Hmph!", self.UNNAMED, 1, race=6))
+        self.assertTrue(eng.wait_idle())
+        eng.handle(self._line("That's Chamama!", "Chamama", 2, race=6, was=self.UNNAMED))
+        self.assertTrue(eng.wait_idle())
+        self.assertEqual([c["name"] for c in inf.calls], [self.UNNAMED], "Chamama isn't cast again")
+        self.assertEqual(eng.lib.local["chamama"]["meta"]["source"], f"same-as:{self.UNNAMED}")
+        before, after = eng.tts.calls
+        self.assertEqual((after["voice"], after["instructions"]), (before["voice"], before["instructions"]))
+
+        eng.handle({"t": "cmd", "name": "voice_reinfer", "npc": "Chamama"})
+        self.assertTrue(wait_for(lambda: len(inf.calls) == 2), "a carried-over voice can still be recast")
+
+    def test_not_when_the_game_says_otherwise(self):
+        inf = self._race_inferer()
+        eng = self.make_engine(inferer=inf)
+        eng.handle(self._line("Hmph!", self.UNNAMED, 1))                  # no actor found: cast male
+        self.assertTrue(eng.wait_idle())
+        eng.handle(self._line("That's Chamama!", "Chamama", 2, race=6, was=self.UNNAMED))
+        self.assertTrue(eng.wait_idle())
+        self.assertEqual([c["name"] for c in inf.calls], [self.UNNAMED, "Chamama"])
+        self.assertEqual(eng.lib.local["chamama"]["profile"]["gender"], "female", "correct beats consistent")
+
+    def test_not_over_a_voice_they_already_have(self):
+        inf = self._race_inferer()
+        eng = self.make_engine(inferer=inf)
+        eng.lib.put("Chamama", self.arch.sanitize({"gender": "female", "tone": "warm"}), source="curated")
+        eng.handle(self._line("Hmph!", self.UNNAMED, 1, race=6))
+        self.assertTrue(eng.wait_idle())
+        eng.handle(self._line("That's Chamama!", "Chamama", 2, race=6, was=self.UNNAMED))
+        self.assertTrue(eng.wait_idle())
+        self.assertEqual(eng.lib.local["chamama"]["meta"]["source"], "curated")
+        self.assertEqual(eng.lib.local["chamama"]["profile"]["tone"], "warm")
+
+    def test_a_pack_outranks_a_carried_over_voice(self):
+        eng = self.make_engine()
+        eng.lib.put("Chamama", self.arch.sanitize({"tone": "carried"}), source=f"same-as:{self.UNNAMED}")
+        eng.lib.packs["chamama"] = {"key": "Chamama", "profile": {"tone": "from a pack"}, "meta": {"pack": "p"}}
+        self.assertEqual(eng.lib.lookup("chamama")[0]["tone"], "from a pack")
+
     def test_disabled_manager_is_inert(self):
         eng = self.make_engine()
         from kotodama.protocol import Speaker

@@ -113,9 +113,14 @@ local function plausible_name(name)
     return true
 end
 
+-- "???" is how the game names a character it hasn't introduced yet.
+function dialog.is_unnamed(name)
+    return name ~= nil and name:find('^%?+$') ~= nil
+end
+
 function dialog.split_speaker(text)
     local name, rest = text:match('^([^:]+) : (.*)$')
-    if name and plausible_name(name) then
+    if name and (dialog.is_unnamed(name) or plausible_name(name)) then
         return name, rest
     end
     return nil, text

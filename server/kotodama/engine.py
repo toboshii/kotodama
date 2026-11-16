@@ -26,7 +26,7 @@ from .audio import Ducker, Limiter, db_to_gain
 from .cache import AudioCache, make_key
 from .config import Config
 from .infer import InferenceManager, make_inferer
-from .library import Library
+from .library import Library, is_learned
 from .player import Player, PlayerHandle
 from .profiles import ProfileResolver, Resolved
 from .protocol import Speak, Speaker, log_msg, parse_speak, parse_speaker
@@ -357,12 +357,56 @@ class Engine:
             self.lib.note_seen(speaker.name, sp.zone, scrubbed)
         return res
 
+    def _carry_over(self, sp: Speak, resolver: ProfileResolver, tts: Any) -> None:
+        """A character introduced after speaking as "???" keeps that voice: the
+        "???"'s effective profile, with the voice the active provider gave it,
+        is saved under their name before anything casts them afresh. Not when
+        they already have a voice of their own, nor when the game contradicts
+        how the "???" was cast (correct beats consistent)."""
+        speaker = sp.speaker
+        was, name = speaker.was, speaker.name
+        if not was or not name or speaker.is_player or was.lower() == name.lower():
+            return
+        if self.lib.has_any(name) or any(self.lib.override(k) for k in self.lib.keys_for(name, sp.zone)):
+            return
+        seen = self._seen.get(was.lower())
+        before = seen["speaker"] if seen else Speaker(name=was)
+        res = resolver.resolve(before, sp.zone)
+        profile = {k: v for k, v in res.profile.items() if k != "voice" and v}
+        conflict = self._contradiction(speaker, profile, resolver)
+        if conflict:
+            log.info("%s gets a voice of their own, not the one they had as %s: %s", name, was, conflict)
+            return
+        voice = tts.voice_request(res.profile, res.key).voice
+        if voice:
+            profile["voice"] = {tts.name: voice}
+        self.lib.put(name, profile, source=f"same-as:{was}", game_race=speaker.race_name,
+                     model_id=speaker.model, zone=sp.zone)
+        log.info("%s keeps the voice they had as %s", name, was)
+
+    def _contradiction(self, speaker: Speaker, profile: dict[str, Any], resolver: ProfileResolver) -> str | None:
+        """What the game says about this speaker (race, creature) that the
+        profile disagrees with, or None."""
+        akey = resolver.archetype_key(speaker)
+        if akey in ("unknown", "narrator"):
+            return None
+        arch = self.arch.items.get(akey, {})
+        known, cast_as = str(arch.get("gender") or ""), str(profile.get("gender") or "")
+        if {known, cast_as} <= {"male", "female"} and known != cast_as:
+            return f"the game says {known}, the voice was {cast_as}"
+        species, cast_species = str(arch.get("species") or "").lower(), str(profile.get("species") or "").lower()
+        if species and cast_species and not any(
+                s.strip() in cast_species or cast_species in s.strip() for s in species.split(" or ")):
+            return f"the game says {arch.get('species')}, the voice was {profile.get('species')}"
+        return None
+
     def _speak_job(self, job: Job) -> None:
         sp = job.speak
         assert sp is not None
         text = normalize(sp.text)
         with self._lock:                     # one provider for the whole line
             tts, resolver = self.tts, self.resolver
+        self._carry_over(sp, resolver, tts)
         res = self._resolve(sp, text, resolver)
         if job.cancel.is_set():
             return
@@ -598,7 +642,7 @@ class Engine:
                 return
             key = npc.lower()
             local = self.lib.local.get(key)
-            if local and not str(local["meta"].get("source", "")).startswith("llm"):
+            if local and not is_learned(local["meta"].get("source")):
                 self.say(f"{npc} has a {local['meta'].get('source')} library entry; remove it first to recast")
                 return
             if not samples and local:

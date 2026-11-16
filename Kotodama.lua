@@ -47,6 +47,9 @@ local state = {
     last_speaker = nil,
     last_line = nil,
     hinted = {},
+    unnamed = {},          -- this zone visit's "???" speakers: identity -> { identity, scene, info }
+    spoken = {},           -- names that have spoken this zone visit (lowercased)
+    prev_line = nil,       -- { text, scene } of the line before
     loaded_at = os.clock(),
     warned_down = false,
     ever_up = false,
@@ -250,6 +253,67 @@ local function send_hint(name, info, reason)
     })
 end
 
+-- "zone:event", or just the zone for a scene without an event packet.
+local function scene_key(ev)
+    local zone = (ev and ev.zone) or zone_info()
+    if ev and ev.menu then
+        return string.format('%s:%s', tostring(zone), tostring(ev.menu))
+    end
+    return tostring(zone)
+end
+
+-- Every character the game hasn't introduced yet is "???", so each one is
+-- named after its scene instead: one voice for the whole cutscene (and its
+-- replays), rather than one voice for every "???" in the game. Who they
+-- are (race, look) comes from their actor, looked up once per scene so the
+-- voice can't change mid-scene.
+local function unnamed_speaker(shown, ev)
+    local skey = scene_key(ev)
+    local identity = string.format('%s (%s)', shown, skey)
+    local rec = state.unnamed[identity]
+    if not rec then
+        local info, n = speakers.find_unnamed(shown, identity)
+        if info then
+            debug_log('  %s is actor id=%s race=%s look=%s', identity, tostring(info.id),
+                tostring(info.race), tostring(info.look))
+        elseif settings.debug then
+            debug_log('  %s: %d "%s" actors with a body in range; nearby: %s', identity, n, shown,
+                speakers.nearby(12))
+        end
+        rec = { identity = identity, scene = skey, info = info or { name = identity } }
+        state.unnamed[identity] = rec
+    end
+    return identity, rec.info
+end
+
+local function mentions(text, name)
+    if not text or not name then return false end
+    local p = name:lower():gsub('[%^%$%(%)%%%.%[%]%*%+%-%?]', '%%%0')
+    return text:lower():find('%f[%w]' .. p .. '%f[^%w]') ~= nil
+end
+
+-- A name speaking for the first time may be a "???" from earlier, now
+-- introduced: the same actor, someone who looks exactly the same, or (when
+-- either look is unknown) the scene's only "???" while this line or the one
+-- before says the name. Returns the "???" identity and why.
+local function was_unnamed(name, info, text, skey)
+    local in_scene, only = 0, nil
+    for _, rec in pairs(state.unnamed) do
+        local u = rec.info
+        if u.id and info.id and u.id == info.id then return rec.identity, 'same actor' end
+        if u.look and info.look and u.look == info.look then return rec.identity, 'same look' end
+        if rec.scene == skey then in_scene, only = in_scene + 1, rec end
+    end
+    if in_scene == 1 and not (only.info.look and info.look) then
+        if mentions(text, name) then return only.identity, 'says their name' end
+        local prev = state.prev_line
+        if prev and prev.scene == skey and mentions(prev.text, name) then
+            return only.identity, 'named just before'
+        end
+    end
+    return nil
+end
+
 local function process_line(raw, mode, forced_kind)
     if not dialog.SPEECH_MODES[mode] then return end
     if dialog.is_blank_auto_prompt(raw) then
@@ -274,7 +338,19 @@ local function process_line(raw, mode, forced_kind)
     state.last_line = { key = dupe_key, t = t }
 
     local ev = scene.current()
-    local info = speakers.resolve(name, ev)
+    local skey = scene_key(ev)
+    local info, was, was_why
+    if dialog.is_unnamed(name) then
+        -- Never looked up by name: get_mob_by_name("???") could be a quest marker.
+        name, info = unnamed_speaker(name, ev)
+    else
+        info = speakers.resolve(name, ev)
+        if name and not info.is_player and not state.spoken[name:lower()] and next(state.unnamed) then
+            was, was_why = was_unnamed(name, info, text, skey)
+        end
+    end
+    if name then state.spoken[name:lower()] = true end
+    state.prev_line = { text = text, scene = skey }
     local kind, reason = scene.classify(mode, name, info, timed)
     if forced_kind then kind = forced_kind end
 
@@ -287,6 +363,9 @@ local function process_line(raw, mode, forced_kind)
     debug_log('line mode=%d kind=%s timed=%s speaker=%s race=%s model=%s text=[%s] raw=[%s]',
         mode, kind, tostring(timed), tostring(name), tostring(info.race), tostring(info.model),
         text, hex(raw))
+    if was then
+        debug_log('  -> the same character as %s (%s)', was, was_why)
+    end
 
     if name then
         state.last_speaker = name
@@ -318,6 +397,7 @@ local function process_line(raw, mode, forced_kind)
             race_name = info.race_name,
             model = info.model,
             creature = info.creature,
+            was = was,             -- the "???" this character was shown as: keep that voice
         },
     })
 end
@@ -328,6 +408,14 @@ windower.register_event('incoming text', function(original, modified, mode)
 end)
 
 -- Packets: scene tracking and interruption ----------------------------------
+
+-- Zone changes end every scene, and with them who was who.
+local function forget_zone()
+    scene.reset()
+    speakers.clear()
+    state.hinted = {}
+    state.unnamed, state.spoken, state.prev_line = {}, {}, nil
+end
 
 local function stop_audio(reason)
     if settings.interrupt then
@@ -363,9 +451,7 @@ windower.register_event('incoming chunk', function(id, original)
             old and tostring(old.cutscene) or '-', old and tostring(old.reason) or '-')
         stop_audio('release')
     elseif id == 0x00B then
-        scene.reset()
-        speakers.clear()
-        state.hinted = {}
+        forget_zone()
         census = { ['in'] = {}, out = {} }
         debug_log('zone out (0x00B)')
         stop_audio('zone')
@@ -393,9 +479,7 @@ windower.register_event('outgoing chunk', function(id, original)
 end)
 
 windower.register_event('zone change', function()
-    scene.reset()
-    speakers.clear()
-    state.hinted = {}
+    forget_zone()
     send_hello()
 end)
 

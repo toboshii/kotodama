@@ -19,6 +19,16 @@ function speakers.clear()
     memo = {}
 end
 
+-- How a character looks: race plus every model slot (face, head, body...,
+-- or one creature model). The same character in the same scene looks the
+-- same, whatever name the game is showing for them.
+local function look_of(mob)
+    if type(mob.models) ~= 'table' then return nil end
+    local parts = { tostring(tonumber(mob.race) or 0) }
+    for _, m in ipairs(mob.models) do parts[#parts + 1] = tostring(m) end
+    return #parts > 1 and table.concat(parts, ',') or nil
+end
+
 local function from_mob(name, mob)
     local info = { name = name, found = true }
     info.id = mob.id
@@ -34,7 +44,59 @@ local function from_mob(name, mob)
         end
     end
     info.spawn_type = mob.spawn_type
+    info.look = look_of(mob)
     return info
+end
+
+local UNNAMED_RANGE = 50     -- yalms
+
+local function distance(mob)
+    return mob.distance and math.sqrt(mob.distance) or 0      -- Windower reports it squared
+end
+
+-- A body with something to go on: a race, or a creature model we know.
+-- Quest markers, which the game also names "???", have neither.
+local function has_body(mob)
+    if (tonumber(mob.race) or 0) > 0 then return true end
+    local models = type(mob.models) == 'table' and mob.models or {}
+    return creature_models[tonumber(models[1]) or -1] ~= nil
+end
+
+-- The character behind a "???" line: an actor the game hasn't introduced
+-- carries the name it shows, "???". Returns their info (named `name`) and
+-- how many such actors were in range; nil when none was, or when several
+-- were and nothing says which one is talking.
+function speakers.find_unnamed(shown, name)
+    local mobs = windower.ffxi.get_mob_array and windower.ffxi.get_mob_array() or {}
+    local found = {}
+    for _, mob in pairs(mobs) do
+        if mob.name == shown and has_body(mob) and distance(mob) <= UNNAMED_RANGE then
+            found[#found + 1] = mob
+        end
+    end
+    if #found == 1 then
+        return from_mob(name, found[1]), 1
+    end
+    return nil, #found
+end
+
+-- The nearest characters, for the debug log when no "???" actor was found.
+function speakers.nearby(limit)
+    local mobs = windower.ffxi.get_mob_array and windower.ffxi.get_mob_array() or {}
+    local list = {}
+    for _, mob in pairs(mobs) do
+        if mob.name and mob.name ~= '' and has_body(mob) and distance(mob) <= UNNAMED_RANGE then
+            list[#list + 1] = mob
+        end
+    end
+    table.sort(list, function(a, b) return distance(a) < distance(b) end)
+    local out = {}
+    for i = 1, math.min(limit, #list) do
+        local m = list[i]
+        out[#out + 1] = string.format('%s(id=%s race=%s look=%s %.0fy)', m.name, tostring(m.id),
+            tostring(m.race), tostring(look_of(m)), distance(m))
+    end
+    return table.concat(out, ' ')
 end
 
 -- event: the table from scene.current() (may be nil)

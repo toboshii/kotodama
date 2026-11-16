@@ -53,6 +53,7 @@ class Speaker:
     race_name: str | None = None
     model: int | None = None
     creature: str | None = None
+    was: str | None = None           # the "???" identity this character spoke as before being named
 
 
 @dataclass
@@ -78,6 +79,7 @@ def parse_speaker(raw: Any) -> Speaker:
         race_name=_str(raw.get("race_name"), 64),
         model=_int(raw.get("model")),
         creature=_str(raw.get("creature"), 32),
+        was=_str(raw.get("was"), 64),
     )
 
 

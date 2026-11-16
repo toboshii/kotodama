@@ -54,7 +54,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `mode all` / `events` / `cutscenes` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes, not one-line ambient chatter); **cutscenes**: only cutscenes |
 | `battle on/off` | Voice battle chatter such as Trusts (default off) |
 | `own on/off` | Voice your own character's lines (default on) |
-| `narrator on/off` | Voice lines with no speaker name (default off) |
+| `narrator on/off` | Voice lines with no speaker name (default off). A character the game hasn't introduced yet, shown as `???`, isn't narration: they're always voiced, with one voice for the whole scene, under a name like `??? (243:10191)` (zone and event). Their race comes from their actor in the scene when the game has exactly one `???` with a body nearby. When they're introduced (the same actor or look, or the scene's only `???` while their name is said), they keep that voice. `//koto voice last` adjusts them |
 | `interrupt on/off` | A new line cuts off the previous one (on), or lines queue (off) |
 | `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on). NPCs whose race the game doesn't report are cast from their first line instead |
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
