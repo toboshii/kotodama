@@ -24,7 +24,7 @@ from . import __version__, envfile
 from .adapters import (build_adapter, check_fields, draft_adapter, input_properties, load_adapters,
                        load_models_file, render)
 from .archetypes import Archetypes
-from .audio import is_game_stream, parse_sink_inputs, run_pactl
+from .audio import SESSION_KEY, DuckingUnavailable, is_game_stream, make_backend
 from .casting import cast, rank
 from .config import DEFAULT_PROVIDER, Config
 from .console import RESTART_EXIT, SUPERVISED_ENV, KeyControls, reexec, restart_argv
@@ -87,6 +87,12 @@ def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.exe
         logging.info("%s requested from the keyboard", action)
         server.shutdown()
 
+    if sys.platform == "win32":
+        # Closing the console window ends the process within seconds, with no
+        # KeyboardInterrupt: put the game's volume back first. Windows would
+        # otherwise remember FFXI at the ducked level for next time too.
+        from .winaudio import install_close_handler
+        install_close_handler(engine.ducker.shutdown)
     keys = KeyControls(on_key, stdin)
     logging.info("Kotodama sidecar %s ready (player: %s, casting: %s)", __version__, engine.player.kind,
                  engine.inference.inferer.model if engine.inference.enabled else "off")
@@ -205,13 +211,21 @@ def cmd_cache(cfg: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _stream_ref(st) -> str:
+    """How to show a stream: a Windows session by its process (its id is a
+    long identifier), a pactl sink input by its number."""
+    if st.props.get(SESSION_KEY):
+        return f"pid {st.props.get('application.process.id', '?')}"
+    return f"#{st.id}"
+
+
 def cmd_audio(cfg: Config, args: argparse.Namespace) -> int:
     match = list(cfg.get("duck.match", []))
     ducker = make_ducker(cfg)
     try:
-        streams = parse_sink_inputs(run_pactl("list", "sink-inputs"))
-    except FileNotFoundError:
-        print("pactl not found (install pipewire-pulse / pulseaudio-utils); ducking is unavailable")
+        streams = ducker.backend.list_streams()
+    except DuckingUnavailable as exc:
+        print(f"ducking is unavailable: {exc}")
         return 1
     except Exception as exc:  # noqa: BLE001
         print(f"could not list audio streams: {exc}")
@@ -222,9 +236,10 @@ def cmd_audio(cfg: Config, args: argparse.Namespace) -> int:
         for st in streams:
             hit = is_game_stream(st, match)
             vol = "/".join(f"{v * 100 // 65536}%" for v in st.volumes) or "?"
-            print(f"{'DUCK ' if hit else '     '} #{st.id:<5} {st.label:<24} vol {vol:<9} "
-                  f"binary={st.props.get('application.process.binary', '-')} "
-                  f"app_id={st.props.get('pipewire.access.portal.app_id', '-')}")
+            where = ("" if st.props.get(SESSION_KEY)
+                     else f" app_id={st.props.get('pipewire.access.portal.app_id', '-')}")
+            print(f"{'DUCK ' if hit else '     '} {_stream_ref(st):<10} {st.label:<24} vol {vol:<9} "
+                  f"binary={st.props.get('application.process.binary', '-')}{where}")
         if not streams:
             print("no playback streams right now (start the game, then run this again)")
         elif not any(is_game_stream(st, match) for st in streams):
@@ -241,7 +256,7 @@ def cmd_audio(cfg: Config, args: argparse.Namespace) -> int:
     if not found:
         print("no game stream matched; run `audio list` and adjust duck.match")
         return 1
-    print("Ducking: " + ", ".join(f"#{s.id} {s.label}" for s in found)
+    print("Ducking: " + ", ".join(f"{_stream_ref(s)} {s.label}" for s in found)
           + f" to {cfg.get('duck.level')}% for 3 seconds (your game volume will dip, then return)...")
     ducker.acquire()
     import time as _time
@@ -741,16 +756,19 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
             check("anthropic SDK", True)
         except ImportError:
             check("anthropic SDK", False, "pip install anthropic")
+    backend = make_backend()
     try:
-        streams = parse_sink_inputs(run_pactl("list", "sink-inputs"))
+        streams = backend.list_streams()
         game = [st for st in streams if is_game_stream(st, list(cfg.get("duck.match", [])))]
-        print(f"[{'ok' if game else 'info'}] ducking: "
-              + (", ".join(f"#{st.id} {st.label}" for st in game) if game
+        print(f"[{'ok' if game else 'info'}] ducking ({backend.name}): "
+              + (", ".join(f"{_stream_ref(st)} {st.label}" for st in game) if game
                  else "no game audio stream right now (start the game; see `audio list`)"))
-    except FileNotFoundError:
-        print("[info] ducking: pactl not found, so game audio will not be lowered")
+    except DuckingUnavailable as exc:
+        print(f"[info] ducking: {exc}, so game audio will not be lowered")
     except Exception as exc:  # noqa: BLE001
         print(f"[info] ducking: could not list streams ({exc})")
+    finally:
+        backend.close()
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.bind((cfg.get("listen.host"), int(cfg.get("listen.port"))))

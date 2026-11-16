@@ -2,8 +2,10 @@
 
 Limiter      software gain with a peak limiter, so the voice can be made much
              louder than the TTS model's native level without clipping.
-Ducker       lowers the game's own PipeWire/PulseAudio stream while a line is
-             spoken and restores it afterwards.
+Ducker       lowers the game's own audio while a line is spoken and restores
+             it afterwards: its PipeWire/PulseAudio stream through pactl
+             (PactlBackend), or on Windows its per-app session volume
+             (winaudio.CoreAudioBackend).
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from .fsutil import replace_file
 
@@ -89,7 +91,9 @@ class Limiter:
 
 @dataclass
 class SinkInput:
-    id: int
+    """A playing stream: a pactl sink input (int id), or a Windows audio
+    session (its instance identifier as id). volumes: 65536 = 100%."""
+    id: Any
     volumes: list[int]
     muted: bool = False
     corked: bool = False
@@ -132,12 +136,20 @@ def parse_sink_inputs(text: str) -> list[SinkInput]:
 MATCH_KEYS = ("application.name", "application.process.binary", "pipewire.access.portal.app_id",
               "application.id")
 OWN_PLAYERS = {"pw-play", "pw-cat", "paplay", "ffplay", "kotodama"}
+# props key a backend may set: an identifier for the stream that stays the
+# same across runs of the same program (Windows session identifiers).
+SESSION_KEY = "kotodama.session"
+
+
+def _program(name: str) -> str:
+    name = name.lower()
+    return name[:-4] if name.endswith(".exe") else name
 
 
 def is_game_stream(stream: SinkInput, patterns: list[str]) -> bool:
     props = stream.props
     for key in ("application.name", "application.process.binary"):
-        if props.get(key, "").lower() in OWN_PLAYERS:
+        if _program(props.get(key, "")) in OWN_PLAYERS:   # ffplay.exe is ffplay
             return False
     wanted = [p.lower() for p in patterns if p]
     return any(w in props.get(key, "").lower() for key in MATCH_KEYS for w in wanted)
@@ -151,6 +163,50 @@ def run_pactl(*args: str) -> str:
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or f"pactl exited {result.returncode}")
     return result.stdout
+
+
+# -- backends --------------------------------------------------------------
+#
+# A backend lists the playing streams and sets one stream's volumes:
+#   list_streams() -> list[SinkInput]   (raises DuckingUnavailable if it can't work here)
+#   set_volumes(id, volumes) -> bool    (False if the stream is gone)
+#   close()
+# plus `name` and `missing_hint` for messages.
+
+class DuckingUnavailable(RuntimeError):
+    """The system's audio control isn't there (no pactl, no Core Audio)."""
+
+
+class PactlBackend:
+    name = "pactl"
+    missing_hint = "`pactl` not found (install pulseaudio-utils or pipewire-pulse)"
+
+    def __init__(self, runner: Callable[..., str] | None = None):
+        self.run = runner or run_pactl
+
+    def list_streams(self) -> list[SinkInput]:
+        try:
+            return parse_sink_inputs(self.run("list", "sink-inputs"))
+        except FileNotFoundError as exc:
+            raise DuckingUnavailable(self.missing_hint) from exc
+
+    def set_volumes(self, sid: Any, volumes: list[int]) -> bool:
+        try:
+            self.run("set-sink-input-volume", str(sid), *[str(max(0, v)) for v in volumes])
+            return True
+        except (RuntimeError, subprocess.SubprocessError, OSError):
+            return False   # the stream went away
+
+    def close(self) -> None:
+        pass
+
+
+def make_backend(platform: str | None = None) -> Any:
+    """Core Audio on Windows, pactl everywhere else."""
+    if (platform or sys.platform) == "win32":
+        from .winaudio import CoreAudioBackend
+        return CoreAudioBackend()
+    return PactlBackend()
 
 
 # -- ducking ---------------------------------------------------------------
@@ -168,6 +224,7 @@ class Ducker:
                  attack_ms: int = 120, release_ms: int = 700, hold_ms: int = 500,
                  state_path: Path | None = None,
                  runner: Callable[..., str] | None = None,
+                 backend: Any = None,
                  notify: Callable[[str], None] | None = None):
         self.enabled = enabled
         self.level = max(0, min(100, int(level))) / 100.0
@@ -176,14 +233,15 @@ class Ducker:
         self.release_s = max(0.0, release_ms / 1000.0)
         self.hold_s = max(0.0, hold_ms / 1000.0)
         self.state_path = Path(state_path) if state_path else None
-        self.run = runner or run_pactl
+        self.backend = backend if backend is not None else PactlBackend(runner)
         self.notify = notify or (lambda _m: None)
 
         self._cond = threading.Condition()
         self._active = 0
         self._release_at: float | None = None
         self._factor = 1.0
-        self._streams: dict[int, list[int]] = {}
+        self._streams: dict[Any, list[int]] = {}
+        self._keys: dict[Any, str] = {}            # stream id -> identifier stable across runs
         self._stop = False
         self._thread: threading.Thread | None = None
         self._last_warning: dict[str, float] = {}
@@ -222,6 +280,10 @@ class Ducker:
         if thread is not None:
             thread.join(2.0)
         self._restore_now()
+        try:
+            self.backend.close()
+        except Exception:  # noqa: BLE001 - shutting down
+            pass
 
     def settled(self, timeout: float = 5.0) -> bool:
         """Block until the game volume is fully restored (tests, CLI)."""
@@ -234,21 +296,47 @@ class Ducker:
         return False
 
     def scan(self) -> list[SinkInput]:
-        return [s for s in parse_sink_inputs(self.run("list", "sink-inputs"))
-                if is_game_stream(s, self.match)]
+        return [s for s in self.backend.list_streams() if is_game_stream(s, self.match)]
 
     def restore_stale(self) -> int:
-        """Undo a duck left behind by a crashed sidecar."""
+        """Undo a duck left behind by a crashed sidecar.
+
+        Streams are matched by id first, then by their stable identifier:
+        Windows remembers each app's volume, so a game restarted since the
+        crash has a new session that came back at the ducked level. Ids go
+        first so that with two copies of the game running (same identifier),
+        each keeps its own volume."""
         if not self.state_path or not self.state_path.is_file():
             return 0
         restored = 0
         try:
-            saved = json.loads(self.state_path.read_text(encoding="utf-8")).get("streams", {})
-            live = {s.id: s for s in self.scan()}
-            for sid, volumes in saved.items():
-                if int(sid) in live and isinstance(volumes, list):
-                    self._set_raw(int(sid), [int(v) for v in volumes])
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+            saved = {str(k): v for k, v in state.get("streams", {}).items() if isinstance(v, list)}
+            keys = state.get("keys", {})
+            live = self.scan()
+            by_id = {str(s.id): s for s in live}
+            by_key: dict[str, list[SinkInput]] = {}
+            for s in live:
+                if s.props.get(SESSION_KEY):
+                    by_key.setdefault(s.props[SESSION_KEY], []).append(s)
+            done: set[str] = set()
+
+            def restore(target: SinkInput, volumes: list) -> None:
+                nonlocal restored
+                if self._set_raw(target.id, [int(v) for v in volumes]):
                     restored += 1
+                done.add(str(target.id))
+
+            unmatched = []
+            for sid, volumes in saved.items():
+                if sid in by_id:
+                    restore(by_id[sid], volumes)
+                else:
+                    unmatched.append((sid, volumes))
+            for sid, volumes in unmatched:
+                spare = [s for s in by_key.get(keys.get(sid, ""), []) if str(s.id) not in done]
+                if spare:
+                    restore(spare[0], volumes)
         except (OSError, ValueError, RuntimeError, AttributeError) as exc:
             log.warning("could not restore game volume: %s", exc)
         self._clear_state()
@@ -308,14 +396,15 @@ class Ducker:
     def _begin(self) -> None:
         try:
             found = self.scan()
-        except FileNotFoundError:
-            self._warn("pactl", "ducking needs `pactl` (pulseaudio-utils / pipewire-pulse); it is off for now")
+        except DuckingUnavailable as exc:
+            self._warn("unavailable", f"ducking is off: {exc}")
             self._broken = True
             return
         except (RuntimeError, subprocess.SubprocessError, OSError) as exc:
             self._warn("scan", f"ducking could not list audio streams: {exc}")
             return
         self._streams = {s.id: list(s.volumes) for s in found if s.volumes}
+        self._keys = {s.id: s.props[SESSION_KEY] for s in found if s.volumes and s.props.get(SESSION_KEY)}
         if not self._streams:
             self._warn("nomatch", "ducking found no game audio stream "
                        "(run `kotodama_server.py audio list`, then adjust duck.match)")
@@ -335,12 +424,8 @@ class Ducker:
             self._set_raw(sid, original)
         self._clear_state()
 
-    def _set_raw(self, sid: int, volumes: list[int]) -> bool:
-        try:
-            self.run("set-sink-input-volume", str(sid), *[str(max(0, v)) for v in volumes])
-            return True
-        except (RuntimeError, subprocess.SubprocessError, OSError):
-            return False   # the stream went away
+    def _set_raw(self, sid: Any, volumes: list[int]) -> bool:
+        return self.backend.set_volumes(sid, volumes)
 
     # -- state file -------------------------------------------------------
 
@@ -350,7 +435,9 @@ class Ducker:
         try:
             self.state_path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.state_path.with_name(self.state_path.name + ".tmp")
-            tmp.write_text(json.dumps({"pid": os.getpid(), "streams": self._streams}), encoding="utf-8")
+            state = {"pid": os.getpid(), "streams": {str(k): v for k, v in self._streams.items()},
+                     "keys": {str(k): v for k, v in self._keys.items()}}
+            tmp.write_text(json.dumps(state), encoding="utf-8")
             replace_file(tmp, self.state_path)
         except OSError as exc:
             log.warning("could not write duck state: %s", exc)

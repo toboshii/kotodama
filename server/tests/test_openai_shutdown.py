@@ -12,7 +12,7 @@ from datetime import date
 from unittest import mock
 
 from kotodama import cli
-from kotodama.audio import Ducker
+from kotodama.audio import Ducker, PactlBackend
 from kotodama.config import DEFAULT_PROVIDER, DEFAULTS
 from kotodama.engine import build_engine, make_provider, provider_catalog
 from kotodama.adapters import load_adapters
@@ -186,7 +186,7 @@ class DoctorTests(KotodamaTestCase):
             raise FileNotFoundError("pactl")
 
         with mock.patch.object(cli, "build_engine", lambda *_a, **_k: engine), \
-                mock.patch.object(cli, "run_pactl", no_pactl), contextlib.redirect_stdout(out):
+                mock.patch.object(cli, "make_backend", lambda *_a, **_k: PactlBackend(no_pactl)), contextlib.redirect_stdout(out):
             cli.cmd_doctor(cfg, argparse.Namespace(env_file=None, live=False, provider=None))
         return out.getvalue()
 

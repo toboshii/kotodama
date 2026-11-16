@@ -22,7 +22,7 @@ from typing import Any, Callable
 from . import __version__
 from .adapters import Adapter, load_adapters
 from .archetypes import Archetypes, PROFILE_FIELDS
-from .audio import Ducker, Limiter, db_to_gain
+from .audio import Ducker, Limiter, db_to_gain, make_backend
 from .cache import AudioCache, make_key
 from .config import DEFAULT_PROVIDER, Config
 from .infer import InferenceManager, make_inferer
@@ -744,7 +744,8 @@ class Engine:
         self.ducker.shutdown()
 
 
-def make_ducker(cfg: Config, *, enabled: bool = True) -> Ducker:
+def make_ducker(cfg: Config, *, enabled: bool = True, backend: Any = None) -> Ducker:
+    """pactl on Linux, Core Audio on Windows (audio.make_backend)."""
     return Ducker(
         enabled=enabled and bool(cfg.get("duck.enabled", True)),
         level=int(cfg.get("duck.level", 40)),
@@ -753,6 +754,7 @@ def make_ducker(cfg: Config, *, enabled: bool = True) -> Ducker:
         release_ms=int(cfg.get("duck.release_ms", 700)),
         hold_ms=int(cfg.get("duck.hold_ms", 500)),
         state_path=cfg.path("cache.dir") / "duck_state.json",
+        backend=backend if backend is not None else make_backend(),
     )
 
 

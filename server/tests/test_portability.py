@@ -14,6 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 from kotodama import cache as cache_mod, cli, fsutil, protocol
+from kotodama.audio import PactlBackend
 from kotodama.cache import AudioCache
 from kotodama.net import UDPServer
 
@@ -209,7 +210,7 @@ class DoctorWritableTests(KotodamaTestCase):
             raise FileNotFoundError("pactl")
 
         with mock.patch.object(cli, "build_engine", lambda *_a, **_k: engine), \
-                mock.patch.object(cli, "run_pactl", no_pactl), contextlib.redirect_stdout(out):
+                mock.patch.object(cli, "make_backend", lambda *_a, **_k: PactlBackend(no_pactl)), contextlib.redirect_stdout(out):
             cli.cmd_doctor(cfg, argparse.Namespace(env_file=None, live=False, provider=None))
         text = out.getvalue()
         self.assertIn(f"[ok] cache folder writable: {self.tmp / 'cache'}", text)

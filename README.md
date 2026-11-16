@@ -312,10 +312,13 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 **Ducking.** While a line is spoken the sidecar lowers the game's own audio stream (music and effects together, since the game outputs one stream) to `duck.level` percent, quickly at the start of a line and gradually back afterwards. It holds the lowered level for `hold_ms` between lines so a cutscene doesn't pump the music up and down. This works at the PipeWire/PulseAudio level using `pactl`, so it needs no game or Windower support.
 
+On Windows (experimental, not yet tested on Windows) it lowers FFXI's per-app volume instead, the same slider as in the Volume Mixer, through Windows' own audio API, so nothing has to be installed. FFXI's audio belongs to `pol.exe`, which the default `duck.match` includes. Apps on every output device are found, so it works with headphones too. `server\kotodama.cmd audio list` shows each app's audio by process id.
+
 - Which stream is "the game" is decided by `duck.match`: any entry appearing in a stream's application name, binary or Flatpak app id. The defaults match `windower`, `playonline`, `ffxi` and `pol.exe`. Run `python3 server/kotodama_server.py audio list` with the game running to see what's matched.
 - `audio duck-test` dips the game volume for three seconds and restores it, so you can confirm it works without the addon.
 - The original volume is saved to `cache/duck_state.json` while ducked. If the sidecar is killed mid-duck, the next start restores it automatically, or run `audio restore`.
-- Our own player streams (`pw-play`, `paplay`, `ffplay`) are never ducked.
+- Windows remembers each app's volume, so a crash mid-duck would leave FFXI quiet even after restarting the game. The next start finds FFXI by its app, not only by the session it ducked, and restores it. Closing the sidecar's window, logging off or shutting down restores it before the sidecar exits.
+- Our own player streams (`pw-play`, `paplay`, `ffplay`, and on Windows the sidecar's own audio) are never ducked.
 
 ## Cache and cost
 
