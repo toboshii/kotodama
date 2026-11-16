@@ -12,6 +12,8 @@ from typing import Any
 SERVER_DIR = Path(__file__).resolve().parents[1]
 ROOT = SERVER_DIR.parent
 
+DEFAULT_PROVIDER = "inworld"
+
 DEFAULTS: dict[str, Any] = {
     "listen": {"host": "127.0.0.1", "port": 47123},
     "interrupt": True,
@@ -20,7 +22,11 @@ DEFAULTS: dict[str, Any] = {
     "volume": 100,
     "max_text_chars": 1500,
     "tts": {
-        "provider": "openai",
+        # The voice provider used unless //koto provider picks another:
+        # inworld, openai, elevenlabs, or any model in server/tts_models.json.
+        # The rest of this block is OpenAI's own settings; OpenAI shuts down
+        # its speech models on 2027-01-06, so it's no longer the default.
+        "provider": DEFAULT_PROVIDER,
         "model": "gpt-4o-mini-tts",
         "base_url": "https://api.openai.com",
         "api_key": None,

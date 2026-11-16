@@ -15,9 +15,9 @@ Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, 
 
 ## Setup
 
-You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: OpenAI, ElevenLabs, MiniMax, Gemini, Inworld, Replicate, or any mix (see **Voice providers**, **MiniMax**, **Gemini**, **Inworld** and **Replicate and other backends**).
+You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: Inworld (the default), ElevenLabs, MiniMax, Gemini, OpenAI (until 2027-01-06), Replicate, or any mix (see **Voice providers**, **Inworld**, **MiniMax**, **Gemini** and **Replicate and other backends**).
 
-1. **Give it a key.** Put `OPENAI_API_KEY=sk-...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `INWORLD_API_KEY=...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
+1. **Give it a key.** Put `INWORLD_API_KEY=...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `OPENAI_API_KEY=sk-...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
    - A variable already set in your shell takes precedence over the file.
    - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
    - To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
@@ -60,7 +60,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
 | `stop`, `replay` | Playback controls |
-| `provider <name>` / `provider default` | Switch the voice provider live: `openai`, `elevenlabs`, or a model such as `minimax`, `gemini`, `inworld`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
+| `provider <name>` / `provider default` | Switch the voice provider live: `inworld`, `elevenlabs`, `openai`, or another model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
 | `providers` | List every provider the sidecar knows and whether its key is set |
 | `voices` / `voices sync` | How many voices the active provider can cast from / refresh that list (ElevenLabs account, model voice list, voice bank) |
 | `deny <name\|t\|last>` / `allow <...>` / `deny list` | Silence specific NPCs. `t` is your target, `last` is whoever spoke last. Names accept `*` wildcards, e.g. `deny Moogle*` |
@@ -78,9 +78,11 @@ Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xm
 
 ## Voice providers
 
-Kotodama can speak through **OpenAI** (`gpt-4o-mini-tts`, the default) or **ElevenLabs**. Switch any time in game with `//koto provider elevenlabs` / `//koto provider openai`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To make ElevenLabs the default, set `"tts": {"provider": "elevenlabs"}` in `server/config.json`.
+The default voice provider is **Inworld TTS-2** (`inworld`, see **Inworld** below). Kotodama can also speak through **ElevenLabs**, **OpenAI**, and the models in the sections that follow. Switch any time in game with `//koto provider elevenlabs` / `//koto provider inworld`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To change the default, set `"tts": {"provider": "elevenlabs"}` (or any provider name) in `server/config.json`.
 
 **OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through.
+
+**OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. That's why OpenAI is no longer the default. Until then, `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json` still uses it. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **Self-hosted and other OpenAI-compatible servers**) isn't affected.
 
 **ElevenLabs** voices belong to your account (the stock voices plus any you add from their library, design or clone), and there are no free-text directions. So:
 
@@ -139,7 +141,7 @@ python3 server/kotodama_server.py voices cast --provider gemini
 
 ## Inworld
 
-`inworld` and `inworld-flash` speak through Inworld's Realtime TTS-2 models, which **stream** raw audio like MiniMax and Gemini. They use Inworld's OpenAI-compatible endpoint, so they share Kotodama's OpenAI-compatible code.
+`inworld`, the default provider, and `inworld-flash` speak through Inworld's Realtime TTS-2 models, which **stream** raw audio like MiniMax and Gemini. They use Inworld's OpenAI-compatible endpoint, so they share Kotodama's OpenAI-compatible code.
 
 - **`inworld`** (TTS-2) takes **steering**: each line carries a plain direction built from the NPC's tone, personality and pace, such as "speak in a deep gravelly and rumbling tone with a stoic manner at a slow pace". Age and gender come from the voice.
 - **`inworld-flash`** (TTS-2 Flash) is the fastest and cheapest, but it ignores steering, so none is sent.

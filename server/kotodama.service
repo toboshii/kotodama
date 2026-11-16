@@ -2,7 +2,7 @@
 #
 #   mkdir -p ~/.config/systemd/user
 #   cp kotodama.service ~/.config/systemd/user/
-#   printf 'OPENAI_API_KEY=sk-...\n' > ~/.config/kotodama.env && chmod 600 ~/.config/kotodama.env
+#   printf 'INWORLD_API_KEY=...\n' > ~/.config/kotodama.env && chmod 600 ~/.config/kotodama.env
 #   systemctl --user daemon-reload
 #   systemctl --user enable --now kotodama
 #   journalctl --user -u kotodama -f        # logs

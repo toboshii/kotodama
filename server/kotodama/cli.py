@@ -24,9 +24,9 @@ from .adapters import (build_adapter, check_fields, draft_adapter, input_propert
 from .archetypes import Archetypes
 from .audio import is_game_stream, parse_sink_inputs, run_pactl
 from .casting import cast, rank
-from .config import Config
+from .config import DEFAULT_PROVIDER, Config
 from .console import KeyControls, reexec
-from .engine import PROVIDER_KEYS, build_engine, make_ducker, make_provider, provider_catalog
+from .engine import PROVIDER_KEYS, build_engine, make_ducker, make_provider, provider_catalog, provider_notice
 from .library import Library
 from .net import UDPServer
 from .profiles import ProfileResolver
@@ -37,6 +37,7 @@ from .tts_gemini import TEMPLATE_FIELDS as GEMINI_TEMPLATE_FIELDS, GeminiClient
 from .tts_generic import GenericTTS, ReplicateClient, gemini_voice
 from .tts_inworld import TEMPLATE_FIELDS as INWORLD_TEMPLATE_FIELDS, InworldClient, inworld_voice
 from .tts_minimax import MiniMaxClient, unknown_fields as minimax_unknown_fields
+from .tts_openai import shutdown_notice
 from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 
 
@@ -53,8 +54,14 @@ def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.exe
     if not engine.player.available:
         logging.error("no audio player available; install pipewire (pw-play), pulseaudio-utils or ffmpeg")
     if getattr(engine.tts, "needs_key", True) and not engine.tts.api_key:
-        logging.warning("no %s API key: only already-cached lines will play (set %s)", engine.tts.name,
-                        getattr(engine.tts, "key_hint", None) or PROVIDER_KEYS.get(engine.tts.name, "the provider key"))
+        ready = [n for n, (_desc, has_key) in engine.provider_info.items() if has_key]
+        logging.warning("no %s API key: only already-cached lines will play (set %s%s)", engine.tts.name,
+                        getattr(engine.tts, "key_hint", None) or PROVIDER_KEYS.get(engine.tts.name, "the provider key"),
+                        f", or switch in game with //koto provider NAME; ready to use: {', '.join(ready)}"
+                        if ready else "")
+    notice = provider_notice(engine.tts)
+    if notice:
+        logging.warning("%s", notice)
     server = UDPServer(cfg, engine)
     old_term = signal.signal(signal.SIGTERM, lambda *_: server.shutdown())
     chosen: list[str] = []
@@ -352,7 +359,7 @@ def _voices_design(cfg: Config, args: argparse.Namespace) -> int:
 def cmd_providers(cfg: Config, args: argparse.Namespace) -> int:
     problems: list[str] = []
     adapters = load_adapters(cfg, problems)
-    active = str(cfg.get("tts.provider", "openai"))
+    active = str(cfg.get("tts.provider", DEFAULT_PROVIDER))
     catalog = provider_catalog(cfg, adapters)
     width = max(len(n) for n in catalog) + 2
     for name, (desc, has_key) in catalog.items():
@@ -645,9 +652,12 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     check("audio player", engine.player.available, engine.player.kind or "none found")
     active = engine.tts.name
     print(f"[info] voice provider: {active} (switch in game with //koto provider)")
-    openai_key = bool(cfg.api_key("tts"))
-    check("OpenAI API key", openai_key or active != "openai",
-          "set" if openai_key else "missing (OPENAI_API_KEY / tts.api_key)")
+    has_key = not getattr(engine.tts, "needs_key", True) or bool(getattr(engine.tts, "api_key", None))
+    check(f"{active} API key", has_key, "set" if has_key else
+          f"missing ({getattr(engine.tts, 'key_hint', None) or PROVIDER_KEYS.get(active, 'see README')})")
+    notice = shutdown_notice(cfg.get("tts.base_url"))
+    if notice and (active == "openai" or cfg.api_key("tts")):
+        print(f"[warn] {notice}")
     live = args.live or bool(args.provider)
     _doctor_elevenlabs(cfg, live, check)
     _doctor_models(cfg, check, active)

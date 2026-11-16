@@ -24,7 +24,7 @@ from .adapters import Adapter, load_adapters
 from .archetypes import Archetypes, PROFILE_FIELDS
 from .audio import Ducker, Limiter, db_to_gain
 from .cache import AudioCache, make_key
-from .config import Config
+from .config import DEFAULT_PROVIDER, Config
 from .infer import InferenceManager, make_inferer
 from .library import Library, is_learned
 from .player import Player, PlayerHandle
@@ -34,7 +34,7 @@ from .textnorm import normalize, scrub_player
 from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
 from .tts_generic import GenericTTS
-from .tts_openai import OpenAITTS
+from .tts_openai import OpenAITTS, shutdown_label
 from .usage import Usage
 from .voice_bank import VoiceBank
 
@@ -256,6 +256,9 @@ class Engine:
         if getattr(prov, "dynamic_voices", False):
             threading.Thread(target=prov.ensure_catalog, daemon=True).start()
         self.say(f"voice provider: {self._provider_status(prov)}")
+        notice = provider_notice(prov)
+        if notice:
+            self.say(notice)
         return True
 
     @staticmethod
@@ -753,10 +756,17 @@ def make_ducker(cfg: Config, *, enabled: bool = True) -> Ducker:
     )
 
 
+def provider_notice(prov: Any) -> str | None:
+    """A provider's standing warning, such as OpenAI's speech shutdown."""
+    notice = getattr(prov, "shutdown_notice", None)
+    return notice() if callable(notice) else None
+
+
 def provider_catalog(cfg: Config, adapters: dict[str, Adapter]) -> dict[str, tuple[str, bool]]:
     """name -> (description, has the key it needs), built-ins first."""
+    label = shutdown_label(cfg.get("tts.base_url"))
     info = {
-        "openai": ("OpenAI gpt-4o-mini-tts", bool(cfg.api_key("tts"))),
+        "openai": ("OpenAI gpt-4o-mini-tts" + (f" ({label})" if label else ""), bool(cfg.api_key("tts"))),
         "elevenlabs": ("ElevenLabs", bool(cfg.api_key("elevenlabs"))),
     }
     replicate_key = bool(cfg.api_key("replicate"))
@@ -800,7 +810,7 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
     adapters = load_adapters(cfg)
     bank = VoiceBank(cfg.path("voice_bank.dir"))
     factory = provider_factory or (lambda name: make_provider(cfg, name, adapters=adapters, bank=bank))
-    tts = tts or factory((provider or str(cfg.get("tts.provider", "openai"))).strip().lower())
+    tts = tts or factory((provider or str(cfg.get("tts.provider", DEFAULT_PROVIDER))).strip().lower())
     if player is None:
         command = cfg.get("player.command")
         player = Player(command if isinstance(command, dict) else None, null=null_player)
