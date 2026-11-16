@@ -11,7 +11,9 @@ import shutil
 import signal
 import re
 import socket
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.parse
@@ -25,10 +27,11 @@ from .archetypes import Archetypes
 from .audio import is_game_stream, parse_sink_inputs, run_pactl
 from .casting import cast, rank
 from .config import DEFAULT_PROVIDER, Config
-from .console import KeyControls, reexec
+from .console import RESTART_EXIT, SUPERVISED_ENV, KeyControls, reexec, restart_argv
 from .engine import PROVIDER_KEYS, build_engine, make_ducker, make_provider, provider_catalog, provider_notice
 from .library import Library
 from .net import UDPServer
+from .player import install_hint
 from .profiles import ProfileResolver
 from .protocol import Speaker, parse_speak
 from .tts_base import TTSError
@@ -65,7 +68,7 @@ def _setup_logging(debug: bool) -> None:
 def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.execv, engine=None) -> int:
     engine = engine or build_engine(cfg)
     if not engine.player.available:
-        logging.error("no audio player available; install pipewire (pw-play), pulseaudio-utils or ffmpeg")
+        logging.error("no audio player available; %s", install_hint())
     if getattr(engine.tts, "needs_key", True) and not engine.tts.api_key:
         ready = [n for n, (_desc, has_key) in engine.provider_info.items() if has_key]
         logging.warning("no %s API key: only already-cached lines will play (set %s%s)", engine.tts.name,
@@ -100,8 +103,45 @@ def cmd_serve(cfg: Config, args: argparse.Namespace, *, stdin=None, execv=os.exe
         signal.signal(signal.SIGTERM, old_term)
     if chosen and chosen[0] == "restart":
         logging.info("restarting...")
+        if os.environ.get(SUPERVISED_ENV) == "1":
+            return RESTART_EXIT          # Windows: the supervisor starts a fresh copy
         reexec(execv)
     return 0
+
+
+def supervise(argv: list[str] | None = None, *, popen: Any = subprocess.Popen,
+              environ: dict[str, str] | None = None) -> int:
+    """Windows has no exec, and os.execv there starts a new process and ends
+    this one: the console prompt comes back while the new copy runs, and both
+    read the keyboard. So on Windows `serve` runs the real sidecar as a child
+    and starts it again whenever it exits with RESTART_EXIT (R). Each child
+    reads the env file and config itself, as a restart does on Linux."""
+    env = dict(os.environ if environ is None else environ)
+    env[SUPERVISED_ENV] = "1"
+    cmd = argv or [sys.executable, *restart_argv()[1:]]
+    while True:
+        try:
+            child = popen(cmd, env=env)
+        except OSError as exc:
+            logging.error("could not start the sidecar: %s", exc)
+            return 1
+        while True:
+            try:
+                code = child.wait()
+                break
+            except KeyboardInterrupt:
+                # The child got Ctrl+C too and is shutting down: let it finish
+                # (it restores the game's volume) rather than killing it.
+                continue
+        if code != RESTART_EXIT:
+            return code
+
+
+def _needs_supervisor(command: str | None, platform: str | None = None,
+                      environ: dict[str, str] | None = None) -> bool:
+    env = os.environ if environ is None else environ
+    return (command in (None, "serve") and (platform or sys.platform) == "win32"
+            and env.get(SUPERVISED_ENV) != "1")
 
 
 def cmd_test(cfg: Config, args: argparse.Namespace) -> int:
@@ -643,6 +683,21 @@ def _doctor_live(cfg: Config, check, only: str | None = None) -> None:
         print("[info] fastest first audio: " + ", ".join(f"{n} {t:.0f} ms" for t, n in sorted(timings)))
 
 
+def _writable(folder: Path) -> tuple[bool, str]:
+    """Can the sidecar save files here? Tried for real: creates and deletes
+    a temp file, since permissions alone don't tell on Windows."""
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(prefix=".kotodama-write-test-", dir=folder)
+        os.close(fd)
+        os.unlink(name)
+        return True, str(folder)
+    except OSError as exc:
+        hint = (" (Windows protects Program Files: install Windower elsewhere, or point cache.dir and "
+                "library.file in server/config.json at a folder you own)" if sys.platform == "win32" else "")
+        return False, f"{folder}: {exc.strerror or exc}{hint}"
+
+
 def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     ok = True
 
@@ -661,6 +716,10 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     else:
         state = "not found (keys must come from your environment)"
     print(f"[info] keys file {env_path}: {state}")
+    for label, folder in (("cache folder", cfg.path("cache.dir")),
+                          ("library folder", cfg.path("library.file").parent)):
+        good, detail = _writable(folder)
+        check(f"{label} writable", good, detail)
     engine = build_engine(cfg, null_player=False)
     check("audio player", engine.player.available, engine.player.kind or "none found")
     active = engine.tts.name
@@ -700,8 +759,9 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
         check("UDP port free", False, str(exc))
     finally:
         sock.close()
-    for name in ("pw-play", "paplay", "ffplay"):
-        print(f"[info] {name}: {shutil.which(name) or 'not found'}")
+    if sys.platform != "win32":
+        for name in ("pw-play", "paplay", "ffplay"):
+            print(f"[info] {name}: {shutil.which(name) or 'not found'}")
     if live:
         _doctor_live(cfg, check, args.provider)
     else:
@@ -713,8 +773,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="kotodama_server.py", description="Kotodama voiceover sidecar")
     parser.add_argument("-c", "--config", help="path to config.json (default: server/config.json)")
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
-    parser.add_argument("--env-file", help="API keys file to load (default: ~/.config/kotodama.env, "
-                                           "or $KOTODAMA_ENV_FILE); shell variables take precedence")
+    parser.add_argument("--env-file", help=f"API keys file to load (default: {envfile.shown_default()}, "
+                                           "or $KOTODAMA_ENV_FILE); shell variables take precedence"
+                        .replace("%", "%%"))     # argparse %-formats help texts
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("serve", help="run the sidecar (default)")
@@ -783,6 +844,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     _tolerant_output()
     _setup_logging(args.verbose)
+    if _needs_supervisor(args.command):
+        return supervise()               # loads nothing itself: each child does
     # Before the config: the env file may hold API keys and KOTODAMA_CONFIG.
     env_path, env_names = envfile.load(Path(args.env_file).expanduser() if args.env_file else None)
     if env_names:

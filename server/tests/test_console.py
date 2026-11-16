@@ -139,6 +139,172 @@ class ServeKeysTests(_PtyCase):
         self.assertEqual(execs, [(sys.executable, console.restart_argv())])
         self.assertEqual(termios.tcgetattr(self.slave), before, "terminal restored before exec")
 
+    def test_supervised_r_asks_the_supervisor_instead_of_exec(self):
+        with mock.patch.dict(os.environ, {console.SUPERVISED_ENV: "1"}):
+            rc, execs = self._serve(b"r")
+        self.assertEqual((rc, execs), (console.RESTART_EXIT, []))
+
+    def test_supervised_q_still_quits(self):
+        with mock.patch.dict(os.environ, {console.SUPERVISED_ENV: "1"}):
+            rc, execs = self._serve(b"q")
+        self.assertEqual((rc, execs), (0, []))
+
+
+class _FakeMsvcrt:
+    """Console keys as msvcrt.getwch returns them, one character at a time."""
+
+    def __init__(self, keys: str = ""):
+        self.lock = threading.Lock()
+        self.pending = list(keys)
+        self.reads = 0
+
+    def type(self, keys: str) -> None:
+        with self.lock:
+            self.pending.extend(keys)
+
+    def kbhit(self) -> bool:
+        with self.lock:
+            return bool(self.pending)
+
+    def getwch(self) -> str:
+        with self.lock:
+            self.reads += 1
+            return self.pending.pop(0)
+
+
+class _Console:
+    def fileno(self) -> int:
+        return 0
+
+
+class WindowsKeyTests(unittest.TestCase):
+    def controls(self, keys: str, *, console_ok: bool = True, msvcrt=None):
+        actions: list[str] = []
+        fake = msvcrt if msvcrt is not None else _FakeMsvcrt(keys)
+        kc = KeyControls(actions.append, _Console(), platform="win32", msvcrt_mod=fake,
+                         is_console=lambda fd: console_ok)
+        self.addCleanup(kc.stop)
+        return kc, actions, fake
+
+    def test_r_and_q_act_without_enter(self):
+        for keys, action in (("r", "restart"), ("R", "restart"), ("q", "quit"), ("Q", "quit")):
+            kc, actions, _ = self.controls(keys)
+            self.assertTrue(kc.start())
+            self.assertTrue(wait_for(lambda: actions), keys)
+            kc.stop()
+            self.assertEqual(actions, [action])
+
+    def test_two_part_keys_never_count_as_r_or_q(self):
+        # Insert, Page Down, F1, Delete, then other letters: nothing happens.
+        kc, actions, fake = self.controls("\xe0R\xe0Q\x00;\xe0Sxyz")
+        self.assertTrue(kc.start())
+        self.assertTrue(wait_for(lambda: not fake.pending))
+        time.sleep(0.1)
+        self.assertEqual(actions, [])
+        fake.type("q")
+        self.assertTrue(wait_for(lambda: actions))
+        self.assertEqual(actions, ["quit"])
+
+    def test_one_action_then_the_reader_stops(self):
+        kc, actions, fake = self.controls("rq")
+        self.assertTrue(kc.start())
+        self.assertTrue(wait_for(lambda: actions))
+        time.sleep(0.1)
+        self.assertEqual(actions, ["restart"])
+        self.assertEqual(fake.pending, ["q"], "the server is going down: nothing more is read")
+
+    def test_no_console_means_no_key_handling(self):
+        kc, actions, fake = self.controls("r", console_ok=False)
+        self.assertFalse(kc.start())
+        time.sleep(0.05)
+        self.assertEqual((actions, fake.reads), ([], 0))
+
+    def test_without_msvcrt_nothing_happens(self):
+        actions: list[str] = []
+        with mock.patch.object(console, "_load_msvcrt", return_value=None):
+            kc = KeyControls(actions.append, _Console(), platform="win32", is_console=lambda fd: True)
+            self.assertFalse(kc.start())
+
+    def test_stop_ends_the_reader(self):
+        kc, actions, fake = self.controls("")
+        self.assertTrue(kc.start())
+        kc.stop()
+        self.assertFalse(kc._thread.is_alive())
+        fake.type("r")
+        time.sleep(0.1)
+        self.assertEqual(actions, [])
+
+
+class _Child:
+    def __init__(self, code: int, interrupts: int = 0):
+        self.code, self.interrupts, self.waits = code, interrupts, 0
+
+    def wait(self):
+        self.waits += 1
+        if self.interrupts:
+            self.interrupts -= 1
+            raise KeyboardInterrupt
+        return self.code
+
+
+class SupervisorTests(unittest.TestCase):
+    def run_supervisor(self, children, **kw):
+        spawned: list = []
+        queue = list(children)
+
+        def popen(cmd, env):
+            spawned.append((cmd, env))
+            child = queue.pop(0)
+            if isinstance(child, BaseException):
+                raise child
+            return child
+
+        rc = cli.supervise(popen=popen, environ={"PATH": "x"}, **kw)
+        return rc, spawned
+
+    def test_restart_code_runs_a_fresh_copy(self):
+        with mock.patch.object(sys, "orig_argv", ["py", "-B", "kotodama_server.py", "serve"], create=True):
+            rc, spawned = self.run_supervisor([_Child(console.RESTART_EXIT), _Child(console.RESTART_EXIT),
+                                               _Child(0)])
+        self.assertEqual(rc, 0)
+        self.assertEqual(len(spawned), 3)
+        cmd, env = spawned[0]
+        self.assertEqual(cmd, [sys.executable, "-B", "kotodama_server.py", "serve"])
+        self.assertEqual(env, {"PATH": "x", console.SUPERVISED_ENV: "1"})
+
+    def test_any_other_exit_is_passed_on(self):
+        rc, spawned = self.run_supervisor([_Child(3)], argv=["python", "k.py"])
+        self.assertEqual((rc, len(spawned)), (3, 1))
+        self.assertEqual(spawned[0][0], ["python", "k.py"])
+
+    def test_ctrl_c_waits_for_the_child_to_finish(self):
+        child = _Child(0, interrupts=2)
+        rc, spawned = self.run_supervisor([child], argv=["python", "k.py"])
+        self.assertEqual((rc, len(spawned), child.waits), (0, 1, 3))
+
+    def test_a_child_that_cannot_start(self):
+        with self.assertLogs(level="ERROR"):
+            rc, _ = self.run_supervisor([OSError("no python")], argv=["python", "k.py"])
+        self.assertEqual(rc, 1)
+
+    def test_only_serve_on_windows_outside_a_supervisor(self):
+        need = cli._needs_supervisor
+        self.assertTrue(need("serve", "win32", {}))
+        self.assertTrue(need(None, "win32", {}))
+        self.assertFalse(need("doctor", "win32", {}))
+        self.assertFalse(need("serve", "linux", {}))
+        self.assertFalse(need("serve", "win32", {console.SUPERVISED_ENV: "1"}))
+
+    def test_main_supervises_before_loading_anything(self):
+        env = {k: v for k, v in os.environ.items() if k != console.SUPERVISED_ENV}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(cli.sys, "platform", "win32"), \
+                mock.patch.object(cli, "supervise", return_value=7) as supervise, \
+                mock.patch.object(cli.envfile, "load") as load, mock.patch.object(cli.Config, "load") as cfg:
+            self.assertEqual(cli.main(["serve"]), 7)
+        supervise.assert_called_once_with()
+        load.assert_not_called()
+        cfg.assert_not_called()
+
 
 class RestartHandshakeTests(KotodamaTestCase):
     def test_fresh_sidecar_asks_for_hello_until_it_gets_one(self):

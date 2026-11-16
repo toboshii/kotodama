@@ -1,6 +1,7 @@
 """Load ~/.config/kotodama.env ourselves, so a sidecar started from a
 terminal sees the same API keys as the systemd unit (which reads the file
-through EnvironmentFile=).
+through EnvironmentFile=). On Windows the file is
+%APPDATA%\\Kotodama\\kotodama.env.
 
 Format (systemd EnvironmentFile, plus `export` for shell-style files):
 
@@ -21,6 +22,7 @@ import logging
 import os
 import re
 import stat
+import sys
 from pathlib import Path
 from typing import MutableMapping
 
@@ -32,12 +34,23 @@ _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ESCAPES = {"n": "\n", "t": "\t", "\\": "\\", '"': '"', "$": "$"}
 
 
-def default_path(environ: MutableMapping[str, str] | None = None) -> Path:
+def default_path(environ: MutableMapping[str, str] | None = None, platform: str | None = None) -> Path:
     env = os.environ if environ is None else environ
     if env.get(OVERRIDE):
         return Path(env[OVERRIDE]).expanduser()
-    base = Path(env["XDG_CONFIG_HOME"]) if env.get("XDG_CONFIG_HOME") else Path.home() / ".config"
-    return base / "kotodama.env"
+    if env.get("XDG_CONFIG_HOME"):
+        return Path(env["XDG_CONFIG_HOME"]) / "kotodama.env"
+    if (platform or sys.platform) == "win32":
+        base = Path(env["APPDATA"]) if env.get("APPDATA") else Path.home() / "AppData" / "Roaming"
+        return base / "Kotodama" / "kotodama.env"
+    return Path.home() / ".config" / "kotodama.env"
+
+
+def shown_default(platform: str | None = None) -> str:
+    """The default path as the user would type it, for help texts."""
+    if (platform or sys.platform) == "win32":
+        return "%APPDATA%\\Kotodama\\kotodama.env"
+    return "~/.config/kotodama.env"
 
 
 def _unquote(value: str) -> str:
@@ -73,13 +86,17 @@ def parse(text: str) -> dict[str, str]:
     return values
 
 
-def load(path: Path | None = None, environ: MutableMapping[str, str] | None = None) -> tuple[Path, list[str]]:
+def load(path: Path | None = None, environ: MutableMapping[str, str] | None = None,
+         platform: str | None = None) -> tuple[Path, list[str]]:
     """Apply the env file to the environment. Returns (path, names set from it)."""
     env = os.environ if environ is None else environ
-    path = Path(path) if path is not None else default_path(env)
+    platform = platform or sys.platform
+    path = Path(path) if path is not None else default_path(env, platform)
     previous = {n for n in env.get(MARKER, "").split(",") if n}
     try:
-        text = path.read_text(encoding="utf-8")
+        # utf-8-sig: Notepad may start the file with a byte-order mark, which
+        # would otherwise hide the first key.
+        text = path.read_text(encoding="utf-8-sig")
     except FileNotFoundError:
         values: dict[str, str] = {}
     except OSError as exc:
@@ -88,7 +105,9 @@ def load(path: Path | None = None, environ: MutableMapping[str, str] | None = No
     else:
         values = parse(text)
         try:
-            if path.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
+            # Windows mode bits always look world-readable; access there is
+            # controlled by the folder's ACL (your own profile).
+            if platform != "win32" and path.stat().st_mode & (stat.S_IRWXG | stat.S_IRWXO):
                 log.warning("%s holds API keys but other users can read it: chmod 600 %s", path, path)
         except OSError:
             pass

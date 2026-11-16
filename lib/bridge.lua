@@ -1,4 +1,4 @@
--- UDP link to the Kotodama sidecar (kotodama_server.py) on the Linux host.
+-- UDP link to the Kotodama sidecar (kotodama_server.py) on this machine.
 -- Everything here is non-blocking: sends are fire-and-forget, receives are
 -- polled from prerender. A dead sidecar can never stall the game.
 

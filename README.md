@@ -15,7 +15,11 @@ Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, 
 
 ## Setup
 
-You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and an API key for at least one voice provider: Inworld (the default), ElevenLabs, MiniMax, Gemini, OpenAI (until 2027-01-06), Replicate, or any mix (see **Voice providers**, **Inworld**, **MiniMax**, **Gemini** and **Replicate and other backends**).
+You need Python 3.10+ and an API key for at least one voice provider: Inworld (the default), ElevenLabs, MiniMax, Gemini, OpenAI (until 2027-01-06), Replicate, or any mix (see **Voice providers**, **Inworld**, **MiniMax**, **Gemini** and **Replicate and other backends**). Then follow the steps for your system, and load the addon.
+
+### Linux and the Steam Deck
+
+You also need an audio player: `pw-play`, `paplay`, or `ffplay`.
 
 1. **Give it a key.** Put `INWORLD_API_KEY=...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `OPENAI_API_KEY=sk-...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
    - A variable already set in your shell takes precedence over the file.
@@ -42,7 +46,36 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
    Don't run it from a sandboxed terminal (e.g. a Flatpak editor's terminal): it needs your real audio session and the host's loopback.
 
    In a terminal (`python3 server/kotodama_server.py`), press **R** to restart it (picks up code and config changes) or **Q** to quit. No Enter or Ctrl+C needed, which helps with the Steam Deck's on-screen keyboard. The game stays connected across a restart: the addon notices, says "voice server restarted." and sends your settings (volume, provider, ducking) again. Under systemd there's no terminal, so use `systemctl --user restart kotodama`.
-5. **Load the addon** in game: `//lua load kotodama`. To load it automatically, add `lua load kotodama` to your Windower `scripts/init.txt`. If the sidecar isn't running you'll get one chat warning and the game is otherwise unaffected.
+
+### Windows (experimental, not yet tested on Windows)
+
+Windows support is new and hasn't been tried on a real Windows machine yet. If something doesn't work, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
+
+Nothing besides Python has to be installed: the sidecar plays audio through Windows itself.
+
+1. **Install Python 3.10 or newer** from [python.org](https://www.python.org/downloads/). Keep "py launcher" ticked in the installer. Python from the Microsoft Store isn't needed, and `kotodama.cmd` skips the Store's `python` placeholder.
+2. **Give it a key.** Create the folder `%APPDATA%\Kotodama` (paste that into Explorer's address bar to find `AppData\Roaming`), and in it a text file `kotodama.env` with `INWORLD_API_KEY=...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `OPENAI_API_KEY=sk-...` and/or `REPLICATE_API_TOKEN=r8_...`, one per line. Check that Notepad didn't save it as `kotodama.env.txt`. The file is private to your Windows account, so there's nothing like `chmod` to do. The rest works as on Linux: R re-reads the file, and `--env-file PATH` or `KOTODAMA_ENV_FILE` picks another.
+3. **Check the setup.** Open a Command Prompt in the addon folder:
+   ```
+   server\kotodama.cmd doctor
+   server\kotodama.cmd doctor --provider inworld
+   ```
+   `doctor` also checks that the sidecar can save its cache and library. A Windower installed under `Program Files` can't be written to, so install Windower somewhere else, or point `cache.dir` and `library.file` in `server\config.json` at a folder you own.
+4. **Hear it without the game:**
+   ```
+   server\kotodama.cmd test --name Ayame --race 2 "Welcome to Norg."
+   ```
+   Run it twice: the second time comes from the cache.
+5. **Run the sidecar** by double-clicking `server\kotodama.cmd`. Its window shows the log. Press **R** to restart it (picks up code and config changes) or **Q** to quit; other keys such as Insert, Page Down and the F-keys are ignored. Closing the window also stops it. To start it with Windows, press Win+R, enter `shell:startup`, and put a shortcut to `kotodama.cmd` in the folder that opens.
+6. **Optional, for LLM voice casting with `anthropic`:** make a virtual environment and install the SDK into it. `kotodama.cmd` uses `server\.venv` automatically when it exists.
+   ```
+   py -3 -m venv server\.venv
+   server\.venv\Scripts\pip install anthropic
+   ```
+
+### In game
+
+**Load the addon** in game: `//lua load kotodama`. To load it automatically, add `lua load kotodama` to your Windower `scripts/init.txt`. If the sidecar isn't running you'll get one chat warning and the game is otherwise unaffected.
 
 ## In-game commands
 
@@ -311,7 +344,7 @@ Things worth confirming with real play, because they depend on what the game act
 - That ducking finds the game: `python3 server/kotodama_server.py audio list` should show your game's stream marked `DUCK`.
 - That the UDP link comes up (`//koto status` should say `link UP`). The game needs network access to play at all, so a Flatpak that shares the host network should reach the sidecar's loopback socket; this hasn't been verified on a Steam Deck yet, so if the link stays down, check the game's network permission first.
 
-Tests: `cd server && python3 -m unittest discover -s tests` for the sidecar. The Lua side runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package: `python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua`.
+Tests: `cd server && python3 -m unittest discover -s tests` for the sidecar (`py -3` instead of `python3` on Windows). The Lua side runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package: `python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua`.
 
 ## Credits
 

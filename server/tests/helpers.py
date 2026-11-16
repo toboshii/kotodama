@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -18,6 +19,17 @@ from kotodama.config import Config
 from kotodama.engine import build_engine
 from kotodama.profiles import describe
 from kotodama.tts_base import TTSError, VoiceRequest
+
+# Player commands that work wherever the tests run (no sh, cat or /dev/null).
+# Player fills {placeholders} with str.format, so these contain no braces.
+DISCARD_PLAYER = [sys.executable, "-c", "import sys; sys.stdin.buffer.read()"]
+
+
+def capture_player_cmd(path) -> list[str]:
+    """A player that saves the PCM it's given to path."""
+    return [sys.executable, "-c",
+            "import shutil, sys\nwith open(sys.argv[1], 'wb') as f: shutil.copyfileobj(sys.stdin.buffer, f)",
+            str(path)]
 
 
 class FakeTTS:

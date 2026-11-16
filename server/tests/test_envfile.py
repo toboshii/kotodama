@@ -6,6 +6,7 @@ import contextlib
 import io
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,9 +37,23 @@ class ParseTests(unittest.TestCase):
 
     def test_default_location(self):
         self.assertEqual(envfile.default_path({"XDG_CONFIG_HOME": "/x/conf"}), Path("/x/conf/kotodama.env"))
-        self.assertEqual(envfile.default_path({}), Path.home() / ".config" / "kotodama.env")
+        self.assertEqual(envfile.default_path({}, platform="linux"), Path.home() / ".config" / "kotodama.env")
         self.assertEqual(envfile.default_path({"KOTODAMA_ENV_FILE": "/etc/k.env", "XDG_CONFIG_HOME": "/x"}),
                          Path("/etc/k.env"))
+
+
+    def test_windows_location(self):
+        self.assertEqual(envfile.default_path({"APPDATA": "C:/Users/a/AppData/Roaming"}, platform="win32"),
+                         Path("C:/Users/a/AppData/Roaming") / "Kotodama" / "kotodama.env")
+        self.assertEqual(envfile.default_path({}, platform="win32"),
+                         Path.home() / "AppData" / "Roaming" / "Kotodama" / "kotodama.env")
+        # The explicit choices still come first.
+        self.assertEqual(envfile.default_path({"KOTODAMA_ENV_FILE": "D:/k.env", "APPDATA": "C:/a"},
+                                              platform="win32"), Path("D:/k.env"))
+        self.assertEqual(envfile.default_path({"XDG_CONFIG_HOME": "C:/xdg", "APPDATA": "C:/a"},
+                                              platform="win32"), Path("C:/xdg/kotodama.env"))
+        self.assertEqual(envfile.shown_default("win32"), "%APPDATA%\\Kotodama\\kotodama.env")
+        self.assertEqual(envfile.shown_default("linux"), "~/.config/kotodama.env")
 
 
 class LoadTests(unittest.TestCase):
@@ -76,6 +91,7 @@ class LoadTests(unittest.TestCase):
         self.assertNotIn("REPLICATE_API_TOKEN", env)
         self.assertNotIn(envfile.MARKER, env)
 
+    @unittest.skipIf(sys.platform == "win32", "Windows mode bits always look world-readable")
     def test_missing_file_is_fine_and_loose_permissions_warn(self):
         env: dict[str, str] = {}
         self.assertEqual(envfile.load(self.path, env)[1], [])
@@ -84,6 +100,22 @@ class LoadTests(unittest.TestCase):
             envfile.load(self.path, {})
         self.assertIn("chmod 600", logs.output[0])
         self.assertNotIn("r8", "".join(logs.output).replace(str(self.path), ""), "values are never logged")
+
+
+    def test_no_permission_warning_on_windows(self):
+        self.write("REPLICATE_API_TOKEN=r8\n", mode=0o644)
+        with self.assertNoLogs("kotodama.env", "WARNING"):
+            _, names = envfile.load(self.path, {}, platform="win32")
+        self.assertEqual(names, ["REPLICATE_API_TOKEN"])
+
+    def test_a_byte_order_mark_does_not_hide_the_first_key(self):
+        # Notepad can save UTF-8 with a BOM.
+        self.path.write_bytes("\ufeffINWORLD_API_KEY=abc\r\nGEMINI_API_KEY=def\r\n".encode("utf-8"))
+        env: dict[str, str] = {}
+        _, names = envfile.load(self.path, env, platform="win32")
+        self.assertEqual(names, ["GEMINI_API_KEY", "INWORLD_API_KEY"])
+        self.assertEqual(env["INWORLD_API_KEY"], "abc")
+        self.assertEqual(env["GEMINI_API_KEY"], "def")
 
 
 class CliTests(unittest.TestCase):

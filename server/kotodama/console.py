@@ -5,6 +5,10 @@ sidecar runs in the foreground of a terminal, stdin is put in cbreak mode
 (each key arrives without Enter; echo off; Ctrl+C still works) and read on
 a background thread. Under systemd, with stdin redirected, or in the
 background (`&`), there is no terminal to own and this does nothing.
+
+On Windows the console is read with msvcrt instead, and there is no exec:
+a restart is the child process exiting with RESTART_EXIT for the small
+supervisor in cli.py to start it again.
 """
 
 from __future__ import annotations
@@ -26,6 +30,14 @@ except ImportError:  # pragma: no cover - not POSIX
 log = logging.getLogger("kotodama.console")
 
 KEYS = {"r": "restart", "q": "quit"}
+# A Windows child asking its supervisor for a fresh copy (EX_TEMPFAIL).
+RESTART_EXIT = 75
+SUPERVISED_ENV = "KOTODAMA_SUPERVISED"
+# msvcrt.getwch returns arrow, function and editing keys as two characters,
+# the first one of these. Insert is "\xe0R" and Page Down "\xe0Q": the
+# second half must never count as R or Q.
+WIN_KEY_PREFIXES = ("\x00", "\xe0")
+WIN_POLL = 0.05
 # CSI (ESC [ ... final), SS3 (ESC O x) and Alt+key (ESC x) sequences.
 ESCAPE_SEQ = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|O.?|.?)", re.DOTALL)
 
@@ -39,10 +51,36 @@ def _in_foreground(fd: int) -> bool:
         return False
 
 
+def _is_windows_console(fd: int) -> bool:
+    """True if fd is a real console (not a pipe, a file, or NUL, which
+    os.isatty also reports as a terminal on Windows)."""
+    try:
+        import msvcrt
+        from ctypes import byref, windll, wintypes   # type: ignore[attr-defined]
+        mode = wintypes.DWORD()
+        handle = wintypes.HANDLE(msvcrt.get_osfhandle(fd))
+        return bool(windll.kernel32.GetConsoleMode(handle, byref(mode)))
+    except (ImportError, AttributeError, OSError, ValueError):
+        return False
+
+
+def _load_msvcrt() -> Any:
+    try:
+        import msvcrt
+        return msvcrt
+    except ImportError:
+        return None
+
+
 class KeyControls:
-    def __init__(self, on_action: Callable[[str], None], stream: Any = None):
+    def __init__(self, on_action: Callable[[str], None], stream: Any = None, *,
+                 platform: str | None = None, msvcrt_mod: Any = None,
+                 is_console: Callable[[int], bool] | None = None):
         self.on_action = on_action
         self.stream = stream if stream is not None else sys.stdin
+        self.platform = platform or sys.platform
+        self._msvcrt = msvcrt_mod
+        self._is_console = is_console or _is_windows_console
         self._fd: int | None = None
         self._saved: list[Any] | None = None
         self._stop = threading.Event()
@@ -50,6 +88,8 @@ class KeyControls:
 
     def start(self) -> bool:
         """Take the keyboard. False (and nothing changed) without a usable terminal."""
+        if self.platform == "win32":
+            return self._start_windows()
         if termios is None or self.stream is None:
             return False
         try:
@@ -81,6 +121,37 @@ class KeyControls:
                 pass
         self._saved = None
         self._fd = None
+
+    def _start_windows(self) -> bool:
+        msvcrt = self._msvcrt or _load_msvcrt()
+        if msvcrt is None or self.stream is None:
+            return False
+        try:
+            fd = self.stream.fileno()
+        except (AttributeError, ValueError, OSError):
+            return False
+        if not self._is_console(fd):
+            return False
+        self._thread = threading.Thread(target=self._read_windows, args=(msvcrt,), daemon=True, name="keys")
+        self._thread.start()
+        return True
+
+    def _read_windows(self, msvcrt: Any) -> None:
+        while not self._stop.is_set():
+            try:
+                if not msvcrt.kbhit():
+                    self._stop.wait(WIN_POLL)
+                    continue
+                ch = msvcrt.getwch()
+                if ch in WIN_KEY_PREFIXES:   # an arrow, F-key, Insert...: drop both halves
+                    msvcrt.getwch()
+                    continue
+            except (OSError, ValueError):
+                return
+            action = KEYS.get(ch.lower())
+            if action:
+                self.on_action(action)
+                return                       # one action per run; the server is going down
 
     def _read(self) -> None:
         assert self._fd is not None

@@ -508,7 +508,7 @@ windower.register_event('prerender', function()
         and os.clock() - state.loaded_at > 8 then
         state.warned_down = true
         say('voice server not found on port ' .. tostring(settings.port)
-            .. '. Start it with: python3 server/kotodama_server.py serve')
+            .. '. Start it with server\\kotodama.cmd (Windows) or python3 server/kotodama_server.py (Linux)')
     end
 end)
 

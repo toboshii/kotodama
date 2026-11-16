@@ -1,4 +1,5 @@
-"""Audio playback through an external player process (instantly killable).
+"""Audio playback through an external player process (instantly killable),
+or on Windows through the built-in waveOut player (winaudio.py).
 
 Every line, cached or freshly synthesized, is played as a raw PCM stream so
 the sidecar controls gain itself; the player is always run at full volume."""
@@ -8,9 +9,10 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import sys
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 log = logging.getLogger("kotodama.player")
 
@@ -73,13 +75,25 @@ def _expand(template: list[str], **values: Any) -> list[str]:
     return [str(part).format(**values) for part in template]
 
 
-class Player:
-    """Chooses pw-play, paplay or ffplay (or a configured command)."""
+def install_hint(platform: str | None = None) -> str:
+    """What to do when no player was found, for log and doctor messages."""
+    if (platform or sys.platform) == "win32":
+        return "the built-in Windows player is used unless player.command in server/config.json names another"
+    return "install pipewire (pw-play), pulseaudio-utils (paplay) or ffmpeg (ffplay)"
 
-    def __init__(self, command: dict[str, list[str]] | None = None, *, null: bool = False):
+
+class Player:
+    """Chooses pw-play, paplay or ffplay (or a configured command). On
+    Windows it plays through waveOut itself, so nothing has to be installed."""
+
+    def __init__(self, command: dict[str, list[str]] | None = None, *, null: bool = False,
+                 platform: str | None = None, winmm: Callable[[], Any] | None = None):
         self.null = null
         self.kind = "null" if null else None
         self.stream_cmd: list[str] | None = None
+        self.platform = platform or sys.platform
+        self._winmm_factory = winmm
+        self._winmm: Any = None
         if null:
             return
         if command:
@@ -89,7 +103,9 @@ class Player:
             self._autodetect()
 
     def _autodetect(self) -> None:
-        if shutil.which("pw-play"):
+        if self.platform == "win32":
+            self.kind = "waveout"
+        elif shutil.which("pw-play"):
             self.kind = "pw-play"
             self.stream_cmd = ["pw-play", "--raw", "--rate", "{rate}", "--channels", "1", "--format", "s16",
                                "--volume", "{volume_float}", "--latency", "60ms", "-"]
@@ -102,11 +118,11 @@ class Player:
             self.stream_cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", "-volume", "{volume}",
                                "-f", "s16le", "-ar", "{rate}", "-ac", "1", "-i", "pipe:0"]
         else:
-            log.error("no audio player found (install pipewire-tools, pulseaudio-utils or ffmpeg)")
+            log.error("no audio player found (%s)", install_hint(self.platform))
 
     @property
     def available(self) -> bool:
-        return self.null or bool(self.stream_cmd)
+        return self.null or self.kind == "waveout" or bool(self.stream_cmd)
 
     @staticmethod
     def _volumes(volume: int) -> dict[str, Any]:
@@ -126,7 +142,20 @@ class Player:
             log.error("could not start player %s: %s", argv[0], exc)
             return PlayerHandle(None)
 
-    def start_stream(self, volume: int, rate: int) -> PlayerHandle:
+    def start_stream(self, volume: int, rate: int) -> Any:
+        """A PlayerHandle, or a WaveOutHandle with the same methods. The engine
+        always passes volume 100 and applies its own gain."""
+        if self.kind == "waveout":
+            return self._start_waveout(rate)
         if self.null or not self.stream_cmd:
             return PlayerHandle(None)
         return self._spawn(_expand(self.stream_cmd, rate=rate, **self._volumes(volume)), stdin=True)
+
+    def _start_waveout(self, rate: int) -> Any:
+        from .winaudio import WaveOutHandle, load_winmm
+        if self._winmm is None:
+            self._winmm = (self._winmm_factory or load_winmm)()
+            if self._winmm is None:
+                self._winmm_factory = lambda: None    # don't retry the load for every line
+                return PlayerHandle(None)
+        return WaveOutHandle(self._winmm, rate)

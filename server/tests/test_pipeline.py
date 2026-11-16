@@ -24,7 +24,7 @@ from kotodama.tts_base import VoiceRequest
 from kotodama.tts_openai import OpenAITTS, TTSError
 from kotodama.usage import Usage
 
-from helpers import FakeTTS, KotodamaTestCase, speak_msg
+from helpers import DISCARD_PLAYER, FakeTTS, KotodamaTestCase, speak_msg
 
 
 def wait_for(cond, timeout=5.0):
@@ -535,8 +535,7 @@ class EnginePipelineTests(KotodamaTestCase):
 
     def test_interrupt_stops_playback_but_download_still_completes_into_cache(self):
         tts = FakeTTS(chunks=10, delay=0.03)
-        eng = self.make_engine(tts, player=Player({"stream": ["sh", "-c", "cat > /dev/null"],
-                                                   }), null_player=False)
+        eng = self.make_engine(tts, player=Player({"stream": DISCARD_PLAYER}), null_player=False)
         j1 = eng.speak(protocol.parse_speak(speak_msg("First long line.", seq=1)))
         self.assertTrue(wait_for(lambda: j1.handle is not None and j1.ttfb_ms is not None))
         j2 = eng.speak(protocol.parse_speak(speak_msg("Second line.", seq=2)))

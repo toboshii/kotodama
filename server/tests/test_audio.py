@@ -12,7 +12,7 @@ from kotodama import protocol
 from kotodama.audio import (Ducker, Limiter, db_to_gain, is_game_stream, parse_sink_inputs)
 from kotodama.player import Player
 
-from helpers import FakeTTS, KotodamaTestCase, speak_msg
+from helpers import DISCARD_PLAYER, FakeTTS, KotodamaTestCase, capture_player_cmd, speak_msg
 
 # Shape of real `LC_ALL=C pactl list sink-inputs` output (PipeWire), with the
 # game stream plus a browser and our own player.
@@ -369,7 +369,7 @@ class FakeDucker:
 class EngineAudioTests(KotodamaTestCase):
     def capture_player(self):
         out = self.tmp / "player-out.pcm"
-        return Player({"stream": ["sh", "-c", f"cat > {out}"]}), out
+        return Player({"stream": capture_player_cmd(out)}), out
 
     def test_live_audio_gets_makeup_gain_but_cache_stays_unscaled(self):
         tts = FakeTTS(chunks=3, chunk_bytes=480)
@@ -439,7 +439,7 @@ class EngineAudioTests(KotodamaTestCase):
 
     def test_interrupting_a_line_releases_its_duck(self):
         ducker = FakeDucker()
-        player = Player({"stream": ["sh", "-c", "cat > /dev/null"]})
+        player = Player({"stream": DISCARD_PLAYER})
         eng = self.make_engine(FakeTTS(chunks=20, delay=0.03), player=player, null_player=False, ducker=ducker)
         j1 = eng.speak(protocol.parse_speak(speak_msg("Long line.")))
         deadline = time.time() + 3

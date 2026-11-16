@@ -3,6 +3,7 @@ run everywhere: UDP connection resets, files held open, code pages."""
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 import io
 import os
@@ -178,6 +179,41 @@ class ReplaceFileTests(unittest.TestCase):
         offenders = [p.name for p in root.glob("*.py")
                      if p.name != "fsutil.py" and "os.replace(" in p.read_text(encoding="utf-8")]
         self.assertEqual(offenders, [])
+
+
+class DoctorWritableTests(KotodamaTestCase):
+    def test_a_folder_we_can_write(self):
+        folder = self.tmp / "new" / "cache"
+        ok, detail = cli._writable(folder)
+        self.assertTrue(ok)
+        self.assertEqual(detail, str(folder))
+        self.assertEqual(list(folder.iterdir()), [], "the test file is removed")
+
+    def test_a_folder_we_cannot_write(self):
+        denied = PermissionError(13, "Permission denied")
+        with mock.patch.object(cli.tempfile, "mkstemp", side_effect=denied):
+            ok, detail = cli._writable(self.tmp)
+            self.assertFalse(ok)
+            self.assertIn("Permission denied", detail)
+            self.assertNotIn("Program Files", detail)
+            with mock.patch.object(cli.sys, "platform", "win32"):
+                _, detail = cli._writable(self.tmp)
+        self.assertIn("Program Files", detail)
+
+    def test_doctor_checks_the_cache_and_library_folders(self):
+        cfg = self.make_config(listen={"host": "127.0.0.1", "port": 0})
+        engine = self.make_engine(cfg=cfg)
+        out = io.StringIO()
+
+        def no_pactl(*_a, **_k):
+            raise FileNotFoundError("pactl")
+
+        with mock.patch.object(cli, "build_engine", lambda *_a, **_k: engine), \
+                mock.patch.object(cli, "run_pactl", no_pactl), contextlib.redirect_stdout(out):
+            cli.cmd_doctor(cfg, argparse.Namespace(env_file=None, live=False, provider=None))
+        text = out.getvalue()
+        self.assertIn(f"[ok] cache folder writable: {self.tmp / 'cache'}", text)
+        self.assertIn(f"[ok] library folder writable: {self.tmp / 'library'}", text)
 
 
 class OutputEncodingTests(unittest.TestCase):
