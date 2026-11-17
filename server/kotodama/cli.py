@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -208,6 +209,39 @@ def cmd_cache(cfg: Config, args: argparse.Namespace) -> int:
         print(engine.usage.summary())
     elif args.action == "prune":
         print(f"removed {cache.prune(target_fraction=args.fraction)} lines")
+    elif args.action == "analyze":
+        return _analyze_cache(cache, args.all)
+    return 0
+
+
+def _analyze_cache(cache: Any, everything: bool) -> int:
+    """Measure the loudness of cached lines (those cached before loudness
+    was tracked, or with --all every line), so normalization knows each
+    voice's level from its first line this session."""
+    from .loudness import SILENT, measure_wav
+    rows = cache.to_measure(everything)
+    if not rows:
+        print("every cached line is already measured")
+        return 0
+    levels, failed = [], 0
+    started = time.monotonic()
+    for i, (key, path) in enumerate(rows, 1):
+        try:
+            level, _seconds = measure_wav(Path(path))
+        except (OSError, EOFError, wave.Error):
+            failed += 1
+            continue
+        cache.annotate(key, lufs=level, replace=everything)
+        if level > SILENT:
+            levels.append(level)
+        if i % 100 == 0:
+            print(f"  {i}/{len(rows)}...", flush=True)
+    print(f"measured {len(rows) - failed} lines in {time.monotonic() - started:.0f} s"
+          + (f" ({failed} unreadable)" if failed else ""))
+    if levels:
+        levels.sort()
+        print(f"loudness: quietest {levels[0]:.1f}, median {levels[len(levels) // 2]:.1f}, "
+              f"loudest {levels[-1]:.1f} LUFS")
     return 0
 
 
@@ -824,6 +858,8 @@ def main(argv: list[str] | None = None) -> int:
     csub.add_parser("stats")
     pr = csub.add_parser("prune")
     pr.add_argument("--fraction", type=float, default=0.9, help="shrink to this fraction of max_mb")
+    an = csub.add_parser("analyze", help="measure the loudness of cached lines for normalization")
+    an.add_argument("--all", action="store_true", help="re-measure every line, not just unmeasured ones")
 
     au = sub.add_parser("audio", help="inspect and test game-audio ducking")
     ausub = au.add_subparsers(dest="action", required=True)

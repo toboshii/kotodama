@@ -121,8 +121,32 @@ DEFAULTS: dict[str, Any] = {
     "audio": {
         # Fixed makeup gain on top of `volume`. TTS output is not mastered to
         # game loudness, so a boost is the normal case. A peak limiter keeps
-        # large boosts from clipping.
+        # large boosts from clipping. Used when normalization is off, and
+        # for a voice whose level hasn't been measured yet.
         "makeup_db": 9.0,
+        # Bring every voice to the same loudness with one steady gain per
+        # voice (provider, model and voice), so whispers and shouts within
+        # a voice keep their level. See README "Loudness and ducking".
+        "normalize": {
+            "enabled": True,
+            "target_lufs": -13.0,   # about what makeup_db gave an average voice
+            "max_boost_db": 15.0,
+            "max_cut_db": 10.0,
+            "voice_window": 20,     # recent lines that set a voice's level
+            # A voice heard for the first time starts from its model's usual
+            # level and settles (at most 2 dB/s, within 6 dB) during the line.
+            "first_line_adapt": True,
+            # Hold back this much of a new voice's first line to measure it
+            # before playing. Adds exactly that much delay; 0 = off.
+            "lookahead_ms": 0,
+            # Lift lines that sag partway through. Off by default: it also
+            # lifts a deliberately trailing-off line.
+            "leveler": {
+                "enabled": False,
+                "max_db": 6.0,
+                "providers": [],    # empty = every provider
+            },
+        },
     },
     "duck": {
         # Lower the game's own audio while a line is spoken. Needs `pactl`.

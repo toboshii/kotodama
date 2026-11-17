@@ -4,7 +4,8 @@ Per spoken line (one thread each):
   resolve voice profile (optionally waiting briefly for LLM casting)
   -> cache lookup -> stream the cached WAV, or
   -> stream TTS, tee PCM into the player and the cache.
-Both go through the same gain stage (volume + makeup, peak-limited) and the
+Both go through the same gain stage (volume + a per-voice loudness gain,
+peak-limited; see loudness.py) and the
 game audio is ducked while a line plays. A new line (when interrupt is on) or a stop message kills the player at once.
 With cache.finish_download_on_stop the download still completes into the
 cache after a cut-off, because it has already been paid for.
@@ -27,6 +28,8 @@ from .cache import AudioCache, make_key
 from .config import DEFAULT_PROVIDER, Config
 from .infer import InferenceManager, make_inferer
 from .library import Library, is_learned
+from .loudness import (SILENT, LevelerSettings, LineGain, NormalizeSettings, typical_level,
+                       voice_gain_db)
 from .player import Player, PlayerHandle
 from .profiles import ProfileResolver, Resolved
 from .protocol import Speak, Speaker, log_msg, parse_speak, parse_speaker
@@ -63,6 +66,14 @@ class Job:
         self.source: str | None = None   # "cache" | "tts" | "replay", for tests and logs
         self.error: str | None = None
         self.ttfb_ms: float | None = None
+        # Who is speaking, for loudness: the cache key of the line, the
+        # voice (provider:model:voice) and its provider:model: prefix.
+        self.key: str | None = None
+        self.voice_key: str | None = None
+        self.model_prefix: str | None = None
+        self.npc: str | None = None
+        self.provider: str | None = None
+        self.loudness: str = ""        # how its gain was chosen, for logs and tests
 
     def duck(self) -> None:
         """Lower the game audio for as long as this line is audible."""
@@ -83,6 +94,26 @@ class Job:
         if handle is not None:
             handle.kill()
         self.unduck()
+
+
+def normalize_settings(cfg: Config) -> NormalizeSettings:
+    def num(key: str, default: float) -> float:
+        v = cfg.get(f"audio.normalize.{key}", default)
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else default
+
+    providers = cfg.get("audio.normalize.leveler.providers") or []
+    return NormalizeSettings(
+        enabled=bool(cfg.get("audio.normalize.enabled", True)),
+        target_lufs=num("target_lufs", -13.0),
+        max_boost_db=max(0.0, num("max_boost_db", 15.0)),
+        max_cut_db=max(0.0, num("max_cut_db", 10.0)),
+        voice_window=max(1, int(num("voice_window", 20))),
+        first_line_adapt=bool(cfg.get("audio.normalize.first_line_adapt", True)),
+        lookahead_ms=max(0, int(num("lookahead_ms", 0))),
+        leveler=bool(cfg.get("audio.normalize.leveler.enabled", False)),
+        leveler_providers=tuple(str(p).lower() for p in providers if isinstance(p, str)),
+        leveler_settings=LevelerSettings(max_db=max(0.0, num("leveler.max_db", 6.0))),
+    )
 
 
 class Engine:
@@ -118,6 +149,8 @@ class Engine:
         self.volume = max(0, min(MAX_VOLUME, int(cfg.get("volume", 100))))
         self.makeup_db = float(cfg.get("audio.makeup_db", 9.0))
         self.makeup = db_to_gain(self.makeup_db)
+        self.norm = normalize_settings(cfg)
+        self._norm_default = self.norm.enabled
         self.ducker = ducker or Ducker(enabled=False)
         self.ducker.notify = self.say
         self.interrupt = bool(cfg.get("interrupt", True))
@@ -138,8 +171,53 @@ class Engine:
     # -- plumbing ---------------------------------------------------------
 
     def gain(self) -> float:
-        """Linear gain applied to every sample: volume% x fixed makeup."""
+        """Linear gain for a voice with no measured level (or with
+        normalization off): volume% x fixed makeup."""
         return self.volume / 100.0 * self.makeup
+
+    def _linear(self, db: float) -> float:
+        return self.volume / 100.0 * db_to_gain(db)
+
+    @staticmethod
+    def _voice_ids(tts: Any, req: Any) -> tuple[str, str]:
+        """(provider:model: prefix, provider:model:voice). The style
+        instructions are left out on purpose: a whispered line is the same
+        voice, and its quietness is the point."""
+        prefix = f"{getattr(tts, 'cache_name', tts.name)}:{tts.model}:"
+        return prefix, prefix + str(req.voice)
+
+    def _voice_level(self, voice_key: str, npc: str | None,
+                     model_prefix: str) -> tuple[float | None, str, int]:
+        """A voice's typical level, where it came from, and over how many lines."""
+        levels, source = self.cache.voice_levels(voice_key, npc, self.norm.voice_window)
+        level = typical_level(levels)
+        if level is not None:
+            return level, source or "voice", len(levels)
+        levels = self.cache.model_levels(model_prefix)
+        level = typical_level(levels)
+        return level, ("model" if level is not None else "none"), len(levels)
+
+    def _line_gain(self, job: Job, rate: int) -> LineGain:
+        s = self.norm
+        if not s.enabled or job.voice_key is None or job.model_prefix is None:
+            job.loudness = "off"
+            return LineGain(s, rate, self.makeup_db)
+        level, source, count = self._voice_level(job.voice_key, job.npc, job.model_prefix)
+        base = voice_gain_db(s, level, self.makeup_db)
+        cold = source in ("model", "none")
+        job.loudness = source
+        log.debug("loudness voice=%s level=%s from %s (%d lines) gain %+.1f dB%s", job.voice_key,
+                  "-" if level is None else f"{level:.1f}", source, count, base,
+                  " (settling)" if cold and s.first_line_adapt else "")
+        return LineGain(s, rate, base, adapt=cold and s.first_line_adapt,
+                        leveler=s.leveler_for(job.provider or ""))
+
+    def _emit(self, job: Job, handle: Any, limiter: Limiter, lg: LineGain, chunk: bytes,
+              measured: bool = False) -> bool:
+        """Play one chunk at this line's gain (`measured`: the meter has seen it)."""
+        db = lg.step(len(chunk) / 2 / lg.meter.rate) if measured else lg.process(chunk)
+        job.duck()
+        return handle.write(limiter.process(chunk, self._linear(db)))
 
     def say(self, text: str) -> None:
         for line in text.splitlines():
@@ -200,6 +278,11 @@ class Engine:
             enabled=msg["duck"] if isinstance(msg.get("duck"), bool) else None,
             level=int(duck_level) if isinstance(duck_level, (int, float)) and not isinstance(duck_level, bool) else None,
         )
+        norm = msg.get("normalize")
+        if isinstance(norm, bool):
+            self.norm.enabled = norm
+        elif norm == "":                     # the addon's "default": what server/config.json says
+            self.norm.enabled = self._norm_default
         provider = msg.get("provider")
         if isinstance(provider, str):
             # "" means "whatever server/config.json says".
@@ -322,6 +405,9 @@ class Engine:
             self.say("the last line is no longer in the cache")
             return
         job = Job(replay_path=path, ducker=self.ducker)
+        job.key, job.npc = last["key"], last.get("npc")
+        job.voice_key, job.model_prefix = last.get("voice_key"), last.get("model_prefix")
+        job.provider = last.get("provider")
         with self._lock:
             for j in list(self._jobs):
                 j.stop_playback()
@@ -422,7 +508,10 @@ class Engine:
         # cache_name: a renamed provider keeps finding the audio cached under its old name.
         key = make_key(getattr(tts, "cache_name", tts.name), tts.model, req.voice, req.cache_tag, text,
                        tts.response_format)
-        self.last = {"key": key, "text": text, "npc": sp.speaker.name}
+        job.key, job.npc, job.provider = key, sp.speaker.name, tts.name
+        job.model_prefix, job.voice_key = self._voice_ids(tts, req)
+        self.last = {"key": key, "text": text, "npc": sp.speaker.name, "voice_key": job.voice_key,
+                     "model_prefix": job.model_prefix, "provider": tts.name}
         log.debug("line npc=%s kind=%s voice=%s sources=%s", sp.speaker.name, sp.kind, req.label, res.sources)
 
         if job.prev_done is not None:
@@ -467,11 +556,22 @@ class Engine:
                 return
             job.duck()
             limiter = Limiter(wav.getframerate())
+            lg = self._line_gain(job, wav.getframerate())
+            finished = False
             while not job.cancel.is_set():
                 data = wav.readframes(2400)   # 100 ms at 24 kHz
-                if not data or not handle.write(limiter.process(data, self.gain())):
+                if not data:
+                    finished = True
+                    break
+                if not self._emit(job, handle, limiter, lg, data):
                     break
             handle.finish_input()
+        if job.key is not None:
+            # Lines cached before loudness was tracked get their level (once
+            # heard to the end) and their voice the first time they play.
+            level = lg.meter.integrated()
+            self.cache.annotate(job.key, lufs=(SILENT if level is None else level) if finished else None,
+                                voice=job.voice_key)
         self._wait_playback(job, handle)
 
     @staticmethod
@@ -494,6 +594,12 @@ class Engine:
             handle.kill()
 
         limiter = Limiter(rate)
+        lg = self._line_gain(job, rate)
+        # Look-ahead (opt-in): hold the start of a new voice's first line
+        # until enough of it has been measured to pick its gain.
+        look_s = self.norm.lookahead_ms / 1000.0 if lg.adapt else 0.0
+        held: list[bytes] | None = [] if look_s > 0 else None
+        held_s = 0.0
         started = time.monotonic()
         stream = None
         try:
@@ -503,12 +609,26 @@ class Engine:
                     job.ttfb_ms = (time.monotonic() - started) * 1000
                     log.debug("first audio after %.0f ms", job.ttfb_ms)
                 writer.write(chunk)          # the cache keeps the unscaled audio
-                if not job.cancel.is_set():
-                    job.duck()
-                    handle.write(limiter.process(chunk, self.gain()))
-                elif not self.finish_on_stop:
-                    writer.abort()
-                    return
+                if job.cancel.is_set():
+                    if not self.finish_on_stop:
+                        writer.abort()
+                        return
+                    lg.meter.feed(chunk)     # still measured, for the voice's level
+                    continue
+                if held is not None:
+                    lg.meter.feed(chunk)
+                    held.append(chunk)
+                    held_s += len(chunk) / 2 / rate
+                    if held_s >= look_s:
+                        self._flush_held(job, handle, limiter, lg, held)
+                        held = None
+                    continue
+                self._emit(job, handle, limiter, lg, chunk)
+            if held and not job.cancel.is_set():
+                self._flush_held(job, handle, limiter, lg, held)   # the line was shorter than the look-ahead
+            level = lg.meter.integrated()
+            writer.meta["lufs"] = SILENT if level is None else level
+            writer.meta["voice"] = job.voice_key
             seconds = writer.commit()
             per_char = getattr(tts, "credits_per_char", None)
             self.usage.add_tts(tts.name, len(text), seconds, per_char() * len(text) if per_char else None)
@@ -528,6 +648,12 @@ class Engine:
 
         handle.finish_input()
         self._wait_playback(job, handle)
+
+    def _flush_held(self, job: Job, handle: Any, limiter: Limiter, lg: LineGain, held: list[bytes]) -> None:
+        lg.settle()
+        log.debug("look-ahead: %.0f ms measured, gain %+.1f dB", lg.meter.seconds * 1000, lg.db)
+        for c in held:
+            self._emit(job, handle, limiter, lg, c, measured=True)
 
     # -- hints / voices ---------------------------------------------------
 
@@ -575,8 +701,18 @@ class Engine:
         ]
         if p.get("direction"):
             lines.append(f"  direction: {p['direction']}")
+        lines.append("  " + self._loudness_note(npc, req))
         lines.append("  layers: " + " > ".join(res.sources))
         return "\n".join(lines)
+
+    def _loudness_note(self, npc: str, req: Any) -> str:
+        prefix, voice_key = self._voice_ids(self.tts, req)
+        level, source, count = self._voice_level(voice_key, npc, prefix)
+        off = "" if self.norm.enabled else " (normalization off)"
+        gain = voice_gain_db(self.norm, level, self.makeup_db) if self.norm.enabled else self.makeup_db
+        if source in ("voice", "npc"):
+            return f"loudness: {level:.1f} LUFS over {count} line(s) -> {gain:+.1f} dB{off}"
+        return f"loudness: not measured yet; starts at {gain:+.1f} dB{off}"
 
     # -- //koto commands --------------------------------------------------
 
@@ -727,7 +863,12 @@ class Engine:
             f"player {self.player.kind or 'NONE'} | casting {inf}")
         self.say(f"cache: {stats['files']} lines, {stats['bytes'] / 1048576:.1f} / "
                  f"{stats['max_bytes'] / 1048576:.0f} MB | {self.usage.summary()}")
-        self.say(f"volume {self.volume}% (+{self.makeup_db:.0f} dB makeup, peak-limited) | "
+        if self.norm.enabled:
+            level = f"voices normalized to {self.norm.target_lufs:.0f} LUFS" + (
+                ", leveler on" if self.norm.leveler else "")
+        else:
+            level = f"+{self.makeup_db:.0f} dB makeup"
+        self.say(f"volume {self.volume}% ({level}, peak-limited) | "
                  f"duck {'on' if self.ducker.enabled else 'off'} to {self.ducker.level * 100:.0f}%")
         self.say(f"library: {len(self.lib.local)} local, {len(self.lib.packs)} pack, "
                  f"{len(self.lib.overrides)} override entries")
