@@ -47,9 +47,9 @@ You also need an audio player: `pw-play`, `paplay`, or `ffplay`.
 
    In a terminal (`python3 server/kotodama_server.py`), press **R** to restart it (picks up code and config changes) or **Q** to quit. No Enter or Ctrl+C needed, which helps with the Steam Deck's on-screen keyboard. The game stays connected across a restart: the addon notices, says "voice server restarted." and sends your settings (volume, provider, ducking) again. Under systemd there's no terminal, so use `systemctl --user restart kotodama`.
 
-### Windows (experimental, not yet tested on Windows)
+### Windows (experimental)
 
-Windows support is new and hasn't been tried on a real Windows machine yet. If something doesn't work, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
+Windows support is new. If something doesn't work, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
 
 Nothing besides Python has to be installed: the sidecar plays audio through Windows itself.
 
@@ -333,7 +333,7 @@ If voices are still too quiet next to the music, raise `volume` or `audio.normal
 
 **Ducking.** While a line is spoken the sidecar lowers the game's own audio stream (music and effects together, since the game outputs one stream) to `duck.level` percent, quickly at the start of a line and gradually back afterwards. It holds the lowered level for `hold_ms` between lines so a cutscene doesn't pump the music up and down. This works at the PipeWire/PulseAudio level using `pactl`, so it needs no game or Windower support.
 
-On Windows (experimental, not yet tested on Windows) it lowers FFXI's per-app volume instead, the same slider as in the Volume Mixer, through Windows' own audio API, so nothing has to be installed. FFXI's audio belongs to `pol.exe`, which the default `duck.match` includes. Apps on every output device are found, so it works with headphones too. `server\kotodama.cmd audio list` shows each app's audio by process id.
+On Windows (experimental) it lowers FFXI's per-app volume instead, the same slider as in the Volume Mixer, through Windows' own audio API, so nothing has to be installed. FFXI's audio belongs to `pol.exe`, which the default `duck.match` includes. Apps on every output device are found, so it works with headphones too. `server\kotodama.cmd audio list` shows each app's audio by process id.
 
 - Which stream is "the game" is decided by `duck.match`: any entry appearing in a stream's application name, binary or Flatpak app id. The defaults match `windower`, `playonline`, `ffxi` and `pol.exe`. Run `python3 server/kotodama_server.py audio list` with the game running to see what's matched.
 - `audio duck-test` dips the game volume for three seconds and restores it, so you can confirm it works without the addon.
