@@ -187,7 +187,8 @@ class DoctorWritableTests(KotodamaTestCase):
     def test_a_folder_we_cannot_write(self):
         denied = PermissionError(13, "Permission denied")
         with mock.patch.object(cli.tempfile, "mkstemp", side_effect=denied):
-            ok, detail = cli._writable(self.tmp)
+            with mock.patch.object(cli.sys, "platform", "linux"):
+                ok, detail = cli._writable(self.tmp)
             self.assertFalse(ok)
             self.assertIn("Permission denied", detail)
             self.assertNotIn("Program Files", detail)
@@ -214,7 +215,7 @@ class DoctorWritableTests(KotodamaTestCase):
 class OutputEncodingTests(unittest.TestCase):
     def test_unencodable_names_become_escapes(self):
         raw = io.BytesIO()
-        stream = io.TextIOWrapper(raw, encoding="cp1252")
+        stream = io.TextIOWrapper(raw, encoding="cp1252", newline="\n")    # no \r\n on Windows
         cli._tolerant_output([stream, io.StringIO()])     # StringIO can't reconfigure: skipped
         stream.write("Ru\u2019Lude \u30a2\n")
         stream.flush()

@@ -12,6 +12,7 @@ import unittest
 from kotodama import winaudio
 
 SILENCE_300MS = b"\x00\x00" * 7200     # 300 ms at 24 kHz
+SILENCE_1S = b"\x00\x00" * 24000       # one buffer, under the 1.5 s queue cap
 
 
 @unittest.skipUnless(sys.platform == "win32", "needs Windows")
@@ -20,10 +21,12 @@ class RealWaveOutTests(unittest.TestCase):
         mm = winaudio.load_winmm()
         self.assertIsNotNone(mm, "winmm.dll loads")
         h = winaudio.WaveOutHandle(mm, 24000)
-        self.assertTrue(h.write(SILENCE_300MS), "the default output device opened and took a buffer")
+        self.assertTrue(h.write(SILENCE_1S), "the default output device opened and took a buffer")
         t0 = time.monotonic()
         h.kill()
-        self.assertLess(time.monotonic() - t0, 0.1)
+        # A kill that let the buffer play out would take about a second. A
+        # normal kill is ~20 ms, but 172 ms was seen once late in a full run.
+        self.assertLess(time.monotonic() - t0, 0.5)
         self.assertTrue(h.wait(0))
         self.assertFalse(h.write(SILENCE_300MS))
 
