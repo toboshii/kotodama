@@ -25,13 +25,18 @@ class UDPServer:
             raise ValueError(f"listen.host must be a loopback address, got {host!r}")
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind((host, port))
+        # Done here, not in serve_forever: a Q or R typed while the sidecar
+        # starts is acted on (from the key thread) as soon as the key reader
+        # starts, so shutdown() can close the socket before the loop runs.
+        self.sock.settimeout(0.5)
+        self.bound: tuple[str, int] = self.sock.getsockname()[:2]
         self.addr: tuple[str, int] | None = None
         self._stop = threading.Event()
         engine.reply = self.send
 
     @property
     def port(self) -> int:
-        return self.sock.getsockname()[1]
+        return self.bound[1]
 
     def send(self, msg: dict[str, Any]) -> None:
         if self.addr is None:
@@ -42,8 +47,8 @@ class UDPServer:
             log.debug("send failed: %s", exc)
 
     def serve_forever(self) -> None:
-        log.info("listening on %s:%d", *self.sock.getsockname()[:2])
-        self.sock.settimeout(0.5)
+        # Nothing touches the socket before the loop, which handles a closed one.
+        log.info("listening on %s:%d", *self.bound)
         while not self._stop.is_set():
             try:
                 data, addr = self.sock.recvfrom(protocol.MAX_DATAGRAM + 1)

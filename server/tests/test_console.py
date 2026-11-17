@@ -150,6 +150,43 @@ class ServeKeysTests(_PtyCase):
         self.assertEqual((rc, execs), (0, []))
 
 
+class _EarlyKey:
+    """A key typed while the sidecar was starting: the reader acts on it the
+    moment it starts, which is before the server loop runs."""
+
+    def __init__(self, on_action, action):
+        self.on_action = on_action
+        self.action = action
+
+    def start(self):
+        self.on_action(self.action)
+        return True
+
+    def stop(self):
+        pass
+
+
+class EarlyKeyTests(KotodamaTestCase):
+    """No pty needed, so these also run on Windows, where a Q pressed during
+    startup ended in WinError 10038 from serve_forever."""
+
+    def serve(self, action: str):
+        cfg = self.make_config(listen={"host": "127.0.0.1", "port": 0})
+        engine = self.make_engine(cfg=cfg)
+        execs: list = []
+        with mock.patch.object(cli, "KeyControls", lambda on_action, _stdin: _EarlyKey(on_action, action)):
+            rc = cli.cmd_serve(cfg, argparse.Namespace(), stdin=io.StringIO(),
+                               execv=lambda path, argv: execs.append((path, argv)), engine=engine)
+        return rc, execs
+
+    def test_q_during_startup_quits_cleanly(self):
+        self.assertEqual(self.serve("quit"), (0, []))
+
+    def test_supervised_r_during_startup_restarts_cleanly(self):
+        with mock.patch.dict(os.environ, {console.SUPERVISED_ENV: "1"}):
+            self.assertEqual(self.serve("restart"), (console.RESTART_EXIT, []))
+
+
 class _FakeMsvcrt:
     """Console keys as msvcrt.getwch returns them, one character at a time."""
 

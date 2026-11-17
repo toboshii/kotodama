@@ -635,6 +635,18 @@ class UDPTests(KotodamaTestCase):
         replies = [protocol.decode(client.recv(65535)) for _ in range(3)]
         self.assertTrue(all(r["t"] == "log" for r in replies))
 
+    def test_a_shutdown_before_serving_returns_at_once(self):
+        # A key pressed while the sidecar starts can close the socket before
+        # the loop runs (WinError 10038 on Windows, EBADF on Linux).
+        cfg = self.make_config(listen={"host": "127.0.0.1", "port": 0})
+        server = UDPServer(cfg, self.make_engine(cfg=cfg))
+        port = server.port
+        self.assertNotEqual(port, 0)
+        server.shutdown()
+        with self.assertLogs("kotodama.net", "INFO") as logs:
+            server.serve_forever()
+        self.assertEqual(logs.output, [f"INFO:kotodama.net:listening on 127.0.0.1:{port}"])
+
     def test_refuses_non_loopback(self):
         eng = self.make_engine()
         with self.assertRaises(ValueError):

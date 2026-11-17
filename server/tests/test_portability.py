@@ -28,12 +28,6 @@ class _FakeSock:
         self.script = list(script)
         self.closed = False
 
-    def settimeout(self, _t):
-        pass
-
-    def getsockname(self):
-        return ("127.0.0.1", 0)
-
     def recvfrom(self, _n):
         item = self.script.pop(0)
         if isinstance(item, BaseException):
