@@ -139,6 +139,16 @@ class MiniMaxCase(KotodamaTestCase):
         threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.05}, daemon=True).start()
         self.addCleanup(self.srv.server_close)
         self.addCleanup(self.srv.shutdown)
+        self.addCleanup(self.join_voice_fetches)     # runs first, while the server is up
+
+    @staticmethod
+    def join_voice_fetches() -> None:
+        # A provider with curated voices fetches the account's list on a
+        # background thread. Unfinished, its request could land in the next
+        # test's _MM.log (seen on Windows as a second get_voice).
+        for t in threading.enumerate():
+            if t.name.startswith("voices-"):
+                t.join(5)
 
     def cfg(self, models: dict | None = None, **minimax) -> Config:
         mm = {"base_url": f"http://127.0.0.1:{self.srv.server_port}", "api_key": KEY}
