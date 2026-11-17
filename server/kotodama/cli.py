@@ -516,7 +516,7 @@ def cmd_replicate(cfg: Config, args: argparse.Namespace) -> int:
     return 0
 
 
-def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
+def _doctor_elevenlabs(cfg: Config, check) -> None:
     el = ElevenLabsTTS(cfg)
     if not el.api_key:
         print("[info] ElevenLabs: no key (ELEVENLABS_API_KEY); provider unavailable")
@@ -531,9 +531,6 @@ def _doctor_elevenlabs(cfg: Config, live: bool, check) -> None:
         return
     finally:
         el.close()
-    if not live:
-        print(f"[info] ElevenLabs model {el.configured_model}: `doctor --provider elevenlabs` tries it "
-              f"(uses a few credits)")
 
 
 def _doctor_models(cfg: Config, check, active: str) -> None:
@@ -780,7 +777,7 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     if notice and (active == "openai" or cfg.api_key("tts")):
         print(f"[warn] {notice}")
     live = args.live or bool(args.provider)
-    _doctor_elevenlabs(cfg, live, check)
+    _doctor_elevenlabs(cfg, check)
     _doctor_models(cfg, check, active)
     provider = cfg.get("inference.provider")
     print(f"[info] voice casting: {provider}")
