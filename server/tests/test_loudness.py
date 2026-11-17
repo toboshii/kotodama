@@ -18,7 +18,7 @@ from kotodama.loudness import (SILENT, LevelerSettings, LineGain, LoudnessMeter,
                                measure_wav, typical_level, voice_gain_db)
 from kotodama.player import Player
 
-from helpers import FakeTTS, KotodamaTestCase, speak_msg
+from helpers import FakeTTS, KotodamaTestCase, capture_player_cmd, speak_msg
 
 RATE = 24000
 
@@ -213,7 +213,7 @@ class EngineLoudnessTests(KotodamaTestCase):
     def engine(self, levels, cfg=None, **kw):
         out = self.tmp / "player-out.pcm"
         eng = self.make_engine(ToneTTS(levels, **kw), cfg=cfg,
-                               player=Player({"stream": ["sh", "-c", f"cat > {out}"]}), null_player=False)
+                               player=Player({"stream": capture_player_cmd(out)}), null_player=False)
         return eng, out
 
     def say(self, eng, npc, voice, text, seq=[0]):
