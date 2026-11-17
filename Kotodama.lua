@@ -35,6 +35,7 @@ local defaults = {
     volume    = 100,       -- percent, 0-400 (100 = normal; raise if the voice is quiet)
     duck      = true,      -- lower the game's audio while a line is spoken
     duck_level = 40,       -- percent of the game's volume kept while speaking
+    normalize = '',        -- even out loudness between voices: '' = server/config.json, or on | off
     provider  = '',        -- voice provider: '' = server/config.json, or openai | elevenlabs
     port      = 47123,
     debug     = false,
@@ -115,6 +116,13 @@ local function zone_info()
     return id, row and row.en or nil
 end
 
+local function normalize_value()
+    -- '' = whatever server/config.json says. (Not an and/or: false can't pass through one.)
+    if settings.normalize == 'on' then return true end
+    if settings.normalize == 'off' then return false end
+    return ''
+end
+
 local function send_config()
     bridge.send({
         t = 'config',
@@ -122,6 +130,7 @@ local function send_config()
         provider = settings.provider or '',
         duck = settings.duck,
         duck_level = settings.duck_level,
+        normalize = normalize_value(),
         interrupt = settings.interrupt,
         debug = settings.debug,
     })
@@ -551,6 +560,7 @@ local function show_help()
         '  prefetch on|off               prepare voices when you target or talk to NPCs',
         '  volume <0-400>                voice loudness in percent (100 = normal)',
         '  duck on|off | duck <0-100>    lower the game audio while speaking / how much is kept',
+        '  norm on|off|default           even out loudness between voices (default = server config)',
         '  stop   replay',
         '  provider <name|default>       switch the voice provider live (default = server config)',
         '  providers                     list voice providers (openai, elevenlabs, minimax, kokoro, ...)',
@@ -696,6 +706,19 @@ windower.register_event('addon command', function(command, ...)
         say(settings.duck
             and ('ducking on: game audio drops to ' .. settings.duck_level .. '% while a line is spoken')
             or 'ducking off')
+
+    elseif cmd == 'norm' or cmd == 'normalize' then
+        local arg = args[2] and args[2]:lower()
+        if arg == 'on' or arg == 'off' then
+            settings.normalize = arg
+        elseif arg == 'default' then
+            settings.normalize = ''
+        elseif arg ~= nil then
+            say('usage: //koto norm on|off|default')
+        end
+        send_config()
+        say((settings.normalize or '') == '' and 'loudness normalization: as set in server/config.json'
+            or ('loudness normalization ' .. settings.normalize))
 
     elseif cmd == 'provider' then
         local p = args[2] and args[2]:lower()

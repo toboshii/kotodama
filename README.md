@@ -59,6 +59,7 @@ You need Python 3.10+, an audio player (`pw-play`, `paplay`, or `ffplay`), and a
 | `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on). NPCs whose race the game doesn't report are cast from their first line instead |
 | `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
+| `norm on/off/default` | Even out loudness between voices (see **Loudness and ducking**). `default` follows `audio.normalize.enabled` in `server/config.json` (on unless changed) |
 | `stop`, `replay` | Playback controls |
 | `provider <name>` / `provider default` | Switch the voice provider live: `inworld`, `elevenlabs`, `openai`, or another model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
 | `providers` | List every provider the sidecar knows and whether its key is set |
@@ -275,7 +276,27 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 ## Loudness and ducking
 
-**Loudness.** The TTS model's output isn't mastered to game loudness, so the sidecar adds a fixed boost (`audio.makeup_db`, default +9 dB) before playback, and `//koto volume` scales on top of that: 100 is the boosted baseline, 200 is twice as loud again, up to 400. A peak limiter lowers its gain on loud passages instead of clipping them, so large boosts get louder without turning crunchy. The boost is applied at playback, so changing it never invalidates the cache. If it's still too quiet next to the music, raise `volume`, raise `audio.makeup_db`, or lower the game's own volume.
+**Loudness.** Voices come out of the TTS models at very different levels: one voice can sit 15–20 dB below another, while the lines of any one voice stay within a dB or two of each other. So the sidecar measures every line (in LUFS, the broadcast loudness scale) and gives each *voice* one steady gain that brings its typical line to `audio.normalize.target_lufs` (default −13). A voice is its provider, model and voice, so lines styled to be whispered or shouted are still the same voice: a whisper stays a whisper, a shout stays a shout, and the rise and fall within a line is untouched. `//koto volume` scales on top: 100 is the normalized baseline, 200 is twice as loud again, up to 400. A peak limiter lowers its gain on loud passages instead of clipping them.
+
+- **A voice's level** is the median of its last 20 lines that are a second or longer (`voice_window`), so the odd whisper or shout doesn't move it. Boosts stop at +15 dB and cuts at −10 dB (`max_boost_db`, `max_cut_db`).
+- **A voice heard for the first time** starts from the typical level of other voices on the same model (or, with nothing measured yet, the fixed `audio.makeup_db` boost of +9 dB). During that first line its gain settles toward the target, at most 2 dB per second and within 6 dB of where it started (`first_line_adapt`). From its second line on the gain is steady. This adds no delay. If you'd rather a new voice's first line start at the right level, `lookahead_ms` (e.g. 500) holds back that much of the first line to measure it first; this delays only first lines of new voices, by exactly that amount.
+- **Lines that sag partway through** can be lifted by the leveler (`leveler.enabled`, off by default). It compares the last 3 seconds of speech with the line's opening, ignores a sag of up to 2 dB, lifts at most `leveler.max_db` (6 dB) at 2 dB per second, never turns anything down, and holds still through pauses. It also lifts a line that trails off on purpose, which is why it's off. `leveler.providers` limits it to some providers (empty: all of them).
+- **The cache keeps the unscaled audio** with each line's measured level, so changing any of this never invalidates the cache. Lines cached before this feature are measured the first time they play, or all at once with `python3 server/kotodama_server.py cache analyze`.
+- **Turning it off:** `//koto norm off`, or `audio.normalize.enabled: false` in `server/config.json`. Every line then gets the fixed `audio.makeup_db` boost as before. `//koto norm default` goes back to what the config file says.
+- **Checking it:** `//koto voice <name>` shows a voice's measured level and its gain, e.g. `loudness: -24.0 LUFS over 12 line(s) -> +11.0 dB`. With `//koto debug on` the sidecar log shows how each line's gain was picked.
+
+If voices are still too quiet next to the music, raise `volume` or `audio.normalize.target_lufs` (−10 is loud), or lower the game's own volume.
+
+```json
+"audio": {
+  "makeup_db": 9.0,
+  "normalize": {
+    "enabled": true, "target_lufs": -13, "max_boost_db": 15, "max_cut_db": 10,
+    "voice_window": 20, "first_line_adapt": true, "lookahead_ms": 0,
+    "leveler": {"enabled": false, "max_db": 6, "providers": []}
+  }
+}
+```
 
 **Ducking.** While a line is spoken the sidecar lowers the game's own audio stream (music and effects together, since the game outputs one stream) to `duck.level` percent, quickly at the start of a line and gradually back afterwards. It holds the lowered level for `hold_ms` between lines so a cutscene doesn't pump the music up and down. This works at the PipeWire/PulseAudio level using `pactl`, so it needs no game or Windower support.
 
@@ -286,7 +307,7 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game.
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of lines cached before loudness normalization existed (`--all` re-measures everything).
 
 ## How cutscenes are detected
 

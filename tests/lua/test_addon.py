@@ -646,6 +646,24 @@ class AddonSmokeTests(unittest.TestCase):
         cmd = a.sent("cmd")[0]
         self.assertEqual((cmd["name"], cmd["params"]["tone"]), ("voice_set", "dry wit"))
 
+    def test_norm_command(self):
+        a = self.a
+        a.clear_sent()
+        a.command("status")
+        a.command("norm")
+        self.assertEqual(a.sent("config")[-1]["normalize"], "", "untouched: the server's config decides")
+        a.command("norm", "off")
+        self.assertIs(a.sent("config")[-1]["normalize"], False)
+        a.command("normalize", "ON")
+        self.assertIs(a.sent("config")[-1]["normalize"], True)
+        a.clear_sent()
+        a.queue_from_sidecar({"t": "pong"})     # a sidecar restart carries it again
+        a.advance(1)
+        a.prerender()
+        self.assertIs(a.sent("config")[-1]["normalize"], True)
+        a.command("norm", "default")
+        self.assertEqual(a.sent("config")[-1]["normalize"], "")
+
     def test_provider_command_is_sent_with_config_and_survives_reconnects(self):
         a = self.a
         a.clear_sent()

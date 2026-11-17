@@ -82,6 +82,14 @@ class AudioCache:
             " npc TEXT, zone INTEGER, text TEXT, seconds REAL,"
             " created REAL NOT NULL, last_played REAL NOT NULL, plays INTEGER NOT NULL DEFAULT 0)"
         )
+        # Added for loudness normalization; older caches gain them empty.
+        # voice: provider:model:voice of the line; lufs: its measured level.
+        have = {row[1] for row in self._db.execute("PRAGMA table_info(audio)")}
+        for column in ("voice TEXT", "lufs REAL"):
+            if column.split()[0] not in have:
+                self._db.execute(f"ALTER TABLE audio ADD COLUMN {column}")
+        self._db.execute("CREATE INDEX IF NOT EXISTS audio_voice ON audio (voice, created)")
+        self._db.execute("CREATE INDEX IF NOT EXISTS audio_npc ON audio (npc, created)")
         self._db.commit()
         self._inflight: dict[str, threading.Event] = {}
 
@@ -110,13 +118,65 @@ class AudioCache:
         now = time.time()
         with self._lock:
             self._db.execute(
-                "INSERT OR REPLACE INTO audio (key, path, bytes, npc, zone, text, seconds, created, last_played, plays)"
-                " VALUES (?,?,?,?,?,?,?,?,?,1)",
+                "INSERT OR REPLACE INTO audio (key, path, bytes, npc, zone, text, seconds, created, last_played,"
+                " plays, voice, lufs) VALUES (?,?,?,?,?,?,?,?,?,1,?,?)",
                 (key, str(path), path.stat().st_size, meta.get("npc"), meta.get("zone"),
-                 meta.get("text"), seconds, now, now),
+                 meta.get("text"), seconds, now, now, meta.get("voice"), meta.get("lufs")),
             )
             self._db.commit()
         self.prune()
+
+    # -- loudness ---------------------------------------------------------
+
+    def loudness(self, key: str) -> float | None:
+        """A line's measured level, None if it hasn't been measured."""
+        with self._lock:
+            row = self._db.execute("SELECT lufs FROM audio WHERE key=?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def annotate(self, key: str, *, lufs: float | None = None, voice: str | None = None,
+                 replace: bool = False) -> None:
+        """Fill in a line's level and voice where they're missing (or, with
+        replace, overwrite its level)."""
+        if lufs is None and voice is None:
+            return
+        level = "COALESCE(?, lufs)" if replace else "COALESCE(lufs, ?)"
+        with self._lock:
+            self._db.execute(f"UPDATE audio SET lufs={level}, voice=COALESCE(voice, ?) WHERE key=?",
+                             (lufs, voice, key))
+            self._db.commit()
+
+    def voice_levels(self, voice: str, npc: str | None, limit: int,
+                     min_seconds: float = 1.0) -> tuple[list[float], str | None]:
+        """The levels of a voice's most recent lines, and where they came from.
+
+        Lines recorded before voices were tracked only know their NPC, and an
+        NPC keeps its voice, so those fill in while a voice has few lines of
+        its own. Returns ([], None) when nothing is known."""
+        q = ("SELECT lufs FROM audio WHERE {} AND lufs IS NOT NULL AND seconds >= ?"
+             " ORDER BY created DESC LIMIT ?")
+        with self._lock:
+            own = [r[0] for r in self._db.execute(q.format("voice=?"), (voice, min_seconds, limit))]
+            if len(own) >= 3 or not npc:
+                return own, ("voice" if own else None)
+            legacy = [r[0] for r in self._db.execute(q.format("voice IS NULL AND npc=?"),
+                                                     (npc, min_seconds, limit - len(own)))]
+        levels = own + legacy
+        return levels, (("voice" if own else "npc") if levels else None)
+
+    def model_levels(self, prefix: str, limit: int = 200, min_seconds: float = 1.0) -> list[float]:
+        """Recent levels of every voice whose key starts with `prefix`
+        (provider:model:), a first guess for a voice never heard before."""
+        with self._lock:
+            return [r[0] for r in self._db.execute(
+                "SELECT lufs FROM audio WHERE substr(voice, 1, ?)=? AND lufs IS NOT NULL AND seconds >= ?"
+                " ORDER BY created DESC LIMIT ?", (len(prefix), prefix, min_seconds, limit))]
+
+    def to_measure(self, everything: bool = False) -> list[tuple[str, str]]:
+        """(key, path) of every line with no measured level (or of all lines)."""
+        where = "" if everything else " WHERE lufs IS NULL"
+        with self._lock:
+            return list(self._db.execute("SELECT key, path FROM audio" + where))
 
     # In-flight de-duplication: only one thread synthesizes a given key.
     def claim(self, key: str) -> bool:
