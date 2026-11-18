@@ -53,6 +53,9 @@ DEFAULTS: dict[str, Any] = {
         # Credits charged per character, for the //koto status estimate only.
         # null = 0.5 for eleven_flash models, 1.0 otherwise.
         "credits_per_char": None,
+        # Dollars per 1,000 credits, for the //koto status estimate only. Flash
+        # lines cost half as much through credits_per_char. null = credits only.
+        "price": {"per_1k_credits": 0.08},
     },
     "replicate": {
         # Used by every Replicate model adapter (minimax, chatterbox, kokoro, qwen3...).

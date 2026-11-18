@@ -514,6 +514,34 @@ class EngineProviderTests(KotodamaTestCase):
         self.assertIn("ElevenLabs 120 chars (~60 credits est.)", text)
         self.assertIn("OpenAI ~$", text)
 
+    def test_usage_summary_prices_credits(self):
+        u = Usage(self.tmp / "u.json", el_usd_per_1k_credits=0.08)
+        u.add_tts("elevenlabs", 20000, 60.0, 20000.0)
+        self.assertIn("ElevenLabs 20000 chars (~20000 credits, ~$1.600 est.)", u.summary())
+
+    def test_usage_summary_prices_flash_at_half(self):
+        u = Usage(self.tmp / "u.json", el_usd_per_1k_credits=0.08)
+        u.add_tts("elevenlabs", 20000, 60.0, 10000.0)   # 0.5 credits per char
+        self.assertIn("(~10000 credits, ~$0.800 est.)", u.summary())
+
+    def test_price_comes_from_config(self):
+        cases = [({}, "~$0.008 est."),                                  # default 0.08
+                 ({"price": {"per_1k_credits": 0.2}}, "~$0.020 est."),
+                 ({"price": {"per_1k_credits": None}}, "credits est.)"),
+                 ({"price": None}, "credits est.)"),
+                 ({"price": {"per_1k_credits": "cheap"}}, "credits est.)")]
+        for el, expected in cases:
+            with self.subTest(el=el):
+                cfg = self.make_config(elevenlabs=el)
+                eng = build_engine(cfg, tts=FakeTTS(), null_player=True, ducker=Ducker(enabled=False))
+                self.addCleanup(eng.close)
+                eng.usage._days = {}
+                eng.usage.add_tts("elevenlabs", 100, 1.0, 100.0)
+                text = eng.usage.summary()
+                self.assertIn(expected, text)
+                if "$" not in expected:
+                    self.assertNotIn("~$", text)
+
 
 class EndToEndTests(ELTestCase):
     def test_real_provider_through_the_engine(self):

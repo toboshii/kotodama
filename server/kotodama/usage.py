@@ -8,15 +8,16 @@ import threading
 from pathlib import Path
 
 # List-price estimate for gpt-4o-mini-tts; check your provider's pricing page.
-# ElevenLabs is billed in credits per character, which depends on the plan, so
-# it is shown as characters and estimated credits rather than dollars.
+# ElevenLabs is billed in credits per character; dollars come from the
+# configured price per 1,000 credits (elevenlabs.price.per_1k_credits).
 EST_USD_PER_AUDIO_MINUTE = 0.015
 EST_USD_PER_MILLION_INPUT_TOKENS = 0.60
 
 
 class Usage:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, el_usd_per_1k_credits: float | None = None):
         self.path = Path(path)
+        self.el_usd_per_1k_credits = el_usd_per_1k_credits
         self._lock = threading.Lock()
         self._days: dict[str, dict[str, float]] = {}
         try:
@@ -85,8 +86,12 @@ class Usage:
         if d.get("tts_requests"):
             text += f", OpenAI ~${cost:.3f} est."
         if d.get("el_requests"):
+            credits = d.get("el_credits", 0)
+            dollars = ""
+            if self.el_usd_per_1k_credits:
+                dollars = f", ~${credits * self.el_usd_per_1k_credits / 1000:.3f}"
             text += (f", ElevenLabs {int(d.get('el_chars', 0))} chars"
-                     f" (~{int(d.get('el_credits', 0))} credits est.)")
+                     f" (~{int(credits)} credits{dollars} est.)")
         for name, a in sorted(adapters.items()):
             if not a.get("requests") and not a.get("predictions"):
                 continue

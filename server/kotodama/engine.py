@@ -949,7 +949,10 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
     library = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"),
                       cfg.path("library.overrides"))
     cache = AudioCache(cfg.path("cache.dir"), int(cfg.get("cache.max_mb", 2048)))
-    usage = Usage(cfg.path("cache.dir") / "usage.json")
+    el_price = cfg.get("elevenlabs.price.per_1k_credits")
+    if not isinstance(el_price, (int, float)) or isinstance(el_price, bool) or el_price < 0:
+        el_price = None
+    usage = Usage(cfg.path("cache.dir") / "usage.json", el_usd_per_1k_credits=el_price)
     adapters = load_adapters(cfg)
     bank = VoiceBank(cfg.path("voice_bank.dir"))
     factory = provider_factory or (lambda name: make_provider(cfg, name, adapters=adapters, bank=bank))
