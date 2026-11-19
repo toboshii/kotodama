@@ -49,7 +49,7 @@ Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, 
 
 ## Windows (experimental)
 
-Windows support is new. If something doesn't work, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
+If something doesn't work on Windows, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
 
 1. **Install Python 3.10 or newer** from [python.org](https://www.python.org/downloads/). Keep "py launcher" ticked in the installer.
 2. **Give it your key.** Create the folder `%APPDATA%\Kotodama` (paste that into Explorer's address bar to find `AppData\Roaming`). In it, create a text file named `kotodama.env` with this line:
@@ -187,7 +187,7 @@ To add a provider, put its key in **[the key file](#the-key-file)** and press R 
 
 **OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through.
 
-**OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. That's why OpenAI is no longer the default. Until then, `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json` still uses it. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
+**OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. Until then, you can use it with `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json`. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
 
 ### ElevenLabs
 
@@ -244,8 +244,8 @@ python3 server/kotodama_server.py voices cast --provider minimax
 
 - **Your own voices are included.** Voices you've cloned or designed on your MiniMax account appear in casting automatically (refreshed daily, or with `//koto voices sync`), as do any English system voices beyond the built-in list.
 - **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
-- **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account still needs one.
-- The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`). Those were called `minimax` and `minimax-hd` before; lines already cached under the old names still play from the cache.
+- **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account needs one.
+- The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`).
 
 ### Gemini
 
@@ -389,8 +389,8 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 - **A voice's level** is the median of its last 20 lines that are a second or longer (`voice_window`), so the odd whisper or shout doesn't move it. Boosts stop at +15 dB and cuts at −10 dB (`max_boost_db`, `max_cut_db`).
 - **A voice heard for the first time** starts from the typical level of other voices on the same model (or, with nothing measured yet, the fixed `audio.makeup_db` boost of +9 dB). During that first line its gain settles toward the target, at most 2 dB per second and within 6 dB of where it started (`first_line_adapt`). From its second line on the gain is steady. This adds no delay. If you'd rather a new voice's first line start at the right level, `lookahead_ms` (e.g. 500) holds back that much of the first line to measure it first; this delays only first lines of new voices, by exactly that amount.
 - **Lines that sag partway through** can be lifted by the leveler (`leveler.enabled`, off by default). It compares the last 3 seconds of speech with the line's opening, ignores a sag of up to 2 dB, lifts at most `leveler.max_db` (6 dB) at 2 dB per second, never turns anything down, and holds still through pauses. It also lifts a line that trails off on purpose, which is why it's off. `leveler.providers` limits it to some providers (empty: all of them).
-- **The cache keeps the unscaled audio** with each line's measured level, so changing any of this never invalidates the cache. Lines cached before this feature are measured the first time they play, or all at once with `python3 server/kotodama_server.py cache analyze`.
-- **Turning it off:** `//koto norm off`, or `audio.normalize.enabled: false` in `server/config.json`. Every line then gets the fixed `audio.makeup_db` boost as before. `//koto norm default` goes back to what the config file says.
+- **The cache keeps the unscaled audio** with each line's measured level, so changing any of this never invalidates the cache.
+- **Turning it off:** `//koto norm off`, or `audio.normalize.enabled: false` in `server/config.json`. Every line then gets the fixed `audio.makeup_db` boost. `//koto norm default` goes back to what the config file says.
 - **Checking it:** `//koto voice <name>` shows a voice's measured level and its gain, e.g. `loudness: -24.0 LUFS over 12 line(s) -> +11.0 dB`. With `//koto debug on` the sidecar log shows how each line's gain was picked.
 
 If voices are still too quiet next to the music, raise `volume` or `audio.normalize.target_lufs` (−10 is loud), or lower the game's own volume.
@@ -418,7 +418,7 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of lines cached before loudness normalization existed (`--all` re-measures everything).
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
 
 ## Cutscenes
 
