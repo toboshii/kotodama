@@ -33,7 +33,6 @@
     "api_key": null,
     "api_key_env": "ELEVENLABS_API_KEY",
     "model": "eleven_v4_turbo",
-    "fallback_model": "eleven_flash_v2_5",
     "output_format": "pcm_24000",
     "audio_tags": true,
     "voice_settings": {"stability": 0.5, "similarity_boost": 0.75, "style": 0.0, "use_speaker_boost": true},

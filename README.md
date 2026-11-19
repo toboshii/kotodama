@@ -195,7 +195,7 @@ To add a provider, put its key in **[the key file](#the-key-file)** and press R 
 
 - **Voices are auto-cast.** The sidecar fetches every voice your account can use and scores each against the NPC's profile: gender, age, and descriptive words from its tone, personality and pitch (a Galka's "deep, gravelly" against a voice described as deep and gravelly, a Tarutaru's "bright, bubbly" against bright and youthful voices). Among the best fits, the NPC's name picks one, so the same NPC always gets the same voice. Once cast, an NPC keeps its voice even if you add voices later; changing its profile (an override, a new LLM description) re-casts it. `//koto voice <npc> reset` re-casts by hand.
 - **Personality goes into the delivery:** speed follows the profile's pace, stability follows temperament (lower for excitable characters, higher for calm ones), and on the v4 models one leading audio tag such as `[excited]` or `[sarcastic]` is added when the profile calls for it. ElevenLabs warns a tag is occasionally read aloud; if you hear one, set `"elevenlabs": {"audio_tags": false}`.
-- **Model:** `eleven_v4_turbo` by default (their recommendation for real-time use). If ElevenLabs rejects it on the streaming endpoint, the sidecar switches to `eleven_flash_v2_5` for the session and says so in chat. Both are configurable (`elevenlabs.model`, `elevenlabs.fallback_model`).
+- **Model:** `eleven_v4_turbo` by default (their recommendation for real-time use). To use a different one, set `elevenlabs.model`.
 
 Setting up ElevenLabs:
 

@@ -14,7 +14,6 @@ Streams POST /v1/text-to-speech/{voice}/stream?output_format=pcm_24000, raw
 from __future__ import annotations
 
 import json
-import logging
 import re
 import threading
 import time
@@ -25,8 +24,6 @@ from .casting import CastingMemory, VoiceCatalog, cast
 from .config import Config
 from .delivery import speed_for, tag_for, temperament
 from .tts_base import HTTPStreamer, TTSError, VoiceRequest, error_detail
-
-log = logging.getLogger("kotodama.tts")
 
 TAG_MODEL_PREFIXES = ("eleven_v4", "eleven_v3")
 RETRY_DELAY = 0.7
@@ -39,9 +36,7 @@ class ElevenLabsTTS:
 
     def __init__(self, cfg: Config, *, notify: Callable[[str], None] | None = None):
         self.api_key = cfg.api_key("elevenlabs")
-        self.configured_model: str = str(cfg.get("elevenlabs.model", "eleven_v4_turbo"))
-        self.fallback_model: str = str(cfg.get("elevenlabs.fallback_model", "eleven_flash_v2_5"))
-        self.fell_back = False
+        self.model: str = str(cfg.get("elevenlabs.model", "eleven_v4_turbo"))
         self.output_format: str = str(cfg.get("elevenlabs.output_format", "pcm_24000"))
         if not re.fullmatch(r"pcm_\d+", self.output_format):
             raise ValueError("elevenlabs.output_format must be a raw PCM format such as pcm_24000")
@@ -70,10 +65,6 @@ class ElevenLabsTTS:
 
     # -- model ------------------------------------------------------------
 
-    @property
-    def model(self) -> str:
-        return self.fallback_model if self.fell_back else self.configured_model
-
     def supports_tags(self, model: str | None = None) -> bool:
         return (model or self.model).startswith(TAG_MODEL_PREFIXES)
 
@@ -83,8 +74,7 @@ class ElevenLabsTTS:
         return 0.5 if self.model.startswith("eleven_flash") else 1.0
 
     def status_text(self) -> str:
-        note = f" (fallback from {self.configured_model})" if self.fell_back else ""
-        return f"elevenlabs/{self.model}{note}, {len(self.catalog.voices)} voices"
+        return f"elevenlabs/{self.model}, {len(self.catalog.voices)} voices"
 
     # -- voices -----------------------------------------------------------
 
@@ -221,19 +211,13 @@ class ElevenLabsTTS:
                 f"?output_format={self.output_format}")
         retried = False
         while True:
-            model = self.model
             try:
-                yield from self.http.stream("POST", path, self._body(text, request, model), self._headers(),
+                yield from self.http.stream("POST", path, self._body(text, request, self.model), self._headers(),
                                             self._error)
                 return
             except TTSError as exc:
                 # Every status error is raised before any audio is yielded, so
                 # retrying here never duplicates audio.
-                if exc.code == "model" and not self.fell_back and model != self.fallback_model:
-                    self.fell_back = True
-                    log.warning("%s rejected (%s); falling back to %s", model, exc, self.fallback_model)
-                    self.notify(f"ElevenLabs model {model} isn't available here; using {self.fallback_model}")
-                    continue
                 if exc.code in ("concurrency", "rate") and not retried:
                     retried = True
                     time.sleep(RETRY_DELAY)

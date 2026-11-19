@@ -40,8 +40,6 @@ DEFAULTS: dict[str, Any] = {
         "api_key_env": "ELEVENLABS_API_KEY",
         "base_url": "https://api.elevenlabs.io",
         "model": "eleven_v4_turbo",
-        # Used automatically if the model above is rejected on the streaming endpoint.
-        "fallback_model": "eleven_flash_v2_5",
         "output_format": "pcm_24000",
         "timeout": 30,
         # One leading delivery tag such as [excited] on models that support them

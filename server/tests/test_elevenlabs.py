@@ -176,21 +176,15 @@ class ElevenLabsClientTests(ELTestCase):
         keys = {make_key("elevenlabs", tts.model, r.voice, r.cache_tag, "Hm.", "pcm") for r in (base, faster, tagged)}
         self.assertEqual(len(keys), 3)
 
-    def test_rejected_model_falls_back_once_and_drops_the_tag(self):
+    def test_rejected_model_is_reported_not_retried(self):
         _ELHandler.reject_models = {"eleven_v4_turbo"}
         tts = self.el()
         req = tts.voice_request({"gender": "male", "tone": "cheerful"}, "Rok")
-        self.assertEqual(sum(map(len, tts.stream("Hm.", req))), 3778)
-        first, second = _ELHandler.requests
-        self.assertEqual((first["body"]["model_id"], second["body"]["model_id"]), ("eleven_v4_turbo", "eleven_flash_v2_5"))
-        self.assertEqual(second["body"]["text"], "Hm.", "flash doesn't take audio tags")
-        self.assertTrue(tts.fell_back)
-        self.assertEqual(tts.model, "eleven_flash_v2_5")
-        self.assertEqual(len(self.notes), 1)
-        list(tts.stream("Again.", tts.voice_request({"gender": "male"}, "Rok")))
-        self.assertEqual(_ELHandler.requests[-1]["body"]["model_id"], "eleven_flash_v2_5")
-        self.assertEqual(len(_ELHandler.requests), 3, "no second rejection round-trip")
-        self.assertIn("fallback from eleven_v4_turbo", tts.status_text())
+        with self.assertRaises(TTSError) as cm:
+            list(tts.stream("Hm.", req))
+        self.assertEqual(cm.exception.code, "model")
+        self.assertEqual(len(_ELHandler.requests), 1, "no second model is tried")
+        self.assertEqual(tts.model, "eleven_v4_turbo")
 
     def test_busy_is_retried_once(self):
         _ELHandler.busy = 1

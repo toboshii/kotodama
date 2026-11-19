@@ -698,8 +698,7 @@ def _doctor_live(cfg: Config, check, only: str | None = None) -> None:
             if not total:
                 raise TTSError("no audio came back")
             done = (time.monotonic() - started) * 1000
-            note = f", fell back from {prov.configured_model}" if getattr(prov, "fell_back", False) else ""
-            results.put((name, True, first, f"{prov.model}{note}, voice {req.label or req.voice or 'default'}: "
+            results.put((name, True, first, f"{prov.model}, voice {req.label or req.voice or 'default'}: "
                          f"first audio {first:.0f} ms, {total / 2 / prov.sample_rate:.1f} s of audio "
                          f"in {done:.0f} ms"))
         except Exception as exc:  # noqa: BLE001 - every provider gets reported, whatever went wrong
