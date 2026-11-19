@@ -114,7 +114,8 @@ REPLICATE_API_TOKEN=r8_...
 - The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit.
 - A variable already set in your shell takes precedence over the file.
 - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
-- To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
+- A `server/kotodama.env` in the addon folder takes precedence over that file when it exists. This keeps keys with a portable install or a test setup. Copy `server/kotodama.env.example` to start one, and `chmod 600` it on Linux. Git ignores it.
+- To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`. Either takes precedence over both files.
 - The file can also set `KOTODAMA_CONFIG` to keep your `config.json` outside the addon folder.
 
 ## Running the sidecar

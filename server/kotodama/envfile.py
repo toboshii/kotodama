@@ -3,6 +3,10 @@ terminal sees the same API keys as the systemd unit (which reads the file
 through EnvironmentFile=). On Windows the file is
 %APPDATA%\\Kotodama\\kotodama.env.
 
+A server/kotodama.env next to the sidecar takes precedence over that file
+when it exists, so a portable install or a test setup can carry its own keys.
+$KOTODAMA_ENV_FILE and --env-file take precedence over both.
+
 Format (systemd EnvironmentFile, plus `export` for shell-style files):
 
     # comment            ; comment
@@ -26,10 +30,13 @@ import sys
 from pathlib import Path
 from typing import MutableMapping
 
+from .config import SERVER_DIR
+
 log = logging.getLogger("kotodama.env")
 
 MARKER = "KOTODAMA_ENV_LOADED"
 OVERRIDE = "KOTODAMA_ENV_FILE"
+LOCAL = SERVER_DIR / "kotodama.env"
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _ESCAPES = {"n": "\n", "t": "\t", "\\": "\\", '"': '"', "$": "$"}
 
@@ -38,6 +45,8 @@ def default_path(environ: MutableMapping[str, str] | None = None, platform: str 
     env = os.environ if environ is None else environ
     if env.get(OVERRIDE):
         return Path(env[OVERRIDE]).expanduser()
+    if LOCAL.is_file():
+        return LOCAL
     if env.get("XDG_CONFIG_HOME"):
         return Path(env["XDG_CONFIG_HOME"]) / "kotodama.env"
     if (platform or sys.platform) == "win32":
@@ -49,8 +58,8 @@ def default_path(environ: MutableMapping[str, str] | None = None, platform: str 
 def shown_default(platform: str | None = None) -> str:
     """The default path as the user would type it, for help texts."""
     if (platform or sys.platform) == "win32":
-        return "%APPDATA%\\Kotodama\\kotodama.env"
-    return "~/.config/kotodama.env"
+        return "server\\kotodama.env if present, else %APPDATA%\\Kotodama\\kotodama.env"
+    return "server/kotodama.env if present, else ~/.config/kotodama.env"
 
 
 def _unquote(value: str) -> str:

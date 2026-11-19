@@ -16,6 +16,12 @@ from kotodama import cli, envfile
 
 
 class ParseTests(unittest.TestCase):
+    def setUp(self):
+        # Whatever server/kotodama.env this checkout has must not leak in.
+        patcher = mock.patch.object(envfile, "LOCAL", Path(tempfile.gettempdir()) / "kotodama-tests-no-local.env")
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_systemd_and_shell_styles(self):
         text = "\n".join([
             "# a comment", "; another", "",
@@ -52,8 +58,20 @@ class ParseTests(unittest.TestCase):
                                               platform="win32"), Path("D:/k.env"))
         self.assertEqual(envfile.default_path({"XDG_CONFIG_HOME": "C:/xdg", "APPDATA": "C:/a"},
                                               platform="win32"), Path("C:/xdg/kotodama.env"))
-        self.assertEqual(envfile.shown_default("win32"), "%APPDATA%\\Kotodama\\kotodama.env")
-        self.assertEqual(envfile.shown_default("linux"), "~/.config/kotodama.env")
+        self.assertTrue(envfile.shown_default("win32").endswith("%APPDATA%\\Kotodama\\kotodama.env"))
+        self.assertTrue(envfile.shown_default("linux").endswith("~/.config/kotodama.env"))
+
+    def test_local_file_takes_precedence_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "kotodama.env"
+            with mock.patch.object(envfile, "LOCAL", local):
+                self.assertEqual(envfile.default_path({"XDG_CONFIG_HOME": "/x"}), Path("/x/kotodama.env"))
+                local.write_text("OPENAI_API_KEY=x\n", encoding="utf-8")
+                self.assertEqual(envfile.default_path({"XDG_CONFIG_HOME": "/x"}), local)
+                self.assertEqual(envfile.default_path({"APPDATA": "C:/a"}, platform="win32"), local)
+                self.assertEqual(envfile.default_path({}, platform="linux"), local)
+                # The explicit override still wins.
+                self.assertEqual(envfile.default_path({"KOTODAMA_ENV_FILE": "/etc/k.env"}), Path("/etc/k.env"))
 
 
 class LoadTests(unittest.TestCase):
