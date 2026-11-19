@@ -2,82 +2,149 @@
 
 AI voiceover for Final Fantasy XI. Kotodama reads NPC quest and cutscene dialog as it appears in your chat log and speaks it aloud, with a different voice for each kind of character.
 
-It has two parts:
+Kotodama is a Windower addon plus a small Python program, the **sidecar**, that runs next to the game and does the speaking.
 
-- **The addon** (`Kotodama.lua`, `lib/`) runs inside Windower. It only listens: it captures dialog lines, works out who is speaking and whether it's a cutscene, and decides whether to voice the line.
-- **The sidecar** (`server/`) is a small Python program that runs on your machine outside the game. It holds your API keys, picks the voice, calls the text-to-speech service, caches the audio, and plays it. It is separate because Windower can't stream or stop audio, and a network call inside an addon would freeze the game.
+This README has three parts:
 
-The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed beyond your own machine.
+- **[Getting started](#getting-started)**: everything you need to hear voices in game.
+- **[Power users](#power-users)**: every command, the other voice providers, voice casting, loudness, and cost.
+- **[Developers](#developers)**: how it works inside, and how to run the tests.
+
+# Getting started
+
+## What you need
+
+- Final Fantasy XI with Windower 4.
+- Python 3.10 or newer.
+- On Linux and the Steam Deck, an audio player: `pw-play`, `paplay`, or `ffplay`. Windows needs nothing extra.
+- An API key for **Inworld**, the default voice provider. Create one at platform.inworld.ai (API Keys) and copy the **Base64** credential. To use a different provider, see **[Voice providers](#voice-providers)**.
 
 ## What gets sent where
 
 Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, Google, Inworld, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
 
-## Setup
+## Linux and the Steam Deck
 
-You need Python 3.10+ and an API key for at least one voice provider: Inworld (the default), ElevenLabs, MiniMax, Gemini, OpenAI (until 2027-01-06), Replicate, or any mix (see **Voice providers**, **Inworld**, **MiniMax**, **Gemini** and **Replicate and other backends**). Then follow the steps for your system, and load the addon.
-
-### Linux and the Steam Deck
-
-You also need an audio player: `pw-play`, `paplay`, or `ffplay`.
-
-1. **Give it a key.** Put `INWORLD_API_KEY=...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `OPENAI_API_KEY=sk-...` and/or `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, one per line, and `chmod 600` it. The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit below.
-   - A variable already set in your shell takes precedence over the file.
-   - Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
-   - To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
-   - The file can also set `KOTODAMA_CONFIG` to keep your `config.json` outside the addon folder.
-2. **Check the setup:**
+1. **Give it your key.** Put this line in `~/.config/kotodama.env`:
    ```
-   python3 server/kotodama_server.py doctor                      # keys, voices, audio, ports
-   python3 server/kotodama_server.py doctor --live               # also speak one short line with every provider that has a key
-   python3 server/kotodama_server.py doctor --provider inworld   # ...or with just one
+   INWORLD_API_KEY=...
    ```
-   The live test runs every provider at once, reports each one's time to first audio, and ends with them ranked fastest first. It plays and caches nothing, and costs a fraction of a cent per provider. A cold Replicate model can take a minute.
+   Then make the file private: `chmod 600 ~/.config/kotodama.env`.
+2. **Check the setup.** In the addon folder, run:
+   ```
+   python3 server/kotodama_server.py doctor
+   ```
+   It checks your key, the voices, audio playback and the network port, and tells you what to fix.
 3. **Hear it without the game:**
    ```
    python3 server/kotodama_server.py test --name Ayame --race 2 "Welcome to Norg."
-   python3 server/kotodama_server.py test --name Ayame --race 2 "Welcome to Norg."   # second run: from cache, no API call
    ```
-4. **Run the sidecar.** Start it from a normal host terminal, or install the systemd *user* unit so it runs whenever you're logged in:
+4. **Start the sidecar** from a normal host terminal:
    ```
-   cp server/kotodama.service ~/.config/systemd/user/
-   systemctl --user daemon-reload && systemctl --user enable --now kotodama
+   python3 server/kotodama_server.py
    ```
-   Don't run it from a sandboxed terminal (e.g. a Flatpak editor's terminal): it needs your real audio session and the host's loopback.
+   Leave it running while you play. Press **R** to restart it or **Q** to quit. No Enter or Ctrl+C needed, which helps with the Steam Deck's on-screen keyboard.
 
-   In a terminal (`python3 server/kotodama_server.py`), press **R** to restart it (picks up code and config changes) or **Q** to quit. No Enter or Ctrl+C needed, which helps with the Steam Deck's on-screen keyboard. The game stays connected across a restart: the addon notices, says "voice server restarted." and sends your settings (volume, provider, ducking) again. Under systemd there's no terminal, so use `systemctl --user restart kotodama`.
+   Don't run it from a sandboxed terminal (e.g. a Flatpak editor's terminal): it needs your real audio session and the host's loopback. To start it automatically when you log in, see **[Running the sidecar](#running-the-sidecar)**.
 
-### Windows (experimental)
+## Windows (experimental)
 
 Windows support is new. If something doesn't work, `server\kotodama.cmd doctor` is the first thing to run, and its output is the most useful thing to report.
 
-Nothing besides Python has to be installed: the sidecar plays audio through Windows itself.
-
-1. **Install Python 3.10 or newer** from [python.org](https://www.python.org/downloads/). Keep "py launcher" ticked in the installer. Python from the Microsoft Store isn't needed, and `kotodama.cmd` skips the Store's `python` placeholder.
-2. **Give it a key.** Create the folder `%APPDATA%\Kotodama` (paste that into Explorer's address bar to find `AppData\Roaming`), and in it a text file `kotodama.env` with `INWORLD_API_KEY=...`, `ELEVENLABS_API_KEY=...`, `MINIMAX_API_KEY=...`, `GEMINI_API_KEY=...`, `OPENAI_API_KEY=sk-...` and/or `REPLICATE_API_TOKEN=r8_...`, one per line. Check that Notepad didn't save it as `kotodama.env.txt`. The file is private to your Windows account, so there's nothing like `chmod` to do. The rest works as on Linux: R re-reads the file, and `--env-file PATH` or `KOTODAMA_ENV_FILE` picks another.
-3. **Check the setup.** Open a Command Prompt in the addon folder:
+1. **Install Python 3.10 or newer** from [python.org](https://www.python.org/downloads/). Keep "py launcher" ticked in the installer.
+2. **Give it your key.** Create the folder `%APPDATA%\Kotodama` (paste that into Explorer's address bar to find `AppData\Roaming`). In it, create a text file named `kotodama.env` with this line:
+   ```
+   INWORLD_API_KEY=...
+   ```
+   Check that Notepad didn't save it as `kotodama.env.txt`.
+3. **Check the setup.** Open a Command Prompt in the addon folder and run:
    ```
    server\kotodama.cmd doctor
-   server\kotodama.cmd doctor --provider inworld
    ```
    `doctor` also checks that the sidecar can save its cache and library. A Windower installed under `Program Files` can't be written to, so install Windower somewhere else, or point `cache.dir` and `library.file` in `server\config.json` at a folder you own.
 4. **Hear it without the game:**
    ```
    server\kotodama.cmd test --name Ayame --race 2 "Welcome to Norg."
    ```
-   Run it twice: the second time comes from the cache.
-5. **Run the sidecar** by double-clicking `server\kotodama.cmd`. Its window shows the log. Press **R** to restart it (picks up code and config changes) or **Q** to quit; other keys such as Insert, Page Down and the F-keys are ignored. Closing the window also stops it. To start it with Windows, press Win+R, enter `shell:startup`, and put a shortcut to `kotodama.cmd` in the folder that opens.
-6. **Optional, for LLM voice casting with `anthropic`:** make a virtual environment and install the SDK into it. `kotodama.cmd` uses `server\.venv` automatically when it exists.
-   ```
-   py -3 -m venv server\.venv
-   server\.venv\Scripts\pip install anthropic
-   ```
+5. **Start the sidecar** by double-clicking `server\kotodama.cmd`. Leave its window open while you play. Press **R** to restart it or **Q** to quit. Closing the window also stops it.
 
-### In game
+## Load the addon
 
-**Load the addon** in game: `//lua load kotodama`. To load it automatically, add `lua load kotodama` to your Windower `scripts/init.txt`. If the sidecar isn't running you'll get one chat warning and the game is otherwise unaffected.
+In game, type `//lua load kotodama`. To load it automatically, add `lua load kotodama` to your Windower `scripts/init.txt`.
 
-## In-game commands
+If the sidecar isn't running you'll get one chat warning, and the game is otherwise unaffected.
+
+## Everyday commands
+
+All commands start with `//koto` (or `//kotodama`).
+
+| Command | What it does |
+|---|---|
+| `on` / `off` | Turn voiceover on or off |
+| `mode all` / `events` / `cutscenes` | **all**: every NPC line; **events**: only quest dialog and cutscenes; **cutscenes**: only cutscenes |
+| `volume <0-400>` | Voice loudness in percent. 100 is normal |
+| `duck <0-100>` | How much of the game's audio is kept while a line is spoken (default 40) |
+| `stop`, `replay` | Stop the current line, or play the last one again |
+| `deny t` / `allow t` | Silence your target, or undo that |
+| `status` | Check that the game is connected to the sidecar (`link UP`) |
+
+Your settings are saved and come back next time. For every command, see **[All in-game commands](#all-in-game-commands)**.
+
+## If something doesn't work
+
+- Run `doctor` (step 2 above) and fix what it reports.
+- `//koto status` should say `link UP`. If it doesn't, check that the sidecar is running.
+- If voices are too quiet next to the music, raise `//koto volume` (try 200), or lower the game's own volume.
+
+# Power users
+
+## The key file
+
+`~/.config/kotodama.env` (Linux) or `%APPDATA%\Kotodama\kotodama.env` (Windows) holds one key per line. Kotodama reads these keys:
+
+```
+INWORLD_API_KEY=...
+ELEVENLABS_API_KEY=...
+MINIMAX_API_KEY=...
+GEMINI_API_KEY=...
+OPENAI_API_KEY=sk-...
+REPLICATE_API_TOKEN=r8_...
+```
+
+- The sidecar reads this file itself, whether you start it from a terminal or with the systemd unit.
+- A variable already set in your shell takes precedence over the file.
+- Pressing R in the sidecar terminal re-reads the file, so edits take effect without restarting the terminal.
+- To use a different file, pass `--env-file PATH` or set `KOTODAMA_ENV_FILE`.
+- The file can also set `KOTODAMA_CONFIG` to keep your `config.json` outside the addon folder.
+
+## Running the sidecar
+
+**Restarting.** Press **R** in the sidecar terminal to restart it. This picks up code and config changes. The game stays connected across a restart: the addon notices, says "voice server restarted." and sends your settings (volume, provider, ducking) again. On Windows, other keys such as Insert, Page Down and the F-keys are ignored.
+
+**Starting automatically on Linux.** Install the systemd *user* unit so the sidecar runs whenever you're logged in:
+
+```
+cp server/kotodama.service ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now kotodama
+```
+
+Under systemd there's no terminal, so use `systemctl --user restart kotodama` to restart it.
+
+**Starting automatically on Windows.** Press Win+R, enter `shell:startup`, and put a shortcut to `kotodama.cmd` in the folder that opens.
+
+**More checks:**
+
+```
+python3 server/kotodama_server.py doctor --live               # also speak one short line with every provider that has a key
+python3 server/kotodama_server.py doctor --provider inworld   # ...or with just one
+python3 server/kotodama_server.py test --name Ayame --race 2 "Welcome to Norg."   # run twice: the second comes from cache, no API call
+```
+
+The live test runs every provider at once, reports each one's time to first audio, and ends with them ranked fastest first. It plays and caches nothing, and costs a fraction of a cent per provider. A cold Replicate model can take a minute.
+
+On Windows, use `server\kotodama.cmd` in place of `python3 server/kotodama_server.py` in every command in this README. Python from the Microsoft Store isn't needed, and `kotodama.cmd` skips the Store's `python` placeholder.
+
+## All in-game commands
 
 `//koto` (or `//kotodama`)
 
@@ -90,9 +157,9 @@ Nothing besides Python has to be installed: the sidecar plays audio through Wind
 | `narrator on/off` | Voice lines with no speaker name (default off). A character the game hasn't introduced yet, shown as `???`, isn't narration: they're always voiced, with one voice for the whole scene, under a name like `??? (243:10191)` (zone and event). Their race comes from their actor in the scene when the game has exactly one `???` with a body nearby. When they're introduced (the same actor or look, or the scene's only `???` while their name is said), they keep that voice. `//koto voice last` adjusts them |
 | `interrupt on/off` | A new line cuts off the previous one (on), or lines queue (off) |
 | `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on). NPCs whose race the game doesn't report are cast from their first line instead |
-| `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **Loudness and ducking**) |
+| `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **[Loudness and ducking](#loudness-and-ducking)**) |
 | `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
-| `norm on/off/default` | Even out loudness between voices (see **Loudness and ducking**). `default` follows `audio.normalize.enabled` in `server/config.json` (on unless changed) |
+| `norm on/off/default` | Even out loudness between voices (see **[Loudness and ducking](#loudness-and-ducking)**). `default` follows `audio.normalize.enabled` in `server/config.json` (on unless changed) |
 | `stop`, `replay` | Playback controls |
 | `provider <name>` / `provider default` | Switch the voice provider live: `inworld`, `elevenlabs`, `openai`, or another model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
 | `providers` | List every provider the sidecar knows and whether its key is set |
@@ -112,11 +179,17 @@ Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xm
 
 ## Voice providers
 
-The default voice provider is **Inworld TTS-2** (`inworld`, see **Inworld** below). Kotodama can also speak through **ElevenLabs**, **OpenAI**, and the models in the sections that follow. Switch any time in game with `//koto provider elevenlabs` / `//koto provider inworld`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To change the default, set `"tts": {"provider": "elevenlabs"}` (or any provider name) in `server/config.json`.
+The default voice provider is **Inworld TTS-2** (`inworld`, see **[Inworld](#inworld)** below). Kotodama can also speak through **ElevenLabs**, **OpenAI**, and the models in the sections that follow. Switch any time in game with `//koto provider elevenlabs` / `//koto provider inworld`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To change the default, set `"tts": {"provider": "elevenlabs"}` (or any provider name) in `server/config.json`.
+
+To add a provider, put its key in **[the key file](#the-key-file)** and press R in the sidecar terminal.
+
+### OpenAI
 
 **OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through.
 
-**OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. That's why OpenAI is no longer the default. Until then, `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json` still uses it. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **Self-hosted and other OpenAI-compatible servers**) isn't affected.
+**OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. That's why OpenAI is no longer the default. Until then, `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json` still uses it. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
+
+### ElevenLabs
 
 **ElevenLabs** voices belong to your account (the stock voices plus any you add from their library, design or clone), and there are no free-text directions. So:
 
@@ -136,44 +209,7 @@ python3 server/kotodama_server.py test --provider elevenlabs --name Rok --race 8
 
 To keep a voice out of casting, add its name or id to `elevenlabs.voices.exclude`. The voice list refreshes itself daily (`elevenlabs.voices.refresh_hours`).
 
-## MiniMax
-
-`minimax` and `minimax-hd` speak through MiniMax's own API, which **streams**: audio starts playing a fraction of a second after the line appears, much like OpenAI and ElevenLabs. They use MiniMax Speech 2.8 Turbo and HD, with 62 labelled English voices and real pitch control (Galka lower, Tarutaru higher).
-
-Put `MINIMAX_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider minimax`. To check it first:
-
-```
-python3 server/kotodama_server.py doctor                      # key, voice count
-python3 server/kotodama_server.py doctor --provider minimax   # time to first audio (one short line)
-python3 server/kotodama_server.py voices cast --provider minimax
-```
-
-- **Your own voices are included.** Voices you've cloned or designed on your MiniMax account appear in casting automatically (refreshed daily, or with `//koto voices sync`), as do any English system voices beyond the built-in list.
-- **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
-- **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account still needs one.
-- The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`). Those were called `minimax` and `minimax-hd` before; lines already cached under the old names still play from the cache.
-
-## Gemini
-
-`gemini` and `gemini-lite` speak through Google's Gemini 3.8 Flash TTS models, which **stream** like MiniMax. Two things set them apart:
-
-- **Delivery comes from the NPC's character.** Each line is sent with a short direction built from the NPC's tone, personality and pace, such as "Tone: deep, gravelly and rumbling. Character: stoic. Pace: slow." Age, gender and accent come from the voice, as Google recommends.
-- **A large voice library.** Kotodama casts from Google's whole English voice library, not only the 30 classic voices (Kore, Puck, Charon...). Google labels each voice with gender, pitch and accent, so casting has a lot to work with. Voices you design or clone in Google AI Studio are included automatically.
-
-Get a key at aistudio.google.com, put `GEMINI_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider gemini`. To check first:
-
-```
-python3 server/kotodama_server.py doctor                     # key, how many voices you can cast from
-python3 server/kotodama_server.py doctor --provider gemini   # time to first audio (one short line)
-python3 server/kotodama_server.py voices cast --provider gemini
-```
-
-- `gemini-lite` uses Flash-Lite: cheaper, slightly less expressive.
-- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
-- Google bills by audio tokens; `//koto status` shows them per day. Add `"models": {"gemini": {"price": {"per_1m_output_tokens": 0.0}}}` with Google's current price for a dollar estimate.
-- Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
-
-## Inworld
+### Inworld
 
 `inworld`, the default provider, and `inworld-flash` speak through Inworld's Realtime TTS-2 models, which **stream** raw audio like MiniMax and Gemini. They use Inworld's OpenAI-compatible endpoint, so they share Kotodama's OpenAI-compatible code.
 
@@ -181,7 +217,7 @@ python3 server/kotodama_server.py voices cast --provider gemini
 - **`inworld-flash`** (TTS-2 Flash) is the fastest and cheapest, but it ignores steering, so none is sent.
 - **Voices come from Inworld's library**, labelled with gender, age group and language, so a Galka gets an older, deeper voice and a Tarutaru a young, bright one. Voices you clone or design in the Inworld portal are included automatically.
 
-Create a key at platform.inworld.ai (API Keys) and copy the **Base64** credential. Put `INWORLD_API_KEY=...` in `~/.config/kotodama.env`, press R in the sidecar terminal, then `//koto provider inworld`. To check first:
+To check it:
 
 ```
 python3 server/kotodama_server.py doctor                      # key, how many voices you can cast from
@@ -194,11 +230,48 @@ python3 server/kotodama_server.py voices cast --provider inworld
 - Square brackets in game text are spoken as parentheses, because Inworld treats `[...]` as a hidden instruction.
 - On a regional (Enterprise) plan, set `inworld.base_url` to `https://api.eu.inworld.ai` or `https://api.in.inworld.ai`.
 
-## Replicate and other backends
+### MiniMax
+
+`minimax` and `minimax-hd` speak through MiniMax's own API, which **streams**: audio starts playing a fraction of a second after the line appears, much like OpenAI and ElevenLabs. They use MiniMax Speech 2.8 Turbo and HD, with 62 labelled English voices and real pitch control (Galka lower, Tarutaru higher).
+
+Put `MINIMAX_API_KEY=...` in the key file, press R in the sidecar terminal, then `//koto provider minimax`. To check it first:
+
+```
+python3 server/kotodama_server.py doctor                      # key, voice count
+python3 server/kotodama_server.py doctor --provider minimax   # time to first audio (one short line)
+python3 server/kotodama_server.py voices cast --provider minimax
+```
+
+- **Your own voices are included.** Voices you've cloned or designed on your MiniMax account appear in casting automatically (refreshed daily, or with `//koto voices sync`), as do any English system voices beyond the built-in list.
+- **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
+- **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account still needs one.
+- The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`). Those were called `minimax` and `minimax-hd` before; lines already cached under the old names still play from the cache.
+
+### Gemini
+
+`gemini` and `gemini-lite` speak through Google's Gemini 3.8 Flash TTS models, which **stream** like MiniMax. Two things set them apart:
+
+- **Delivery comes from the NPC's character.** Each line is sent with a short direction built from the NPC's tone, personality and pace, such as "Tone: deep, gravelly and rumbling. Character: stoic. Pace: slow." Age, gender and accent come from the voice, as Google recommends.
+- **A large voice library.** Kotodama casts from Google's whole English voice library, not only the 30 classic voices (Kore, Puck, Charon...). Google labels each voice with gender, pitch and accent, so casting has a lot to work with. Voices you design or clone in Google AI Studio are included automatically.
+
+Get a key at aistudio.google.com, put `GEMINI_API_KEY=...` in the key file, press R in the sidecar terminal, then `//koto provider gemini`. To check it first:
+
+```
+python3 server/kotodama_server.py doctor                     # key, how many voices you can cast from
+python3 server/kotodama_server.py doctor --provider gemini   # time to first audio (one short line)
+python3 server/kotodama_server.py voices cast --provider gemini
+```
+
+- `gemini-lite` uses Flash-Lite: cheaper, slightly less expressive.
+- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
+- Google bills by audio tokens; `//koto status` shows them per day. Add `"models": {"gemini": {"price": {"per_1m_output_tokens": 0.0}}}` with Google's current price for a dollar estimate.
+- Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
+
+### Replicate and other backends
 
 Beyond OpenAI and ElevenLabs, Kotodama can speak through text-to-speech models hosted on [Replicate](https://replicate.com) and through any server that speaks OpenAI's `/v1/audio/speech` API. Each model is described by a small **adapter** (in `server/tts_models.json`), and each adapter is a provider you can switch to in game: `//koto provider chatterbox-turbo`. Voices are auto-cast the same way as with ElevenLabs.
 
-Put `REPLICATE_API_TOKEN=r8_...` in `~/.config/kotodama.env`, then:
+Put `REPLICATE_API_TOKEN=r8_...` in the key file, then:
 
 ```
 python3 server/kotodama_server.py providers                    # what's available
@@ -292,7 +365,9 @@ Each profile is turned into acting direction for the TTS model ("Voice: elderly 
 
 By default (`inference.provider: "none"`) voices come from archetypes plus your overrides. If you set `inference.provider` to `anthropic` or `openai` in `server/config.json`, the first time an unknown NPC speaks (or you target one, or start an event with them) the model is asked once to describe how they should sound. The answer is validated against a strict schema and saved to `library/npcs.json`; it's never requested again for that NPC. The first line waits up to `wait_ms` (2.5 s) for the answer, then falls back to the archetype voice so dialog is never delayed much. NPCs the game gives no race for (story characters with a fixed "precomposed" model) wait up to `unknown_wait_ms` (8 s) instead: their only stand-in is a genderless voice, and the casting would replace it from their second line on.
 
-- For `anthropic`, install the SDK in a venv: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`, then run the sidecar with that Python.
+- For `anthropic`, install the SDK in a virtual environment.
+  - Linux: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`, then run the sidecar with that Python.
+  - Windows: `py -3 -m venv server\.venv`, then `server\.venv\Scripts\pip install anthropic`. `kotodama.cmd` uses `server\.venv` automatically when it exists.
 - Casting is throttled (`max_per_minute`) and a failed NPC is not retried for ten minutes.
 
 ### Sharing a library
@@ -335,7 +410,7 @@ If voices are still too quiet next to the music, raise `volume` or `audio.normal
 
 On Windows (experimental) it lowers FFXI's per-app volume instead, the same slider as in the Volume Mixer, through Windows' own audio API, so nothing has to be installed. FFXI's audio belongs to `pol.exe`, which the default `duck.match` includes. Apps on every output device are found, so it works with headphones too. `server\kotodama.cmd audio list` shows each app's audio by process id.
 
-- Which stream is "the game" is decided by `duck.match`: any entry appearing in a stream's application name, binary or Flatpak app id. The defaults match `windower`, `playonline`, `ffxi` and `pol.exe`. Run `python3 server/kotodama_server.py audio list` with the game running to see what's matched.
+- Which stream is "the game" is decided by `duck.match`: any entry appearing in a stream's application name, binary or Flatpak app id. The defaults match `windower`, `playonline`, `ffxi` and `pol.exe`. Run `python3 server/kotodama_server.py audio list` with the game running to see what's matched: the game's stream is marked `DUCK`.
 - `audio duck-test` dips the game volume for three seconds and restores it, so you can confirm it works without the addon.
 - The original volume is saved to `cache/duck_state.json` while ducked. If the sidecar is killed mid-duck, the next start restores it automatically, or run `audio restore`.
 - Windows remembers each app's volume, so a crash mid-duck would leave FFXI quiet even after restarting the game. The next start finds FFXI by its app, not only by the session it ducked, and restores it. Closing the sidecar's window, logging off or shutting down restores it before the sidecar exits.
@@ -345,31 +420,49 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of lines cached before loudness normalization existed (`--all` re-measures everything).
 
+## Cutscenes
+
+FFXI doesn't flag cutscenes, so Kotodama works them out from what the game sends. Once an event is recognised as a cutscene, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. The file ships with a few confirmed entries, and it's plain sorted JSON you can share.
+
+A cutscene that opens with several lines from the NPC you talked to looks like ordinary dialog until someone else speaks. In `mode cutscenes`, the first viewing of such a scene can therefore lose its opening lines. If you spot a cutscene that Kotodama missed, type `//koto cutscene` during it (or just after) so it's recognised next time. `//koto cutscene forget` undoes that.
+
+# Developers
+
+## How it works
+
+Kotodama has two parts:
+
+- **The addon** (`Kotodama.lua`, `lib/`) runs inside Windower. It only listens: it captures dialog lines, works out who is speaking and whether it's a cutscene, and decides whether to voice the line.
+- **The sidecar** (`server/`) is a small Python program that runs on your machine outside the game. It holds your API keys, picks the voice, calls the text-to-speech service, caches the audio, and plays it. It is separate because Windower can't stream or stop audio, and a network call inside an addon would freeze the game.
+
+The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed beyond your own machine.
+
 ## How cutscenes are detected
 
-FFXI doesn't flag cutscenes, so `lib/scene.lua` infers them from packet flow and from the dialog itself. Inside an NPC event, it's a cutscene if you didn't start it, a second speaker joins, the speaker isn't the NPC you talked to, your own character speaks, or lines auto-advance. Outside an event:
+`lib/scene.lua` infers cutscenes from packet flow and from the dialog itself. Inside an NPC event, it's a cutscene if you didn't start it, a second speaker joins, the speaker isn't the NPC you talked to, your own character speaks, or lines auto-advance. Outside an event:
 
 - A line right after an NPC-chat packet (`0x036`) is a one-liner such as a shop greeting, and stays **ambient** even though it auto-advances.
 - A line that straggles in just after an event was released stays with that event.
 - Any other speech is a scene the server drove without an event packet, such as a zone-in cutscene, and counts as a **cutscene**.
 
-**The known gap:** a cutscene that opens with several lines from the NPC you talked to looks exactly like ordinary dialog until someone else speaks (the opening of the Fochacha scene is one). To close it, the first time an event is recognised as a cutscene by a solid signal, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. The file ships with a few confirmed entries, is plain sorted JSON you can share, and `//koto cutscene` adds an event by hand when you spot one the heuristics missed. In `mode cutscenes`, the first viewing of an unseen scene of that shape can therefore lose its opening lines.
+**The known gap:** a cutscene that opens with several lines from the NPC you talked to looks exactly like ordinary dialog until someone else speaks (the opening of the Fochacha scene is one). To close it, the first time an event is recognised as a cutscene by a solid signal, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line.
 
 With `//koto debug on`, `data/debug.log` records every decision with its reason, the raw bytes of each event-start packet, the player's status, and a count of the packets that flew by during each event or untracked scene. If you find a scene that's misclassified, that log is what to look at, and the packet counts are the place to look for a real start-of-cutscene signal.
 
-## Limitations and what to check on first run
+`python3 tests/lua/replay_log.py data/debug.log` replays a recorded log through the current rules and lists every line whose classification changed, which is the way to check a tweak against your real sessions.
 
-Cutscene detection is heuristic (see above). `python3 tests/lua/replay_log.py data/debug.log` replays a recorded log through the current rules and lists every line whose classification changed, which is the way to check a tweak against your real sessions.
+## Creature models
 
-Things worth confirming with real play, because they depend on what the game actually sends:
+Non-player creatures and some fixed-model townsfolk carry a model id instead of a race (`race=0`). Map them to a creature or race archetype in `data/creature_models.lua` (Moogles are model 82, the Whitegate Mithra child is 182), or use name keywords and overrides. `//koto inspect t` dumps the target's fields, including `race` and `models`, to `data/inspect.log`.
 
-- `//koto inspect t` on a few NPCs: that `race` and `models` are populated. Town NPCs report `spawn_type=2` (used for target prefetch). Non-player creatures and some fixed-model townsfolk carry a model id instead of a race (`race=0`); map them to a creature or race archetype in `data/creature_models.lua` (Moogles are model 82, the Whitegate Mithra child is 182) or use name keywords and overrides.
-- That controller button presses cut the current line (the addon uses the event-response packet for this, so it should work without keyboard focus).
-- That ducking finds the game: `python3 server/kotodama_server.py audio list` should show your game's stream marked `DUCK`.
-- That the UDP link comes up (`//koto status` should say `link UP`). The game needs network access to play at all, so a Flatpak that shares the host network should reach the sidecar's loopback socket; this hasn't been verified on a Steam Deck yet, so if the link stays down, check the game's network permission first.
+## Tests
 
-Tests: `cd server && python3 -m unittest discover -s tests` for the sidecar (`py -3` instead of `python3` on Windows). The Lua side runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package: `python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua`.
+- **Sidecar:** `cd server && python3 -m unittest discover -s tests` (`py -3` instead of `python3` on Windows).
+- **Lua:** the addon runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package:
+  ```
+  python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua
+  ```
 
-## Credits
+# Credits
 
 Dialog markup handling is derived from the Balloon addon (Hando, Yuki, Ghosty; BSD-3-Clause).
