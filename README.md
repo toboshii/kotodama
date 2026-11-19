@@ -245,6 +245,7 @@ python3 server/kotodama_server.py voices cast --provider minimax
 - **Your own voices are included.** Voices you've cloned or designed on your MiniMax account appear in casting automatically (refreshed daily, or with `//koto voices sync`), as do any English system voices beyond the built-in list.
 - **Emotion** is left to MiniMax, which picks one per line. To drive it from each NPC's temperament instead, add `"models": {"minimax": {"input": {"voice_setting": {"emotion": "{emotion}"}}}}` to `server/config.json`.
 - **Region:** the default host is `api.minimax.io`. Set `minimax.base_url` for another region's host, and `minimax.group_id` only if your account needs one.
+- `//koto status` estimates cost at MiniMax's pay-as-you-go price per billed character ($60 per million for Turbo, $100 for HD). Set your own rate with `"models": {"minimax": {"price": {"per_1k_chars": 0.05}}}`.
 - The same models are also available through Replicate as `minimax-replicate` and `minimax-replicate-hd` (`REPLICATE_API_TOKEN`).
 
 ### Gemini
@@ -264,7 +265,7 @@ python3 server/kotodama_server.py voices cast --provider gemini
 
 - `gemini-lite` uses Flash-Lite: cheaper, slightly less expressive.
 - The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
-- Google bills by audio tokens; `//koto status` shows them per day. Add `"models": {"gemini": {"price": {"per_1m_output_tokens": 0.0}}}` with Google's current price for a dollar estimate.
+- Google bills by text and audio tokens. `//koto status` shows the audio tokens per day and estimates cost at Google's Standard-tier list price. Set your own rate with `"models": {"gemini": {"price": {"per_1m_input_tokens": 0.5, "per_1m_output_tokens": 9.0}}}`.
 - Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
 
 ### Replicate and other backends
@@ -293,7 +294,7 @@ Shipped models:
 
 **Latency.** Replicate returns finished audio files, not a stream. So each line is split at sentence boundaries: the first sentence is made on its own and starts playing while the rest is made in parallel. Expect the first word a second or two after the line appears, depending on the model. Official models (everything above except Kokoro) are kept warm by Replicate; a community model that hasn't run lately can take a minute to start, and the sidecar says so in chat. Lines are cached like any other provider's, so repeats are instant and free.
 
-**Cost.** Replicate bills your account per run; check each model's page for its price. `//koto status` shows characters and compute seconds per model. Add `"price": {"per_1k_chars": 0.0}` or `{"per_second": 0.0}` to a model in `server/config.json` to get a dollar estimate too.
+**Cost.** Replicate bills your account per run. `//koto status` shows characters and compute seconds per model, with a dollar estimate at Replicate's list price: per character for the official models, and per second of T4 GPU time for Kokoro. To use a different rate, set `price` on the model in `server/config.json`, e.g. `"chatterbox": {"price": {"per_1k_chars": 0.02}}` or `"kokoro": {"price": {"per_second": 0.0002}}`. A model you add gets a dollar estimate only once you give it a `price`.
 
 ### The voice bank (for cloning models)
 
@@ -418,7 +419,7 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough estimate: dollars at list price for OpenAI, characters and estimated credits for ElevenLabs (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
 
 ## Cutscenes
 

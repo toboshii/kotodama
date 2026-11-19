@@ -39,7 +39,8 @@
         "@minimax_legacy",
         "account"
       ],
-      "default_voice": "English_Trustworth_Man"
+      "default_voice": "English_Trustworth_Man",
+      "price": {"per_1k_chars": 0.06}
     },
 
     "minimax-hd": {
@@ -79,7 +80,8 @@
         "@minimax_legacy",
         "account"
       ],
-      "default_voice": "English_Trustworth_Man"
+      "default_voice": "English_Trustworth_Man",
+      "price": {"per_1k_chars": 0.10}
     },
 
     "minimax-replicate": {
@@ -123,7 +125,8 @@
         "@minimax_en",
         "@minimax_legacy"
       ],
-      "cache_name": "minimax"
+      "cache_name": "minimax",
+      "price": {"per_1k_chars": 0.06}
     },
 
     "minimax-replicate-hd": {
@@ -167,7 +170,8 @@
         "@minimax_en",
         "@minimax_legacy"
       ],
-      "cache_name": "minimax-hd"
+      "cache_name": "minimax-hd",
+      "price": {"per_1k_chars": 0.10}
     },
 
     "gemini": {
@@ -183,7 +187,8 @@
         "account"
       ],
       "remote_labels": true,
-      "default_voice": "Kore"
+      "default_voice": "Kore",
+      "price": {"per_1m_input_tokens": 0.50, "per_1m_output_tokens": 9.00}
     },
 
     "gemini-lite": {
@@ -199,7 +204,8 @@
         "account"
       ],
       "remote_labels": true,
-      "default_voice": "Kore"
+      "default_voice": "Kore",
+      "price": {"per_1m_input_tokens": 0.50, "per_1m_output_tokens": 6.00}
     },
 
     "inworld": {
@@ -263,7 +269,8 @@
       "voices": [
         "schema",
         "bank"
-      ]
+      ],
+      "price": {"per_1k_chars": 0.025}
     },
 
     "chatterbox": {
@@ -307,7 +314,8 @@
       },
       "voices": [
         "bank"
-      ]
+      ],
+      "price": {"per_1k_chars": 0.025}
     },
 
     "kokoro": {
@@ -331,7 +339,8 @@
       },
       "voices": [
         "@kokoro_en"
-      ]
+      ],
+      "price": {"per_second": 0.000225}
     },
 
     "qwen3": {
@@ -358,7 +367,8 @@
       "voices": [
         "schema",
         "bank"
-      ]
+      ],
+      "price": {"per_1k_chars": 0.02}
     },
 
     "kokoro-local": {
