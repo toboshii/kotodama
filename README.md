@@ -370,6 +370,7 @@ By default (`inference.provider: "none"`) voices come from archetypes plus your 
 - For `anthropic`, install the SDK in a virtual environment.
   - Linux: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`. `kotodama.sh` uses `server/.venv` automatically when it exists.
   - Windows: `py -3 -m venv server\.venv`, then `server\.venv\Scripts\pip install anthropic`. `kotodama.cmd` uses `server\.venv` automatically when it exists.
+- Without the SDK or the API key, the sidecar runs with casting off and says why: in game when the addon connects, in `//koto status`, and in `doctor`.
 - Casting is throttled (`max_per_minute`) and a failed NPC is not retried for ten minutes.
 - `//koto status` counts the tokens each casting call uses and estimates the cost at the model's list price. `inference.prices` has the current Claude models and `gpt-4o-mini`; add an entry for another model, e.g. `"inference": {"prices": {"my-model": {"per_1m_input_tokens": 1.0, "per_1m_output_tokens": 4.0}}}`. A model without one is shown in tokens only.
 

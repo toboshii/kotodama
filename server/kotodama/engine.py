@@ -26,7 +26,7 @@ from .archetypes import Archetypes, PROFILE_FIELDS
 from .audio import Ducker, Limiter, db_to_gain, make_backend
 from .cache import AudioCache, make_key
 from .config import DEFAULT_PROVIDER, Config
-from .infer import InferenceManager, make_inferer
+from .infer import InferenceManager, try_make_inferer
 from .library import Library, is_learned
 from .loudness import (SILENT, LevelerSettings, LineGain, NormalizeSettings, typical_level,
                        voice_gain_db)
@@ -122,7 +122,7 @@ class Engine:
                  reply: Callable[[dict[str, Any]], None] | None = None,
                  ducker: Ducker | None = None,
                  provider_factory: Callable[[str], Any] | None = None,
-                 inferer_factory: Callable[[Any], Any] | None = None,
+                 inferer_factory: Callable[[Any], tuple[Any, str | None]] | None = None,
                  provider_info: dict[str, tuple[str, bool]] | None = None):
         self.cfg = cfg
         self.arch = arch
@@ -244,6 +244,8 @@ class Engine:
             self.player_name = name if isinstance(name, str) and name else self.player_name
             self.greeted = True
             self.reply({"t": "pong"})
+            if self.inference.unavailable:      # configured, but it couldn't start: say so in game
+                self.say(self._casting_off())
             self._warm()
         elif kind == "config":
             self._config(msg)
@@ -334,7 +336,8 @@ class Engine:
             self.tts = prov
             self.resolver = ProfileResolver(self.arch, self.lib, provider=prov.name)
         if self._inferer_factory is not None:
-            self.inference.retarget(self._inferer_factory(prov), prov.name)
+            inferer, unavailable = self._inferer_factory(prov)
+            self.inference.retarget(inferer, prov.name, unavailable)
         self._warm()
         if getattr(prov, "dynamic_voices", False):
             threading.Thread(target=prov.ensure_catalog, daemon=True).start()
@@ -783,7 +786,7 @@ class Engine:
 
         elif name == "voice_reinfer":
             if not self.inference.enabled:
-                self.say("voice casting is off (inference.provider is 'none' in server/config.json)")
+                self.say(self._casting_off())
                 return
             key = npc.lower()
             local = self.lib.local.get(key)
@@ -816,6 +819,11 @@ class Engine:
 
         else:
             self.say(f"unknown command {name}")
+
+    def _casting_off(self) -> str:
+        if self.inference.unavailable:
+            return f"voice casting is off: {self.inference.unavailable}"
+        return "voice casting is off (inference.provider is 'none' in server/config.json)"
 
     def _forget_casting(self, npc: str) -> None:
         for prov in self.providers.values():
@@ -863,6 +871,8 @@ class Engine:
         self.say(
             f"sidecar {__version__} | tts {self._provider_status(self.tts)} ({key_state}) | "
             f"player {self.player.kind or 'NONE'} | casting {inf}")
+        if self.inference.unavailable:
+            self.say(self._casting_off())
         self.say(f"cache: {stats['files']} lines, {stats['bytes'] / 1048576:.1f} / "
                  f"{stats['max_bytes'] / 1048576:.0f} MB | {self.usage.summary()}")
         if self.norm.enabled:
@@ -962,12 +972,13 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
     if player is None:
         command = cfg.get("player.command")
         player = Player(command if isinstance(command, dict) else None, null=null_player)
-    def inferer_factory(prov: Any) -> Any:
-        return make_inferer(cfg, arch, prov.name, include_voice=not getattr(prov, "dynamic_voices", False))
+    def inferer_factory(prov: Any) -> tuple[Any, str | None]:
+        return try_make_inferer(cfg, arch, prov.name, include_voice=not getattr(prov, "dynamic_voices", False))
 
     fixed_inferer = inferer is not None          # tests inject one; keep it across switches
-    inferer = inferer if fixed_inferer else inferer_factory(tts)
-    inference = InferenceManager(cfg, arch, library, usage, inferer, tts_provider=tts.name)
+    inferer, unavailable = (inferer, None) if fixed_inferer else inferer_factory(tts)
+    inference = InferenceManager(cfg, arch, library, usage, inferer, tts_provider=tts.name,
+                                 unavailable=unavailable)
     if ducker is None:
         ducker = make_ducker(cfg, enabled=not null_player)
         if not null_player:

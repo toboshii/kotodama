@@ -516,6 +516,16 @@ def cmd_replicate(cfg: Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _doctor_casting(cfg: Config, engine: Any, check) -> None:
+    inference = engine.inference
+    if inference.enabled:
+        check("voice casting", True, f"{cfg.get('inference.provider')}, {inference.inferer.model}")
+    elif inference.unavailable:
+        check("voice casting", False, inference.unavailable)
+    else:
+        print("[info] voice casting: off")
+
+
 def _doctor_elevenlabs(cfg: Config, check) -> None:
     el = ElevenLabsTTS(cfg)
     if not el.api_key:
@@ -778,14 +788,7 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     live = args.live or bool(args.provider)
     _doctor_elevenlabs(cfg, check)
     _doctor_models(cfg, check, active)
-    provider = cfg.get("inference.provider")
-    print(f"[info] voice casting: {provider}")
-    if provider == "anthropic":
-        try:
-            import anthropic  # noqa: F401
-            check("anthropic SDK", True)
-        except ImportError:
-            check("anthropic SDK", False, "pip install anthropic")
+    _doctor_casting(cfg, engine, check)
     backend = make_backend()
     try:
         streams = backend.list_streams()

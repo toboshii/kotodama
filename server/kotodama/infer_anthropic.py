@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Callable
 
 from .archetypes import Archetypes
@@ -28,9 +29,10 @@ class AnthropicInferer:
             try:
                 import anthropic  # lazy: only needed when casting is enabled
             except ImportError as exc:
+                launcher = "server\\kotodama.cmd" if sys.platform == "win32" else "server/kotodama.sh"
                 raise InferenceError(
-                    "inference.provider is 'anthropic' but the SDK is missing: "
-                    "pip install anthropic (inside server/.venv)") from exc
+                    "inference.provider is 'anthropic' but this Python has no anthropic SDK: "
+                    f"install it in server/.venv and start the sidecar with {launcher}") from exc
             key = cfg.api_key("inference")
             if not key:
                 raise InferenceError("no Anthropic API key (ANTHROPIC_API_KEY or inference.api_key)")

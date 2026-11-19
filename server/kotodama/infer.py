@@ -109,13 +109,17 @@ class InferenceManager:
     """Throttled, de-duplicated background casting calls."""
 
     def __init__(self, cfg: Config, arch: Archetypes, library: Library, usage: Usage,
-                 inferer: Inferer | None, tts_provider: str = "openai"):
+                 inferer: Inferer | None, tts_provider: str = "openai", unavailable: str | None = None):
         self.cfg = cfg
         self.arch = arch
         self.lib = library
         self.usage = usage
         self.inferer = inferer
         self.tts_provider = tts_provider
+        # Why casting is off although inference.provider asks for it (its SDK
+        # or API key is missing). None while it's on, or off by choice.
+        self.unavailable: str | None = None
+        self._note_unavailable(unavailable)
         self.max_per_minute = int(cfg.get("inference.max_per_minute", 6))
         self.wait_s = float(cfg.get("inference.wait_ms", 2500)) / 1000.0
         # With no race from the game the stand-in voice has no gender either,
@@ -146,10 +150,16 @@ class InferenceManager:
     def enabled(self) -> bool:
         return self.inferer is not None
 
-    def retarget(self, inferer: Inferer | None, tts_provider: str) -> None:
+    def retarget(self, inferer: Inferer | None, tts_provider: str, unavailable: str | None = None) -> None:
         """Swap in an inferer built for another TTS provider's voice schema."""
         self.inferer = inferer
         self.tts_provider = tts_provider
+        self._note_unavailable(unavailable)
+
+    def _note_unavailable(self, reason: str | None) -> None:
+        if reason and reason != self.unavailable:   # once, not again on every provider switch
+            log.warning("voice casting is off: %s", reason)
+        self.unavailable = reason
 
     def clear_failure(self, name: str) -> None:
         with self._lock:
@@ -239,3 +249,14 @@ def make_inferer(cfg: Config, arch: Archetypes, tts_provider: str,
         from .infer_openai import OpenAIInferer
         return OpenAIInferer(cfg, arch, schema, tts_provider)
     raise ValueError(f"unknown inference.provider '{provider}' (none | anthropic | openai)")
+
+
+def try_make_inferer(cfg: Config, arch: Archetypes, tts_provider: str,
+                     include_voice: bool = True) -> tuple[Inferer | None, str | None]:
+    """make_inferer, except that a casting provider that can't start (its SDK
+    or API key is missing) leaves casting off instead of stopping the sidecar.
+    Returns (inferer, None), or (None, why casting is off)."""
+    try:
+        return make_inferer(cfg, arch, tts_provider, include_voice), None
+    except InferenceError as exc:
+        return None, str(exc)
