@@ -21,8 +21,8 @@
   },
 
   "tts": {
-    "_comment": "provider: openai (the default) | elevenlabs | a model adapter such as minimax, gemini, inworld, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
-    "provider": "openai",
+    "_comment": "provider: inworld (the default) | elevenlabs | openai | a model adapter such as inworld-flash, minimax, gemini, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
+    "provider": "inworld",
     "model": "gpt-4o-mini-tts",
     "api_key": null,
     "api_key_env": "OPENAI_API_KEY"
