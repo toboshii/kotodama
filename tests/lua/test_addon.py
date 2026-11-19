@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -66,6 +67,19 @@ class SceneTests(unittest.TestCase):
         a.line(b"Makki-Chebukki : Oho\x7f1")
         self.assertIn("scene: untracked-event -> cutscene", a.debug_log())
         self.assertIn("packets during untracked scene", a.debug_log())
+
+    def test_lines_log_the_players_status(self):
+        """Collected to see whether status 4 (in an event) tells real scenes
+        without an event packet from the rule misfiring."""
+        a = Addon(debug=True)
+        self.addCleanup(a.close)
+        a.zone_out()
+        a.advance(15)
+        a.set_status(4)
+        a.line(b"Makki-Chebukki : Oho\x7f1")
+        line = next(entry for entry in a.debug_log().splitlines() if " line mode=" in entry)
+        self.assertIn("kind=cutscene", line)
+        self.assertIn(" status=4 ", line)
 
     # -- one-liners announced by 0x036 are not cutscenes ----------------------
 
@@ -772,6 +786,23 @@ class AddonSmokeTests(unittest.TestCase):
         self.assertIn("player_status=0", log)
         self.assertIn("packets during event", log)
         self.assertIn("npc chat 0x036", log)
+
+
+class ReplayLogTests(unittest.TestCase):
+    """replay_log.py reads logs from before and after status= was added."""
+
+    def test_line_records_parse_with_and_without_the_status_field(self):
+        import replay_log
+        before = ("12:00:01 line mode=150 kind=cutscene timed=true speaker=Makki-Chebukki race=0 "
+                  "model=1445 text=[Oho] raw=[4F 68 6F 7F 31 ]")
+        after = before.replace("model=1445 ", "model=1445 status=4 ")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "debug.log"
+            path.write_text(before + "\n" + after + "\n", encoding="utf-8")
+            records = list(replay_log.parse(path))
+        self.assertEqual(len(records), 2, records)
+        self.assertEqual(records[0], records[1])
+        self.assertEqual(records[0][2]["raw"], b"Oho\x7f1")
 
 
 if __name__ == "__main__":

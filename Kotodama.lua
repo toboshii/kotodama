@@ -369,9 +369,11 @@ local function process_line(raw, mode, forced_kind)
             census_flush('untracked scene')
         end
     end
-    debug_log('line mode=%d kind=%s timed=%s speaker=%s race=%s model=%s text=[%s] raw=[%s]',
+    -- status 4 = the client is in an event. Logged on every line to see whether
+    -- it marks the scenes that send no event packet ('untracked-event').
+    debug_log('line mode=%d kind=%s timed=%s speaker=%s race=%s model=%s status=%s text=[%s] raw=[%s]',
         mode, kind, tostring(timed), tostring(name), tostring(info.race), tostring(info.model),
-        text, hex(raw))
+        tostring(player_status()), text, hex(raw))
     if was then
         debug_log('  -> the same character as %s (%s)', was, was_why)
     end

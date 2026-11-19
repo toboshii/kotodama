@@ -58,7 +58,9 @@ def parse(path: Path):
         elif rest.startswith("zone out"):
             yield t, "zone", None
         elif rest.startswith("line "):
-            mm = re.search(r"mode=(\d+) kind=(\w+) timed=(\w+) speaker=(.*?) race=(\w+) model=(\w+) text=\[.*\] raw=\[([0-9A-F ]*)\]\s*$", rest)
+            # status= is absent from logs written before it was added.
+            mm = re.search(r"mode=(\d+) kind=(\w+) timed=(\w+) speaker=(.*?) race=(\w+) model=(\w+)"
+                           r"(?: status=\w+)? text=\[.*\] raw=\[([0-9A-F ]*)\]\s*$", rest)
             if mm:
                 yield t, "line", dict(mode=int(mm.group(1)), old=mm.group(2), speaker=mm.group(4),
                                       race=mm.group(5), model=mm.group(6),

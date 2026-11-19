@@ -66,7 +66,7 @@ package.preload['socket'] = function()
     } end }
 end
 
-MOBS_BY_ID, MOBS_BY_NAME, TARGET, ZONE = {}, {}, nil, 230
+MOBS_BY_ID, MOBS_BY_NAME, TARGET, ZONE, PLAYER_STATUS = {}, {}, nil, 230, 0
 function add_mob(id, name, race, models, spawn_type, distance)
   local m = {id = id, name = name, race = race, models = models, spawn_type = spawn_type or 2,
              distance = distance and distance * distance or nil}     -- Windower reports it squared
@@ -91,7 +91,7 @@ windower = {
   end,
   ffxi = {
     get_info = function() return {logged_in = true, zone = ZONE, chat_open = false} end,
-    get_player = function() return {name = 'Adventurer', id = 1, status = 0} end,
+    get_player = function() return {name = 'Adventurer', id = 1, status = PLAYER_STATUS} end,
     get_mob_by_id = function(id) return MOBS_BY_ID[id] end,
     get_mob_by_index = function(i) return MOBS_BY_ID[i] end,
     get_mob_by_name = function(n) return MOBS_BY_NAME[n] end,
@@ -154,6 +154,9 @@ class Addon:
 
     def set_zone(self, zone: int) -> None:
         self.lua.globals().ZONE = zone
+
+    def set_status(self, status: int) -> None:
+        self.lua.globals().PLAYER_STATUS = status
 
     def set_target(self, mob_id: int | None) -> None:
         self.lua.globals().TARGET = None if mob_id is None else self.lua.globals().MOBS_BY_ID[mob_id]
