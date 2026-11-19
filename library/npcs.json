@@ -1,0 +1,3344 @@
+{
+  "format": 1,
+  "npcs": {
+    "??? (243)": {
+      "meta": {
+        "created": "2026-11-12",
+        "sample_lines": [
+          "Ah, the tragedy of it all! It's common knowledge that the pickle-hater misses out on at least eighty percentaru of life's pleasures!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver with grand theatrical flourish, as if addressing a crowd of onlookers.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "dramatic, theatrical, pompous, fussy about pickles",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "melodramatic and exaggerated, mock-sincere"
+      }
+    },
+    "A.M.A.N. Reclaimer": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Hume ♂",
+        "model_id": 7,
+        "sample_lines": [
+          "The A.M.A.N. is pleased to announce a new service in which we purchase any equipment you no longer need--new or used.",
+          "Just trade me any piece of equipment you desire. I will quickly assess its value and award you with an appropriate number of reclamation marks.",
+          "Once you accumulate 1000 of these marks, they will be automatically converted to one copper A.M.A.N. voucher and added to the total number held."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines with crisp precision, as if reciting protocol, with faint mechanical undertones.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "Mechanical, earnest, quietly sardonic, dutifully helpful",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "Flat, clipped, slightly synthetic but warm"
+      }
+    },
+    "Affi": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 4,
+        "sample_lines": [
+          "Oho! If it isn't my favorite adventurer. What can I do fer you today?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          288
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines conversationally, as an everyday local helping a traveler.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Ahkk Jharcham": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 182,
+        "sample_lines": [
+          "Mew mew mew mew mew meooow Tulutululu～ Meow!",
+          "Myehehe...",
+          "For me!? Meow! Now I'll be able to remember my secrrret!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Roll the r's in 'secrrret' and let 'Myehehe' come out as a sly, playful giggle with a cat-like purr.",
+        "gender": "female",
+        "pace": "fast",
+        "personality": "energetic, mischievous, sneaky and proud of secret knowledge",
+        "pitch": "high",
+        "species": "Mithra",
+        "tone": "bright, giggly and eager"
+      }
+    },
+    "Alienor": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Elvaan ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "Another day, another distraction, adventurer! Would you like to learn more about this splendiferous machine here?",
+          "This is a magical apparatus referred to as a \"waypoint.\" You can use it to instantaneously teleport to anywhere in Western Adoulin.",
+          "Oh ho, forgive me for babying you. Of course you know that much--you probably used one to get here!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "accent": "refined, aristocratic",
+        "age": "adult",
+        "direction": "Speak with quiet dignity and clear, elegant enunciation.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "proud, formal and graceful",
+        "pitch": "medium",
+        "species": "Elvaan",
+        "tone": "composed, poised",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Amagusa-Chigurusa": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 2,
+        "sample_lines": [
+          "A guy's got to think of an escape plan in case the whole place gets pulled into a war or something."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak quickly with playful enthusiasm, as if eager to share a discovery from Windurst Waters.",
+        "gender": "male",
+        "pace": "fast",
+        "personality": "bright, bubbly and curious, a bit scatterbrained",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Ardea": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 6,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a practical Bastok market vendor, friendly and unhurried.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Atmacite Refiner": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Hume ♂",
+        "model_id": 7,
+        "sample_lines": [
+          "Greetings and well met. I am a Voidwatch scientist charged with researching the potential uses of atmacite.",
+          "Those who possess a periapt of emergence may come to me to have their hard-won atmacite infused. Stratum abyssite also falls within my domain, so present to me any whose properties you wish to have analyzed.",
+          "Ah, I'm also authorized to teleport folk to operation sites. Quite versatile, aren't I?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak like a hardworking Bastokan artisan, direct and unpretentious.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken, practical and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Atori-Tutori": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Tarutaru ♂",
+        "model_id": 2,
+        "sample_lines": [
+          "Howdy-wowdy-ho! I hear some scruffy moogle was just begging-wegging for me to come by? We need to make this quick--a bevy of busty beauties just checked in to Neptune's Spire, and they're desperataruly in need of my services.",
+          "Yeppers, that's me alrightaru. So where's my victim--I mean, trainee--for today?",
+          "Hmm, not bad. Not bad at all! You must work outaru!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          139,
+          144,
+          146,
+          243
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver the playful reduplicated 'wowdy' and 'wegging' phrasing with bouncy energy and a sly, leering undertone on the Neptune's Spire line.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly, scheming and self-absorbed",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful, excitable and slyly boastful"
+      }
+    },
+    "Bajahb": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "Good day! If you want to live long, you'll buy your armor here."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a straightforward Whitegate local with an easygoing, unhurried manner.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Balajaha": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "I'm starting to hate this game...",
+          "Just one more time! All I need is one more chance!",
+          "What's your problem?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver the line as an offhand, half-muttered complaint, as if to himself.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "weary, sardonic, frustrated with his lot",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "exasperated, dry, grumbling under his breath"
+      }
+    },
+    "Baya Hiramayuh": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Mithra",
+        "model_id": 2,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let a small purr slip into teasing phrases.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident",
+        "pitch": "high",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Berstrogus": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 7,
+        "sample_lines": [
+          "Pioneers have certainly made a lot of headway recently. Your role in the colonization movement has expanded, and you're more trusted than ever. I don't know exactly how that affects you personally, but I'm sure someone at the various coalitions would."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Speak like a practical Adoulin townsman with a relaxed, unhurried delivery.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken, sturdy and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm, weathered and natural"
+      }
+    },
+    "Bezetep": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 8,
+        "sample_lines": [
+          "I wouldn't go much farther, though. Things have gotten quite hairy with all the monsters popping up of late."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          258
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as an ordinary Rala Waterways local, unhurried and down to earth.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Bikho Ronpotteh": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Mithra",
+        "model_id": 6,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver lines with a mischievous grin and a playful lilt, lingering on teasing words.",
+        "gender": "female",
+        "pace": "fast",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Bilp": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Galka",
+        "model_id": 0,
+        "sample_lines": [
+          "But ma'am, there's something odd going on in the forest, so we need to make better preparations so--",
+          "<Sigh>... The only people brave enough to go into that forest are pioneers. It's not a place for the likes of us.",
+          "You can't be serious! If Leathery Lhe gets even a whiff that we're shirking our duties--"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speaks to a woman with respectful worry, trailing off mid-sentence as if interrupted by his own unease.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "earnest, cautious, slightly flustered and deferential",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly but anxious and hesitant"
+      }
+    },
+    "Biyaada": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♀",
+        "model_id": 12,
+        "sample_lines": [
+          "Excuse me?",
+          "How dare you speak to me in such a casual manner!? I am Biyaada, the senior adjutant to Skyserpent General Rughadjeen!",
+          "I am Biyaada."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver the polite 'Excuse me?' with a slight questioning lift, as if addressing a passing stranger in Whitegate.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Bonanza Moogle": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 981,
+        "sample_lines": [
+          "Kupopopo... You do realize what we're selling here, don't you?",
+          "You can purchase your 24.5th Vana'versary Nomad Mog Bonanza tickets here, kupo."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound like a cheerful moogle merchant hawking lucky bonanza deals.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Burnished Bones": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Galka",
+        "model_id": 5,
+        "sample_lines": [
+          "This is the exit for arriving passengers."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with measured, unhurried weight, as a seasoned Galka guard of Whitegate would.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Caliburn": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 0,
+        "sample_lines": [
+          "Phew... I finally made it! So this is the city of Windurst...?",
+          "I had a nasty experience when I was attacked by those awful Yagudo out there in Sarutabaruta. All that talk of the Tarutaru and Yagudo being on friendly terms is just a bunch of lies, eh?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with a steady, easygoing cadence as a Windurst Waters local.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural",
+        "voice": {
+          "openai": "onyx"
+        }
+      }
+    },
+    "Cefantia": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♀",
+        "model_id": 11,
+        "sample_lines": [
+          "I eat, breathe, and sleep delivery services! Even if the heavens come tumbling down, the seas engulf all of Adoulin, or eternal darkness descends upon the world, you needn't worry about your package!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with an easy, down-to-earth warmth as a resident of Western Adoulin.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "plain-spoken, friendly and practical",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural",
+        "voice": {
+          "openai": "nova"
+        }
+      }
+    },
+    "Chamama": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Tarutaru ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "That's Chamama! And I'll have you know that I run a perfectly reputable restaurantaru!",
+          "That's Chamama! And \"rancid\"...! ...W-wait. You'd do that for me?",
+          "Well, aren't you in luck! I have a supply of smooth stones right here."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "accent": "Tarutaru speech with '-aru' endings like restaurantaru",
+        "age": "young",
+        "direction": "Deliver the line with playful, huffy pride, as if correcting a rude accusation.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "proud, bubbly and self-assured, eager to defend her reputation",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful, indignant and excitable"
+      }
+    },
+    "Civil Registrar": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "I hope you're having a marvelous-warvelous day! Is there anything you'd like to know about the Inventors' Coalition?",
+          "Your contributions to the Inventors' Coalition have earned you the title of...",
+          "Inventor Petitioner! You're off to a swell start!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver routine administrative lines with a helpful, unhurried clarity.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken, efficient and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm, businesslike and natural"
+      }
+    },
+    "Clarion Star": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Galka",
+        "model_id": 3,
+        "sample_lines": [
+          "I can't believe that you got your hands on a cipher of Kupofried's alter ego! Amazing!",
+          "I'll let you in on something--the Trust initiative is being spread beyond the five races...with some very interesting results.",
+          "Just let me analyze this data for a...what do you mean, \"hurry up\"?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with measured, heavy weight, as if each word is considered before it is said.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Craggy Bluff": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 2720,
+        "sample_lines": [
+          "I don't mind parting with some of this Peacekeepers' Coalition equipment as long as it's for a good cause.",
+          "Senkuto can be purchased for 3000 bayld.",
+          "Senkutanto can be purchased for 3000 bayld."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Speak plainly, as a weathered merchant who values duty over haggling.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "gruff, pragmatic, quietly principled tradesman",
+        "pitch": "medium",
+        "tone": "dry and matter-of-fact with a hint of warmth"
+      }
+    },
+    "Curio Vendor Moogle": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Precomposed NPC",
+        "model_id": 82,
+        "sample_lines": [
+          "Tremendous timing! I've imported an incredible inventory of immaculate items!",
+          "Back to buy, kupo?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with cheerful enthusiasm, like a friendly shopkeeper offering wares to passing adventurers.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sweet, chirpy and eager to help",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Dabhuh": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 3,
+        "sample_lines": [
+          "Have you ever heard of a \"Merrow\"?",
+          "I chanced upon one the other day...",
+          "I had my equipment stripped right off my body... I must confess that I was rather embarrassed."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50,
+          79
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines in a relaxed, unhurried manner suited to a Whitegate local.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Dealer Moogle": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 981,
+        "sample_lines": [
+          "Trade me a Mog Bonanza prize exchange item and I'll gladly grant you a gorgeous gift of your choosing, kupo!",
+          "I'll exchange your Mog Kupon A-PK109! Go ahead and select an item from the list of prizes, kupo.",
+          "I'm obliged to offer you a word of warning: there's no going back once I issue you your prize. Are you completely confident about your choice, kupo?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound cheerful and eager to make a sale, with a playful squeak on key words.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Degenhard": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 126,
+        "sample_lines": [
+          "Hah! Yah! Can't ye see I'm... Wait a minute. I almost didn't recognize ye...",
+          "Looks like someone's come a long way since our last meetin'. Why don't I give ye somethin' that might help in yer training?",
+          "But first, I'm gonna need proof that ye're ready. A seasoning stone, a fossilized bone, and a fossilized fang should do the trick."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "accent": "broad working-class Bastokan",
+        "age": "middle-aged",
+        "direction": "Start loud and boisterous, then slow down and squint as he recognizes the listener.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "gruff, blunt, suspicious market tradesman",
+        "pitch": "low",
+        "tone": "gruff, rough, emphatic with a sudden shift to recognition"
+      }
+    },
+    "Delivery Specialist": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Mithra",
+        "model_id": 5,
+        "sample_lines": [
+          "I eat, breathe, and sleep delivery services! Even if the heavens come tumbling down, the seas engulf all of Adoulin, or eternal darkness descends upon the world, you needn't worry about your package!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          260
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let a playful purr slip in between phrases.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident, a brisk professional with a flair for teasing",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, upbeat, with a hint of a purr"
+      }
+    },
+    "Dremi": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "Unreal, isn't it?",
+          "You ever seen anything quite like this place?",
+          "The name's Dremi. Yours?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          289
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly and warmly, as a friendly local woman in the Escha region would.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Eamonn": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 15,
+        "sample_lines": [
+          "B-but, I've heard stories that it's haunted!",
+          "N-no! Not that!",
+          "I know. But someone like that woman over there, however..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Stammer slightly on the opening word, then rush the words as fear builds.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "nervous, earnest and easily startled",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "hesitant, wide-eyed and anxious"
+      }
+    },
+    "Ephemeral Moogle": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Precomposed NPC",
+        "model_id": 82,
+        "sample_lines": [
+          "You want me to hold onto these, kupo? Then let the magic begin!",
+          "That's all there is to it, kupo! Let me know if you need me again.",
+          "Come for crystal-related concerns, hmm?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          280
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver each line with a playful kupo-style lilt and cheerful energy.",
+        "gender": "neutral",
+        "pace": "fast",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Esoteric Hound": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Galka",
+        "model_id": 12,
+        "sample_lines": [
+          "Please buy a ticket at the counter if you wish to board the ship."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak slowly and plainly, as a guarded watchman of Whitegate who gives little away.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "stoic, blunt and honorable, with a dry, watchful wit",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling, controlled and deliberate"
+      }
+    },
+    "Eternal Flame": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Galka",
+        "model_id": 0,
+        "sample_lines": [
+          "Hm? Oh, spark exchange... Of course."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with heavy, deliberate pauses, as if each word weighs something.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Fari-Wari": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "Ahem! <Cough, cough>.",
+          "Mi-mi-mi-mi-mi.",
+          "Lalala-lala-lala."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful, high-energy enthusiasm, as if eager to show off something new.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Fayeewah": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "Why not sit back a spell and enjoy the rich aroma and taste of a cup of chai?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a practical Whitegate local, friendly and unfussy, with no exaggerated flourishes.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Festive Moogle": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 82,
+        "sample_lines": [
+          "Should you get your mighty mitts on anything like a gold mog pell, make it known by trading them to me. I'll give you a great gift in return, kupo.",
+          "Hey! The MHMU has a basketful of special goodies for all the brave adventurers who work hard to protect the poor little moogles of Vana'diel, kupo. Ah, but it looks like I have nothing for you! Sorry!",
+          "So you've deemed it time to trade in a ticket-like red mog pell, huh? For what exemplars of enjoyment will you exchange it, kupo?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound excited about holiday cheer, with playful little squeaks between phrases.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and festive, eager to help",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy, squeaky and cheerful"
+      }
+    },
+    "Fleuricette": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Elvaan ♀",
+        "model_id": 3,
+        "sample_lines": [
+          "In order to bestow Ionis upon you, I will need to exact a fee of 10 bayld.",
+          "You know what they say--all things have their price. What say you?",
+          "Thank you for your 10-bayld donation to the city. And now, let us proceed with the casting!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "accent": "refined, aristocratic",
+        "age": "adult",
+        "direction": "Speak with quiet dignity and unhurried elegance, as a figure of Adoulin's civic life.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "proud, formal and graceful",
+        "pitch": "medium",
+        "species": "Elvaan",
+        "tone": "composed, poised"
+      }
+    },
+    "Fo Mocorho": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Mithra",
+        "model_id": 3,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let a playful purr surface between sentences.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident",
+        "pitch": "low",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Fochacha": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "If you want to know where my son is, he's probably at the teahouse. Gourmets just lovey-wove to gather there and chat about the latest culinary trends. That rotten Galka is sure to be there, too."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm and quick, lilting curiosity, as a small merchant-minded Tarutaru in Whitegate.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "bright, bubbly and curious",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Funpo-Shipo": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 0,
+        "sample_lines": [
+          "Among the guards of Windurst are the automatons who speaky-weaky in the words of the stars.",
+          "They are the Cardians, magical puppet-like dolly-wollys that are made at the Manustery."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if sharing a fun discovery with a friend.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly, curious and a bit scatterbrained",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Gemmerick": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 5,
+        "sample_lines": [
+          "Welcome to the auction house. Do you have any questions about our establishment?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines conversationally, as a Western Adoulin local chatting with a visitor.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken, friendly, slightly rustic and down-to-earth",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural with a relaxed, easygoing edge",
+        "voice": {
+          "openai": "onyx"
+        }
+      }
+    },
+    "Giehnz": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 13,
+        "sample_lines": [
+          "Her Magnificence has graciously considered the desires of her people, and declared the Colosseum open for beast battles.",
+          "The entrance to the Pit can be found around the corner to the south. You can sign up to compete, or simply enter as a spectator."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a straightforward Whitegate local with a relaxed, easygoing delivery.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Goblin Footprint": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Precomposed NPC",
+        "model_id": 52,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          280
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Deliver lines with a sly, grudging edge, as if always angling for a bit of profit.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "sly, grumbling and mercenary",
+        "pitch": "low",
+        "species": "Goblin",
+        "tone": "raspy and sneering"
+      }
+    },
+    "Gorpa-Masorpa": {
+      "meta": {
+        "created": "2026-11-14",
+        "game_race": "Tarutaru ♂",
+        "model_id": 4,
+        "sample_lines": [
+          "...to serve adventurers...",
+          "...under the auspices of...",
+          "...the great, almightaruly..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          249
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with a playful, sing-song rhythm and end many words in a light '-aru' sound.",
+        "gender": "male",
+        "pace": "fast",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Green Thumb Moogle": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Precomposed NPC",
+        "model_id": 2361,
+        "sample_lines": [
+          "I simply can't wait for my friend to flap his furry physique over here. Oh, the terrific times we'll have together...",
+          "I'd love to secure a striking specimen of a shell for him so he could have proof of his peregrinations, kupo.",
+          "If you could wade through what washes up on shore and find a fitting figure of one, I would be...dare I say it...shell-shocked."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          280
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound eager to share gardening tips, with playful little kupo-style bounces in the phrasing.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sweet, chirpy and helpful, proud of the garden",
+        "pitch": "high",
+        "species": "Moogle",
+        "tone": "bouncy, squeaky and cheerful"
+      }
+    },
+    "Greeter Moogle": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 2419,
+        "sample_lines": [
+          "Why, hello there! My tremendous task is to tabulate your precious points for the November 2026 login campaign and exchange them for pleasing prizes, kupo!",
+          "Beastmen's seal costs 5 points. Purchase this prize, kupo?",
+          "Fossilized fang costs 5 points. Purchase this prize, kupo?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Bright and eager, with a playful little squeak on greetings.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Gwenlyn": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Hume ♀",
+        "model_id": 1,
+        "sample_lines": [
+          "Hail, good lady. That look in your eyes--you've come to brush up on your pioneering skills, have you not?",
+          "The name of the battlegrounds has its origins in Yahse Karieyh, the founder of his order--the Order of Karieyh. Though this may appear to be a mere tidbit of trivia, knowing the history of Adoulin gives a more human face to the colonization initiative.",
+          "By the by, I've caught word of someone from the Inventors' Coalition getting his hands dirty deep within the battlegrounds. I try to steer clear of that coalition, though, because you never know when one of their \"advancements\" is going to blow up."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          260
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly and warmly, as a hunter chatting with a fellow adventurer.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Gwinar": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Galka",
+        "model_id": 5,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly and deliberately, with a heavy, rumbling resonance and few wasted words.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Hagakoff": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Galka",
+        "model_id": 11,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak slowly with heavy, deliberate pauses, as a large, unhurried warrior would.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Halbeeya": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♀",
+        "model_id": 5,
+        "sample_lines": [
+          "You will never guess what I saw! He was right in front of me...the dreamiest man I had ever laid eyes on!",
+          "Can you imagine my surprise? He was covered from head to toe in golden armor. He was so stunning I was forced to shade my eyes!",
+          "Not only that, but he was so generous! He treated everyone in the teahouse to all the chai and coffee we could drink! Have you ever heard anything like it? <Sigh>..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a practical Whitegate local, friendly and straightforward, without dramatic flourishes.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Harith": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "Greetings, adventurer. I am Harith, alchemist and member of a certain prestigious society here in Jeuno.",
+          "Perchance you have heard of creatures known as the Empty? Currently, other alchemists in the society are working feverishly on methods to manipulate these mysterious beasts.",
+          "Would you like me to continue?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak in an easygoing, unhurried way, as a local townsman chatting with a passerby.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Hashayra": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Elvaan Hume Child ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "Did you know that coffee will make you feel really nice if you just pour a bag of maple sugar into it? Even I can drink it, then!",
+          "And guess what else? Lately everyone drinks it with Selbina milk! If you pour a bottle or so in, I heard it tastes pretty mild and is easy to drink.",
+          "But I still like juice much better. The color is so pretty!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Speak like a young Elvaan girl in Whitegate, cheerful but a little wide-eyed.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "curious, earnest and shy",
+        "pitch": "high",
+        "species": "Elvaan",
+        "tone": "bright, eager and slightly hesitant"
+      }
+    },
+    "Hirohebi": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Mithra",
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          144
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Let sibilant s-sounds linger and roll the r's softly, as if coiling around each word.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "ancient, watchful and wry, with a serpent's patience",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "measured, sibilant and faintly amused"
+      }
+    },
+    "Home Point #1": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 51,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver as a calm, impersonal announcement with no emotional inflection.",
+        "gender": "neutral",
+        "pace": "measured",
+        "personality": "mechanical, unobtrusive transit fixture",
+        "pitch": "high",
+        "tone": "flat, neutral, informational",
+        "voice": {
+          "openai": "sage"
+        }
+      }
+    },
+    "Igsli": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Hume ♂",
+        "model_id": 14,
+        "sample_lines": [
+          "A fair day to you, ma'am! How may I help you?",
+          "Understood. And away to Buburimu Peninsula you go!",
+          "Understood. And away to Misareaux Coast you go!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak like a friendly Bastok market vendor, relaxed and unhurried.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Isakoth": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Hume ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "Ohohoho... Turning in sparks, I see."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak like a practical Bastok market trader, unhurried and approachable.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Jack of Hearts": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 840,
+        "sample_lines": [
+          "AlLow mE tO aSsisT You iF yOu arE loSt. What CaN jAck dO For yOu?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines with a wink, as if revealing a card trick, with a playful swagger.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "playful, sly card-game showman with a bold streak",
+        "pitch": "medium",
+        "tone": "cheeky, confident and theatrical",
+        "voice": {
+          "openai": "fable"
+        }
+      }
+    },
+    "Jamal": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 7,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak casually and approachably, as a typical city resident of Ru'Lude.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Javolio": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Hume ♂",
+        "model_id": 0,
+        "sample_lines": [
+          "See that boat over there? It's mine. And because I'm feeling particularly generous today, I'll let you take it back to Eastern Adoulin."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          260
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a straightforward local hunter with an easygoing, unhurried manner.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Kamnahb": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 14,
+        "sample_lines": [
+          "Hey, you ever been there?",
+          "Where? Where else? Kokba Hostel, of course!",
+          "Kokba Hostel is no ordinary hostel! The moment you enter, they provide you with food and items! And just wait until you see the attendants! ...Know what I'm saying?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with an easygoing, straightforward delivery typical of a Whitegate townsperson.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Karuru": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "I'm sure you've heard by now that there are five ministries in Windurst, haven'taru?",
+          "This building houses one of those ministries, the Optistery, which runs a Library of Magic. For ages, they have been in chargey-wargey of the preservation of Windurst's books and scrolls."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, bouncing between thoughts as if she just discovered something new.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious, eager to chatter about everything",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Kayeel-Payeel": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "If Warlock Warlord Robel-Akbel were only alive today, heads would roll!",
+          "How long do the five ministries and the Parliament of Patriarchs plan on keeping his position empty? How long must Fort Karugo-Narugo remain in ruins?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if eagerly sharing a new discovery.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious, a bit scatterbrained",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "echo"
+        }
+      }
+    },
+    "Kelsha-Melansha": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Tarutaru ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "Not only that, but he was sipper-sipping a cup of chai at the teahouse! Can you believe that? That kind of thing would never, ever happen in Windurst!",
+          "I mean, that's like talky-walking into the Rarab Tail Hostelry one day and...boom! There's a Yagudo sitting in the corner eating his lunch with a little napkin on his lap! I mean, this is a Yagudo we're talking about here!",
+          "My friends in Windurst are never gonna believe me when I tell them..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as a small, eager Tarutaru city dweller in Whitegate.",
+        "gender": "male",
+        "pace": "fast",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Kithvalio": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 8,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak in a relaxed, down-to-earth manner suited to a Western Adoulin resident.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Kobite-Mojite": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "Ahaha... You're such a worrywart. There won't be another war!",
+          "So long as the Star Sibyl blesses us with her presence, the peace of Windurst is a given."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if eager to show off a new discovery to a friend.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "bright, bubbly and curious",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "fable"
+        }
+      }
+    },
+    "Kulh Amariyo": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Mithra",
+        "model_id": 3,
+        "sample_lines": [
+          "Some fish to savorrr while you enjoy the sights of Aht Urhgan?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let an occasional playful purr slip into the teasing.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Lamaron": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 100,
+        "sample_lines": [
+          "You're about to board a ferry bound for the Yahse Hunting Grounds. This ain't some noble's backyard, though. Many a good man has died right off the boat there, so make sure you're prepared before you board."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Speak like a seasoned dockhand giving a frank warning to a stranger before a dangerous crossing.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "blunt, weathered ferry hand, practical and mildly protective",
+        "pitch": "medium",
+        "tone": "gruff but warm, matter-of-fact"
+      }
+    },
+    "Lhe Lhangavo": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 2714,
+        "sample_lines": [
+          "Preparations!? How are you going to make preparations if you haven't even surrrveyed what's out there?",
+          "What a worthless bunch you are. You say the forrrest is acting strange, but the damned thing is alive. It would be stranger if it was normal.",
+          "Stop mewling like kittens, the lot of you! I'll give you a beating so good that ghosts will be the least of your trrroubles!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Roll the r's in words like 'surrrveyed' and let the disbelief build through the line.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "Exasperated, pragmatic, impatient with unprepared people",
+        "pitch": "high",
+        "species": "Mithra",
+        "tone": "Sharp, incredulous, scolding"
+      }
+    },
+    "Lohvi Rashiibo": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Mithra",
+        "model_id": 5,
+        "sample_lines": [
+          "Another one of the Peacekeeperrrs' cronies, here to cause trouble in the name of \"orrrder\"?",
+          "We've no need of your help. Surrre, some of our plantations have been shut down, but we're getting along fine."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          258
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let an occasional purr slip into teasing remarks.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Maat": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 126,
+        "sample_lines": [
+          "Seems our friend's been held up. Heh heh heh...",
+          "A contract? It couldn't be...",
+          "Far be it from me to keep you from your destiny, {player}, but this technique the Tarutaru speaks of..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver the 'Heh heh heh' with a sly, knowing chuckle.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sly, amused townsperson with a hint of mischief",
+        "pitch": "medium",
+        "tone": "smirking, teasing, conspiratorial"
+      }
+    },
+    "Magian Moogle": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 2405,
+        "sample_lines": [
+          "Kupo-ho! Another adventurer has found her way to my domain. Was it my aura of superior sagacity that led you here? This conspicuous crate and chest that sit seductively at my side?",
+          "It is no matter. What matters is that you are here, and from the look of it, you are a suitable subject for the task I would entrust to you.",
+          "I speak to you on behalf of the Magian Mooglehood, an ancient and august assembly of wisemoogles hailing from the once-glorious Kingdom of Kupalika."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver each line with an upbeat, playful squeak and a little bounce.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Malgrom": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Galka",
+        "model_id": 11,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with heavy, deliberate pauses and a plain, no-nonsense delivery.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Marjory": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 2,
+        "sample_lines": [
+          "Why I never! One with such a meager aura is not fit to be in my presence, let alone speak to me!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak in a relaxed, down-to-earth manner as a friendly townswoman of Ru'Lude.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Matifa": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Elvaan Hume Child ♀",
+        "model_id": 0,
+        "sample_lines": [
+          "Ma'am, have you ever seen an aurora?",
+          "I heard they look like pretty curtains covering the sky. I want to see one, too!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Speak with childlike wonder, as if eager to show a newcomer around Whitegate.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "curious, earnest, a little shy",
+        "pitch": "very high",
+        "species": "Elvaan",
+        "tone": "bright, eager and warm"
+      }
+    },
+    "Maudadt": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Galka",
+        "model_id": 0,
+        "sample_lines": [
+          "Geheheh. How're you guys coming along?",
+          "Oh, Qutiba...nice fish! That's a legendary catch!",
+          "And fresh vegetables from Ulamaal! Fantastic!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Open with a low, rumbling chuckle like 'Geheheh' and speak with easy, friendly curiosity.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "stoic, blunt and honorable, with a rough good humor",
+        "pitch": "low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling, with a chuckling warmth"
+      }
+    },
+    "Micah": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 14,
+        "sample_lines": [
+          "I eat, breathe, and sleep delivery services! Even if the heavens come tumbling down, the seas engulf all of Adoulin, or eternal darkness descends upon the world, you needn't worry about your package!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with an easygoing, unhurried warmth, as a local resident chatting in Western Adoulin.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural",
+        "voice": {
+          "openai": "echo"
+        }
+      }
+    },
+    "Minnifi Delqabba": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Mithra",
+        "model_id": 12,
+        "sample_lines": [
+          "Come, ladies and gentlemen, and enjoy our delightful array of frrresh vegetables!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let a playful purr slip into teasing remarks.",
+        "gender": "female",
+        "pace": "fast",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Miriri": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♀",
+        "model_id": 2,
+        "sample_lines": [
+          "Have you seen the Great Star Tree, the symbol of Windurst's peace? In the old days, we celebrated a Festival of the Stars where the Star Sibyl made the tree suddenly bloom with nuts."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as a small, energetic Windurst townsperson eager to chat.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Moitoto": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♀",
+        "model_id": 4,
+        "sample_lines": [
+          "I've come here to return the book I borrowed-worrowed from the Optistery's library. I'd really like to have kept it out a little longer, but...",
+          "See, you have to return it back by the due date. If you don't, the magic placed on the books can fadey-wadey, and all the letters in the book will vanish in an instant!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if eagerly sharing a new discovery with a friend.",
+        "gender": "female",
+        "pace": "fast",
+        "personality": "bright, bubbly and curious",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Moogle": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 82,
+        "sample_lines": [
+          "Come one, come all, kupo!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Keep the delivery playful and light, with a small cheerful lift at the end of phrases.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky",
+        "voice": {
+          "openai": "shimmer"
+        }
+      }
+    },
+    "Mrohk Sahjuuli": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Mithra",
+        "model_id": 3,
+        "sample_lines": [
+          "You look trrrustworthy enough. Got a minute to spare?",
+          "That's the arrrdor I was looking for!",
+          "Then it's time to talk about the undersea rrruins of Alzadaal that lie at the western edge of the Arrradjiah Continent. In other words, around here. Stop me if you've already heard about it and the rrremnants that dot the landscapes within."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's softly and let an occasional purr slip into her laughter.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Muji Tsalahn": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Mithra",
+        "model_id": 4,
+        "sample_lines": [
+          "The ship bound for Mhaura is now arriving."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let an occasional purr slip into her teasing laughter.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Nadee Periyaha": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Mithra",
+        "model_id": 12,
+        "sample_lines": [
+          "I'm Nadee Periyaha, the mercenary! I used to live in Nashmau.",
+          "Oh, don't tell me...you've met me there before?",
+          "I started to pick up Qiqirn ways when I was there. It can make life difficult, so you should be careful too!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver lines with a sly smile, lingering slightly on teasing words.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "playful, sly and confident with a mischievous streak",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, warm, with a hint of a purr"
+      }
+    },
+    "Nhili Uvolep": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Mithra",
+        "model_id": 1,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let an occasional playful purr slip into her speech.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Nomad Moogle": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 981,
+        "sample_lines": [
+          "Been working hard, or hardly working, kupo? Remember that by pressing the \"Merit Points\" button in the \"Status\" menu, you can check merit point totals, change experience accumulation modes, and adjust skills and attributes.",
+          "Oho, kupo! Or perhaps you're looking to transcend your limits? Because that could also be arranged...",
+          "Drat! Drat and darnation, kupo!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound upbeat and curious, as if greeting a friend on a long road.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sweet, chirpy and helpful, a wandering traveler",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky, with cheerful warmth"
+      }
+    },
+    "Nonoroon": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 1736,
+        "sample_lines": [
+          "Nonoroon carry cargo, you see? Heeeavy cargo, laaarge cargo, every day... No rest for Nonoroon!",
+          "Nonoroon came to Al Zahbi Port and the peoples gave Nonoroon work, you see? Everyone so niiice. Nonoroon like to thaaank everyone!",
+          "But so maaany ships. Every day, mooore work. Nonoroon aaalways busy!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Stretch vowels on heavy and large, sounding put-upon yet cheerful about his labor.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "tireless, simple-minded laborer who refers to himself in third person",
+        "pitch": "low",
+        "tone": "weary but good-natured, drawn-out emphatic stresses"
+      }
+    },
+    "Olaky-Yayulaky": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 7,
+        "sample_lines": [
+          "Please select which type of item you would like to know about.",
+          "Do you have any items that you just can't let go of because of the fond memories attached to them? Are you worried about the space they take up in your Mog House? Well, worry no longer--I can store your items here!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak quickly with playful enthusiasm, as if eager to show off something new.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious, a bit scatterbrained",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "coral"
+        }
+      }
+    },
+    "Olwyn": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Hume ♀",
+        "model_id": 15,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with an easygoing, neighborly warmth suited to a busy market stall.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Orenna": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 103,
+        "sample_lines": [
+          "I know, I know. Many people tell me I'm too kind for my own good, but I just can't leave a cutie out in the lurch. Besides, a pioneer's body is her temple, so you've got to prove your piety by getting a good rest."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with a calm, welcoming warmth, as a local resident chatting with a visitor.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "warm, curious Adoulin townsperson with quiet confidence",
+        "pitch": "medium",
+        "species": "Human",
+        "tone": "friendly and natural"
+      }
+    },
+    "Petva": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 1,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak in a relaxed, down-to-earth manner as a Ru'Lude Gardens townsperson.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Pevovo": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Tarutaru ♀",
+        "model_id": 0,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          260
+        ]
+      },
+      "profile": {
+        "accent": "playful Tarutaru speech with -aru endings",
+        "age": "young",
+        "direction": "Add a light rhyming quality and bouncy enthusiasm, ending some words with '-aru'.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "bright, bubbly and curious",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Pojimo-Rojimo": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "Welcome to the magical city of Windurst! Have you checked out the whole town yetaru? What's that...? You're having trouble talking with us Tarutaru?",
+          "Well, we may be small and speak a little funny-wunny, but we're the best when it comes to using magic! If you have time, you should stop by the School of Magic and see how we learny-wearny!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if eagerly showing off a new discovery to a friend.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "fable"
+        }
+      }
+    },
+    "Porter Moogle": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 82,
+        "sample_lines": [
+          "Welcome to the MHMU's porter service, kupo! Which of your burdensome belongings shall I take off your hands today?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound cheerful and eager to help, with playful squeaky emphasis on key words.",
+        "gender": "neutral",
+        "pace": "normal",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Porupen-Kyurupen": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "Oh... It's probably quicker to ask the students than the teachers. The educatees there are more eager scholars than the educators.",
+          "Want to learn how to use a little magic? You should stop by the School of Magic, which is run by the Aurastery. It's across the bridge here and up to your left."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak quickly and eagerly, as if bursting to share a new discovery.",
+        "gender": "male",
+        "pace": "fast",
+        "personality": "bright, bubbly and curious, with a playful whimsical streak",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "echo"
+        }
+      }
+    },
+    "Quiri-Aliri": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Tarutaru ♂",
+        "model_id": 3,
+        "sample_lines": [
+          "In order to bestow Ionis upon you, I will need to exact a fee of 10 bayld.",
+          "You know what they say--all things have their price. What say you?",
+          "Thank you for your 10-bayld donation to the city. And now, let us proceed with the casting!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Add a playful Tarutaru lilt, ending some words in '-aru' and speaking with childlike enthusiasm.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "bright, bubbly and curious",
+        "pitch": "high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Qutiba": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♀",
+        "model_id": 12,
+        "sample_lines": [
+          "What was all that about?",
+          "Oh, I get it. A moment ago, the Immortals came and arrested that guy's son, Mutihb.",
+          "He's suspected of having dealings with the corsairs..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Ask the line with genuine curiosity, as a Whitegate local who witnessed a commotion nearby.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken, friendly and curious",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm, natural and conversational"
+      }
+    },
+    "Rabid Wolf, I.M.": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Galka",
+        "model_id": 10,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          235
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly with a heavy, unhurried rumble and few wasted words.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Ratihb": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 13,
+        "sample_lines": [
+          "Silence! Do not speak to your father in such a way.",
+          "There's nothing we can do about it. If I get involved, it'll just draw the Immortals' attention to me, and I'll never be able to do business in Al Zahbi again.",
+          "Stop your whining and help me with the shop!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a relaxed Whitegate local with an easygoing, unhurried delivery.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Rising Solstice": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Galka",
+        "model_id": 10,
+        "sample_lines": [
+          "Whaddya want?",
+          "I don't have time for louses like y...",
+          "Wait a minute. You seem like you have time on your hands. Why don't I give you some wholesome work? None of this stirring-up-trouble-in-the-jungle stuff."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with measured weight, pausing before each statement as if choosing words carefully.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable, with quiet pride",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling",
+        "voice": {
+          "openai": "onyx"
+        }
+      }
+    },
+    "Riyadahf": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 11,
+        "sample_lines": [
+          "How about a magic map to help you on your adventures?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines conversationally, as a local Whitegate resident going about daily business.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Rok": {
+      "meta": {
+        "created": "2026-11-09",
+        "sample_lines": [
+          "Hm."
+        ],
+        "source": "llm:claude-haiku-5-5"
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak sparingly with a slow, heavy delivery, letting pauses carry weight.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling"
+      }
+    },
+    "Ruth": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♀",
+        "model_id": 4,
+        "sample_lines": [
+          "They'll also look much grander, if you're a fan of architecture and such things. Either way, you've so much to gain by helping the coalitions, so please do!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with an easygoing, down-to-earth warmth as a local Adoulin resident.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural",
+        "voice": {
+          "openai": "nova"
+        }
+      }
+    },
+    "Sajaaya": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♀",
+        "model_id": 3,
+        "sample_lines": [
+          "Your fate rides on the changing winds of Vana'diel. I can give you insight on the local weather."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly and warmly, as a practical Whitegate townswoman greeting a traveler.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Sashosho": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "The thunderin' roars, the gleamin' fangs... There's nothin' like a good tussle between critters.",
+          "I musta sent a thousand petitions to the palace to get this place opened. Guess I finally became too annoyin' to ignore."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with lively enthusiasm, as if delighted by everything she sees in Whitegate.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Shante-Fante": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Tarutaru ♂",
+        "model_id": 4,
+        "sample_lines": [
+          "The research of magic is malms ahead in Windurst compared to the other countries. That's because the land in these parts was originally overflowing with magical power-wower.",
+          "In Sarutabaruta, the land that surrounds Windurst, you'll find the Horutoto Ruins. They're incredibly ancient remnants from a sorcerous society!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Speak with playful enthusiasm, as if sharing a fun discovery with a friend.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious, a bit scatterbrained",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable",
+        "voice": {
+          "openai": "nova"
+        }
+      }
+    },
+    "Sharuru": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Tarutaru ♀",
+        "model_id": 4,
+        "sample_lines": [
+          "This little thingy-wing here next to me--it's extreeemely <yawn> interesting, isn't it?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Add a playful lilt and end some words in a rhyming '-aru' sound.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Shipilolo": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Tarutaru ♀",
+        "model_id": 3,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Deliver lines with playful, childlike enthusiasm and a slight Tarutaru lilt at the ends of phrases.",
+        "gender": "female",
+        "pace": "brisk",
+        "personality": "bright, bubbly and curious",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "cheerful and excitable"
+      }
+    },
+    "Sifa Alani": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Mithra",
+        "model_id": 0,
+        "sample_lines": [
+          "What would we be if we couldn't prrrovide accurate maps? Dead, that's what!",
+          "You needn't exchange anything for this map of Rala Waterways. Enjoy.",
+          "You needn't exchange anything for this map of Ceizak Battlegrounds. Enjoy."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Roll the r's lightly and let an occasional playful purr slip into her speech.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "playful, sly and confident",
+        "pitch": "medium",
+        "species": "Mithra",
+        "tone": "teasing, with a hint of a purr"
+      }
+    },
+    "Skipper Moogle": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Precomposed NPC",
+        "model_id": 2361,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "young",
+        "direction": "Sound like a cheerful little airship skipper, with playful squeaks between phrases.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "sweet, chirpy and helpful",
+        "pitch": "very high",
+        "species": "Moogle",
+        "tone": "bouncy and squeaky"
+      }
+    },
+    "Soltargan": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 10,
+        "sample_lines": [
+          "I wouldn't go past the gates if I were you...but if you're determined, make sure you're prepared for the dangers within.",
+          "And I don't just mean the monsters. Which gates are opening depends on the day and time, so if you aren't careful, you may find yourself in trouble should you need to beat a hasty retreat!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          258
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as an ordinary Rala Waterways local, unhurried and down to earth.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Syndella": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 1,
+        "sample_lines": [
+          "Hm, let me see... Yes, I think you shall do nicely.",
+          "My name is Syndella. I am currently researching the art of Trust magic.",
+          "I suppose you could say that I serve as a sort of supervisor for Jamal and Marjory."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          243
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak in a relaxed, conversational manner as a Ru'Lude Gardens resident.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Task Delegator": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Hume ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "A pleasure to see you. I am here to provide intrepid pioneers with assignments from the Scouts' Coalition.",
+          "Here at the Scouts' Coalition, we entrust various tasks related to the collection of information for the benefit of the coalition to those willing to aid our cause.",
+          "How farrre you? I am here to provide intrepid pioneers with assignments from the Pioneers' Coalition."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256,
+          257
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver instructions clearly and briefly, as a busy Adoulin official handing out assignments.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken, efficient and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm, businesslike and natural"
+      }
+    },
+    "Tazhaal": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♀",
+        "model_id": 4,
+        "sample_lines": [
+          "The ship fare to Mhaura is 100 gil. Will you be boarding now?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with a calm, easygoing Whitegate townsperson's warmth, without theatrical flourish.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Theophylacte": {
+      "meta": {
+        "created": "2026-11-12",
+        "game_race": "Precomposed NPC",
+        "model_id": 139,
+        "sample_lines": [
+          "Would you care for some of my wares? If you do not, I cannot fault you, but please keep in mind that my revolutionary research into a new Ulbukan toxin antidote will have to be put on hold unless I can accrue the necessary funds."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Speak with polished scholarly diction, a faint note of wounded dignity when mentioning money.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "earnest, slightly pompous researcher-merchant, hopeful about his work",
+        "pitch": "medium",
+        "tone": "formal, polite, subtly pleading"
+      }
+    },
+    "Topok-Hippok": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Tarutaru ♂",
+        "model_id": 5,
+        "sample_lines": [
+          "Hold it right there! How dare you steal my mom's groceries!",
+          "Return them at once!",
+          "You guys are a bunch of weirdos! I don't care if you've got a hundred-wundred snakes or even lizards! 'Cuz I've got me an adventurer here! Prepare to be vanquishized, evildoers!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Deliver the line as an outraged child confronting a thief, with a squeaky, defiant emphasis on 'my mom's groceries'.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "indignant, brave, excitable young boy defending his mother's groceries",
+        "pitch": "very high",
+        "species": "Tarutaru",
+        "tone": "shrill, indignant and fiercely protective"
+      }
+    },
+    "Trick Flan": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 1799,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines with a sly grin, as if sharing a prank with the listener.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "mischievous trickster with a playful streak",
+        "pitch": "medium",
+        "tone": "sly, teasing and good-humored",
+        "voice": {
+          "openai": "fable"
+        }
+      }
+    },
+    "Ulamaal": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 14,
+        "sample_lines": [
+          "I find it hard to believe that someone does not know of Serpenttongue Maudadt. You are aware of the fact that the rulers of Aht Urhgan are named after serpents, yes?",
+          "Why, Qutiba, I only expect the best from your superb fishing skill. But I doubt you could surpass my gardening talents. These vegetables could only grow with my perfect, subtle combination of crystals and patience.",
+          "Greetings, boss!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver the lines as a mildly exasperated scholar quizzing someone who should already know this.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "condescending, curious, and somewhat pedantic",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "incredulous, lecturing, slightly exasperated"
+      }
+    },
+    "Valeri": {
+      "meta": {
+        "created": "2026-11-11",
+        "game_race": "Elvaan Hume Child ♂",
+        "model_id": 20,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          234
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Sound like a young boy who asks lots of questions and speaks with childlike enthusiasm.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "curious, earnest and eager to please",
+        "pitch": "high",
+        "species": "Elvaan",
+        "tone": "bright, bubbly and excitable"
+      }
+    },
+    "Vesca": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♀",
+        "model_id": 3,
+        "sample_lines": [
+          "Thurandaut chapeau can be purchased for 505 bayld.",
+          "Want some equipment to help you protect the town like a true Peacekeepers' Coalition member?",
+          "Karieyh morion +1 can be purchased for 1200 bayld."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          257
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as a down-to-earth Adoulin local, unhurried and approachable.",
+        "gender": "female",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Voidwatch Purveyor": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 12,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          236
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak like a practical trader offering wares, clear and inviting.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken, friendly, businesslike merchant",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural, with a brisk sales-counter energy"
+      }
+    },
+    "Volgoi": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Galka",
+        "model_id": 13,
+        "sample_lines": [
+          "Once you pass through these gates, you'll be treading upon the Ceizak Battlegrounds.",
+          "There'll be monsters here, monsters there, monsters monsters everywhere! They'll all be thirsting for blood, too."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak slowly with heavy, deliberate pauses and a rough, unhurried rumble.",
+        "gender": "male",
+        "pace": "slow",
+        "personality": "stoic, blunt and honorable",
+        "pitch": "very low",
+        "species": "Galka",
+        "tone": "deep, gravelly and rumbling",
+        "voice": {
+          "openai": "onyx"
+        }
+      }
+    },
+    "Waoud": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 9,
+        "sample_lines": [
+          "Ah, a visitor from foreign shores. Greetings. I am Waoud, a humble seer of Al Zahbi.",
+          "I divine from your appearance that you hail from the western continent... A place we here know as the \"Middle Lands.\" An adventurer, yes?",
+          "The Empire of Aht Urhgan recruits mercenaries on a grand scale, as she does all things. Our meager city has become a scurrying anthill of activity."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver lines as a straightforward Whitegate local with an easygoing, unhurried warmth.",
+        "gender": "male",
+        "pace": "brisk",
+        "personality": "plain-spoken and friendly",
+        "pitch": "low",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Wasuhd": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 1537,
+        "sample_lines": [
+          "Papa! We have to do something!",
+          "But he might be in big trouble! Someone has to help him!",
+          "But still..."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "child",
+        "direction": "Speak as a distressed child calling out to a parent, voice cracking with worry.",
+        "gender": "neutral",
+        "pace": "fast",
+        "personality": "frightened, earnest, impulsive young child",
+        "pitch": "high",
+        "tone": "urgent, pleading, slightly tearful"
+      }
+    },
+    "Waypoint": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 2420,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver directions and information in a crisp, even, unemotional manner.",
+        "gender": "neutral",
+        "pace": "brisk",
+        "personality": "ordinary townsperson, helpful and matter-of-fact",
+        "pitch": "high",
+        "tone": "natural, clear, neutral",
+        "voice": {
+          "openai": "nova"
+        }
+      }
+    },
+    "Wortherton": {
+      "meta": {
+        "created": "2026-11-13",
+        "game_race": "Hume ♂",
+        "model_id": 8,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak like a down-to-earth Adoulin townsman, unhurried and easygoing.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken and friendly",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Yadhiwa": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Elvaan ♀",
+        "model_id": 1,
+        "sample_lines": [
+          "Odds again... I win.",
+          "That's enough for now. You just don't have any luck.",
+          "Give it up, already. I have no intention of taking the shirt off your very back."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Deliver the line with a smirk, savoring the victory over the opponent.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "proud, competitive, playfully smug",
+        "pitch": "low",
+        "species": "Elvaan",
+        "tone": "smug, teasing, self-satisfied"
+      }
+    },
+    "Yafaaf": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♀",
+        "model_id": 10,
+        "sample_lines": [
+          "There's nothing like the mature taste and luxurious aroma of coffee... Would you like a cup?"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak as an ordinary Whitegate townswoman, unhurried and approachable.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly",
+        "pitch": "high",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Yohra-Ora": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Precomposed NPC",
+        "model_id": 822,
+        "sample_lines": [
+          "Do you know of them beastymens? Them be some smaaart monster-wonsters! They's attack peoples and steal peoples's stuff and all sorts of other nasty-wasty things.",
+          "But they say them Yagudo aren't baaad beastymens. Them not like them other beastymens, they says. But is it true-wrue...? I wonders!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          238
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak with a gentle, unhurried warmth as a Windurst Waters local.",
+        "gender": "neutral",
+        "pace": "measured",
+        "personality": "calm, ordinary Windurst townsperson",
+        "pitch": "medium",
+        "tone": "natural, friendly",
+        "voice": {
+          "openai": "sage"
+        }
+      }
+    },
+    "Zaoso": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Hume ♂",
+        "model_id": 1,
+        "sample_lines": [
+          "I welcome you with open arms to the Pioneers' Coalition!",
+          "Ah, {player}! How are you today?",
+          "Oh, you're on patrol for the Peacekeepers' Coalition? Nice to see you giving back to the community."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          256
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly and conversationally, as a longtime resident of Western Adoulin greeting a passing traveler.",
+        "gender": "male",
+        "pace": "normal",
+        "personality": "plain-spoken and friendly, practical Adoulin townsman",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural with easy good humor",
+        "voice": {
+          "openai": "onyx"
+        }
+      }
+    },
+    "Zarfhid": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Hume ♂",
+        "model_id": 2,
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "adult",
+        "direction": "Speak plainly with a relaxed, neighborly warmth, as a Whitegate local going about daily business.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "plain-spoken, friendly and down-to-earth",
+        "pitch": "medium",
+        "species": "Hume",
+        "tone": "warm and natural"
+      }
+    },
+    "Zubyahn": {
+      "meta": {
+        "created": "2026-11-09",
+        "game_race": "Precomposed NPC",
+        "model_id": 98,
+        "sample_lines": [
+          "There are two types of drinks here at the Shararat Teahouse--coffee and chai. The coffee appeals to the traditionalists and allows the shop to retain its atmosphere...",
+          "But they made a wise decision by also introducing chai, which is newer and cheaper than coffee. Now, this teahouse is extremely popular with young people, and is always bustling with activity. A brilliant business move, don't you think?",
+          "I just can't decide whether I identify more with the coffee crowd or the chai crowd!"
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "age": "middle-aged",
+        "direction": "Speak as a knowledgeable shopkeeper explaining his teahouse's offerings, with a thoughtful pause before each contrast.",
+        "gender": "male",
+        "pace": "measured",
+        "personality": "Thoughtful, knowledgeable teahouse proprietor, speaks with measured pride",
+        "pitch": "medium",
+        "tone": "warm, reflective, conversational"
+      }
+    },
+    "Zwinam": {
+      "meta": {
+        "created": "2026-11-08",
+        "game_race": "Elvaan ♀",
+        "model_id": 9,
+        "sample_lines": [
+          "Ahead you can find a passage used for secret envoys and ambush troops. The door at the end of the passage leads to a hidden fortress in the Wajaom Woodlands."
+        ],
+        "source": "llm:claude-haiku-5-5",
+        "zones_seen": [
+          50
+        ]
+      },
+      "profile": {
+        "accent": "refined, aristocratic",
+        "age": "adult",
+        "direction": "Speak with measured dignity, a touch of Whitegate courtliness, and no hurry.",
+        "gender": "female",
+        "pace": "normal",
+        "personality": "proud, formal and graceful",
+        "pitch": "medium",
+        "species": "Elvaan",
+        "tone": "composed, poised"
+      }
+    }
+  }
+}
