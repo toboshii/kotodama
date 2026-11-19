@@ -130,6 +130,9 @@ class InferenceManager:
         self._inflight: dict[str, Future] = {}
         self._failed: dict[str, float] = {}
         self._calls: deque[float] = deque()
+        self._count_usage(inferer)
+
+    def _count_usage(self, inferer: Inferer | None) -> None:
         if inferer is not None and hasattr(inferer, "on_usage"):
             inferer.on_usage = self._record_usage  # type: ignore[attr-defined]
 
@@ -154,6 +157,7 @@ class InferenceManager:
         """Swap in an inferer built for another TTS provider's voice schema."""
         self.inferer = inferer
         self.tts_provider = tts_provider
+        self._count_usage(inferer)
         self._note_unavailable(unavailable)
 
     def _note_unavailable(self, reason: str | None) -> None:

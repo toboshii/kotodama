@@ -492,6 +492,16 @@ class EngineProviderTests(KotodamaTestCase):
                          "ElevenLabs voices are cast from the account, not chosen by the LLM")
         self.assertEqual(eng.inference.tts_provider, "elevenlabs")
 
+    def test_casting_tokens_are_still_counted_after_a_switch(self):
+        cfg = self.make_config(inference={"provider": "openai", "openai_api_key": "k"})
+        oa, el = FakeTTS(), FakeElevenLabs()
+        eng = self.make_engine(oa, cfg=cfg, provider_factory={"openai": oa, "elevenlabs": el}.__getitem__)
+        eng.handle({"t": "config", "provider": "elevenlabs"})     # builds a new casting client
+        self.assertEqual(eng.inference.tts_provider, "elevenlabs")
+        eng.inference.inferer._report_usage({"usage": {"prompt_tokens": 900, "completion_tokens": 120}})
+        day = eng.usage.today()
+        self.assertEqual((day.get("infer_input_tokens"), day.get("infer_output_tokens")), (900, 120))
+
     def test_schema_builder_flag(self):
         arch = Archetypes.load()
         self.assertIn("voice", build_schema(arch, "openai")["properties"])
