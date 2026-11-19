@@ -6,12 +6,20 @@ import datetime as _dt
 import json
 import threading
 from pathlib import Path
+from typing import Any
 
-# List-price estimate for gpt-4o-mini-tts; check your provider's pricing page.
+# Dollar figures are estimates at list price, from the price tables in the
+# config (tts.prices, inference.prices, each model adapter's price).
 # ElevenLabs is billed in credits per character; dollars come from the
 # configured price per 1,000 credits (elevenlabs.price.per_1k_credits).
-EST_USD_PER_AUDIO_MINUTE = 0.015
-EST_USD_PER_MILLION_INPUT_TOKENS = 0.60
+
+
+def token_cost(price: Any, input_tokens: float, output_tokens: float) -> float:
+    """Dollars for a call billed per 1M input and output tokens (0 if unpriced)."""
+    def rate(key: str) -> float:
+        v = price.get(key) if isinstance(price, dict) else None
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else 0.0
+    return (rate("per_1m_input_tokens") * input_tokens + rate("per_1m_output_tokens") * output_tokens) / 1e6
 
 
 class Usage:
@@ -49,11 +57,12 @@ class Usage:
         except OSError:
             pass
 
-    def add_tts(self, provider: str, chars: int, seconds: float, credits: float | None = None) -> None:
+    def add_tts(self, provider: str, chars: int, seconds: float, credits: float | None = None,
+                cost: float | None = None) -> None:
         if provider == "elevenlabs":
             self.add(el_requests=1, el_chars=chars, el_seconds=seconds, el_credits=credits or 0.0)
         elif provider == "openai":
-            self.add(tts_requests=1, tts_chars=chars, tts_seconds=seconds)
+            self.add(tts_requests=1, tts_chars=chars, tts_seconds=seconds, tts_cost=cost or 0.0)
         else:
             # Adapter-driven providers (Replicate models, OpenAI-compatible
             # servers); they add their own p:<name>:predict_s / cost.
@@ -75,16 +84,21 @@ class Usage:
 
     def summary(self) -> str:
         d = self.today()
-        minutes = d.get("tts_seconds", 0) / 60
-        chars = d.get("tts_chars", 0)
-        cost = minutes * EST_USD_PER_AUDIO_MINUTE + (chars / 4) / 1e6 * EST_USD_PER_MILLION_INPUT_TOKENS
         adapters = self._adapter_totals(d)
         synthesized = d.get("tts_requests", 0) + d.get("el_requests", 0) + sum(
             a.get("requests", 0) for a in adapters.values())
         text = (f"today: {int(synthesized)} synthesized, "
                 f"{int(d.get('cache_hits', 0))} from cache, {int(d.get('infer_calls', 0))} voice-casting calls")
+        if d.get("infer_cost"):
+            text += f" (~${d['infer_cost']:.3f} est.)"
+        elif d.get("infer_input_tokens") or d.get("infer_output_tokens"):
+            tokens = d.get("infer_input_tokens", 0) + d.get("infer_output_tokens", 0)
+            text += f" ({int(tokens)} tokens)"
         if d.get("tts_requests"):
-            text += f", OpenAI ~${cost:.3f} est."
+            if d.get("tts_cost"):
+                text += f", OpenAI ~${d['tts_cost']:.3f} est."
+            else:
+                text += f", OpenAI {int(d.get('tts_chars', 0))} chars"
         if d.get("el_requests"):
             credits = d.get("el_credits", 0)
             dollars = ""

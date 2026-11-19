@@ -33,6 +33,15 @@ DEFAULTS: dict[str, Any] = {
         "api_key_env": "OPENAI_API_KEY",
         "timeout": 30,
         "sample_rate": 24000,
+        # List prices per model, for the //koto status estimate only. A model
+        # missing here is counted in characters, with no dollar estimate.
+        # gpt-4o-mini-tts: $0.60 per 1M text tokens (about 4 characters each)
+        # plus $12 per 1M audio tokens, which OpenAI puts at $0.015 a minute.
+        "prices": {
+            "gpt-4o-mini-tts": {"per_1m_input_tokens": 0.60, "per_minute": 0.015},
+            "tts-1": {"per_1k_chars": 0.015},
+            "tts-1-hd": {"per_1k_chars": 0.030},
+        },
     },
     "elevenlabs": {
         # Used when tts.provider is "elevenlabs" or after //koto provider elevenlabs.
@@ -118,6 +127,18 @@ DEFAULTS: dict[str, Any] = {
         "api_key_env": "ANTHROPIC_API_KEY",
         "openai_api_key": None,
         "openai_api_key_env": "OPENAI_API_KEY",
+        # List prices per model in dollars per 1M tokens, for the //koto
+        # status estimate only. A model missing here is counted in tokens,
+        # with no dollar estimate.
+        "prices": {
+            "claude-haiku-5-5": {"per_1m_input_tokens": 0.10, "per_1m_output_tokens": 0.50},
+            "claude-sonnet-5-5": {"per_1m_input_tokens": 2.00, "per_1m_output_tokens": 10.00},
+            "claude-opus-5-5": {"per_1m_input_tokens": 4.00, "per_1m_output_tokens": 20.00},
+            "claude-opus-5": {"per_1m_input_tokens": 5.00, "per_1m_output_tokens": 25.00},
+            "claude-fable-5-2": {"per_1m_input_tokens": 8.00, "per_1m_output_tokens": 40.00},
+            "claude-fable-5-1": {"per_1m_input_tokens": 10.00, "per_1m_output_tokens": 50.00},
+            "gpt-4o-mini": {"per_1m_input_tokens": 0.15, "per_1m_output_tokens": 0.60},
+        },
     },
     "audio": {
         # Fixed makeup gain on top of `volume`. TTS output is not mastered to

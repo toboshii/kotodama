@@ -63,6 +63,22 @@ class OpenAITTS:
         self.http = HTTPStreamer(self.base_url, self.timeout)
         self.notify = lambda _msg: None
         self.today: Callable[[], date] = date.today   # tests move the clock
+        prices = cfg.get("tts.prices")
+        raw = prices.get(self.model) if isinstance(prices, dict) else None
+        self.price: dict[str, float] = {
+            k: float(v) for k, v in (raw if isinstance(raw, dict) else {}).items()
+            if isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+    def estimate_cost(self, chars: int, seconds: float) -> float | None:
+        """List-price dollars for one line, or None when tts.prices has no
+        entry for this model. gpt-4o-mini-tts bills text tokens (about 4
+        characters each) plus audio by the minute; tts-1 bills characters."""
+        if not self.price:
+            return None
+        p = self.price
+        return (p.get("per_1k_chars", 0) * chars / 1000
+                + p.get("per_1m_input_tokens", 0) * (chars / 4) / 1e6
+                + p.get("per_minute", 0) * seconds / 60)
 
     def shutdown_notice(self) -> str | None:
         return shutdown_notice(self.base_url, self.today())

@@ -185,7 +185,7 @@ To add a provider, put its key in **[the key file](#the-key-file)** and press R 
 
 ### OpenAI
 
-**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through.
+**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through. `//koto status` estimates cost at OpenAI's list price for the model in `tts.model` (`gpt-4o-mini-tts`, `tts-1` or `tts-1-hd`); prices for other models go in `tts.prices`.
 
 **OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. Until then, you can use it with `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json`. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
 
@@ -370,6 +370,7 @@ By default (`inference.provider: "none"`) voices come from archetypes plus your 
   - Linux: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`, then run the sidecar with that Python.
   - Windows: `py -3 -m venv server\.venv`, then `server\.venv\Scripts\pip install anthropic`. `kotodama.cmd` uses `server\.venv` automatically when it exists.
 - Casting is throttled (`max_per_minute`) and a failed NPC is not retried for ten minutes.
+- `//koto status` counts the tokens each casting call uses and estimates the cost at the model's list price. `inference.prices` has the current Claude models and `gpt-4o-mini`; add an entry for another model, e.g. `"inference": {"prices": {"my-model": {"per_1m_input_tokens": 1.0, "per_1m_output_tokens": 4.0}}}`. A model without one is shown in tokens only.
 
 ### Sharing a library
 
@@ -419,7 +420,7 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price, voice casting included. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `python3 server/kotodama_server.py cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
 
 ## Cutscenes
 

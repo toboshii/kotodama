@@ -631,7 +631,9 @@ class Engine:
             writer.meta["voice"] = job.voice_key
             seconds = writer.commit()
             per_char = getattr(tts, "credits_per_char", None)
-            self.usage.add_tts(tts.name, len(text), seconds, per_char() * len(text) if per_char else None)
+            estimate = getattr(tts, "estimate_cost", None)
+            self.usage.add_tts(tts.name, len(text), seconds, per_char() * len(text) if per_char else None,
+                               estimate(len(text), seconds) if estimate else None)
         except TTSError as exc:
             writer.abort()
             handle.kill()

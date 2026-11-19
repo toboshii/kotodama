@@ -184,12 +184,24 @@ class TTSClientTests(KotodamaTestCase):
         self.assertNotIn("instructions", _Handler.requests[-1]["body"])
 
 
+    def test_openai_cost_follows_the_model(self):
+        def cost(model, chars, seconds):
+            return OpenAITTS(Config({"tts": {"model": model}})).estimate_cost(chars, seconds)
+        self.assertAlmostEqual(cost("tts-1", 1000, 5.0), 0.015)
+        self.assertAlmostEqual(cost("tts-1-hd", 1000, 5.0), 0.030)
+        self.assertAlmostEqual(cost("gpt-4o-mini-tts", 4000, 60.0), 0.0006 + 0.015)
+        self.assertIsNone(cost("some-server-model", 1000, 5.0), "an unpriced model gets no dollar figure")
+        odd = Config({"tts": {"model": "tts-1", "prices": {"tts-1": {"per_1k_chars": "free"}}}})
+        self.assertIsNone(OpenAITTS(odd).estimate_cost(1000, 5.0), "a non-number price is ignored")
+
+
 class FakeAnthropic:
     """Records the request; returns a canned response."""
 
-    def __init__(self, text=None, stop_reason="end_turn"):
+    def __init__(self, text=None, stop_reason="end_turn", model=None, usage=None):
         self.calls = []
         self.text, self.stop_reason = text, stop_reason
+        self.model, self.usage = model, usage
         self.beta = types.SimpleNamespace(messages=types.SimpleNamespace(create=self._create_beta))
         self.messages = types.SimpleNamespace(create=self._create)
 
@@ -197,7 +209,8 @@ class FakeAnthropic:
         content = [types.SimpleNamespace(type="thinking", thinking="")]
         if self.text is not None:
             content.append(types.SimpleNamespace(type="text", text=self.text))
-        return types.SimpleNamespace(stop_reason=self.stop_reason, content=content)
+        return types.SimpleNamespace(stop_reason=self.stop_reason, content=content, model=self.model,
+                                     usage=self.usage)
 
     def _create_beta(self, **kw):
         self.calls.append(("beta", kw))
@@ -268,6 +281,51 @@ class InferenceTests(KotodamaTestCase):
                 inf.infer({"name": "X"})
         with self.assertRaises(InferenceError):
             AnthropicInferer(Config(), self.arch, {}, "openai", client=FakeAnthropic(None)).infer({})
+
+    def _casting_usage(self, cfg, client):
+        self._n = getattr(self, "_n", 0) + 1
+        usage = Usage(self.tmp / f"casting{self._n}.json")
+        inf = AnthropicInferer(cfg, self.arch, {}, "openai", client=client)
+        InferenceManager(cfg, self.arch, self.make_engine().lib, usage, inf)
+        try:
+            inf.infer({"name": "X"})
+        except InferenceError:
+            pass
+        return usage
+
+    def test_casting_cost_is_priced_by_the_model_that_answered(self):
+        tokens = types.SimpleNamespace(input_tokens=1_000_000, output_tokens=200_000)
+        usage = self._casting_usage(Config({"inference": {"provider": "anthropic"}}),
+                                    FakeAnthropic(json.dumps(GOOD), model="claude-haiku-5-5", usage=tokens))
+        day = usage.today()
+        self.assertEqual((day["infer_input_tokens"], day["infer_output_tokens"]), (1_000_000, 200_000))
+        self.assertAlmostEqual(day["infer_cost"], 0.10 + 0.10)       # $0.10/M in, $0.50/M out
+        self.assertIn("voice-casting calls (~$0.200 est.)", usage.summary())
+
+        fell_back = self._casting_usage(
+            Config({"inference": {"provider": "anthropic", "model": "claude-opus-5-5"}}),
+            FakeAnthropic(json.dumps(GOOD), model="claude-opus-5", usage=tokens))
+        self.assertAlmostEqual(fell_back.today()["infer_cost"], 5.00 + 5.00, msg="priced as the fallback model")
+
+    def test_casting_refusal_is_still_counted_and_unknown_models_show_tokens(self):
+        tokens = types.SimpleNamespace(input_tokens=300, output_tokens=0)
+        refused = self._casting_usage(Config(), FakeAnthropic(None, stop_reason="refusal",
+                                                              model="claude-haiku-5-5", usage=tokens))
+        self.assertEqual(refused.today()["infer_input_tokens"], 300)
+        unknown = self._casting_usage(Config({"inference": {"model": "some-new-model"}}),
+                                      FakeAnthropic(json.dumps(GOOD), usage=tokens))
+        self.assertNotIn("infer_cost", unknown.today())
+        self.assertIn("voice-casting calls (300 tokens)", unknown.summary())
+
+    def test_openai_casting_reports_tokens_under_the_configured_model(self):
+        from kotodama.infer_openai import OpenAIInferer
+        inf = OpenAIInferer(Config({"inference": {"openai_api_key": "k"}}), self.arch, {}, "openai")
+        seen = []
+        inf.on_usage = lambda *a: seen.append(a)
+        inf._report_usage({"model": "gpt-4o-mini-2024-07-18",
+                           "usage": {"prompt_tokens": 900, "completion_tokens": 120}})
+        inf._report_usage({"choices": []})                            # no usage: nothing reported
+        self.assertEqual(seen, [("gpt-4o-mini", 900, 120)])
 
     def test_manager_casts_once_throttles_and_backs_off(self):
         lib = self.make_engine().lib

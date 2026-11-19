@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from .archetypes import Archetypes
 from .config import Config
@@ -15,6 +15,8 @@ FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "cla
 
 
 class AnthropicInferer:
+    on_usage: Callable[[str, int, int], None] | None = None
+
     def __init__(self, cfg: Config, arch: Archetypes, schema: dict[str, Any], tts_provider: str,
                  client: Any = None):
         self.arch = arch
@@ -53,6 +55,7 @@ class AnthropicInferer:
         except TypeError as exc:
             raise InferenceError(f"installed anthropic SDK is too old for this request: {exc}") from exc
 
+        self._report_usage(resp)
         if resp.stop_reason == "refusal":
             raise InferenceError("the model declined the request")
         if resp.stop_reason == "max_tokens":
@@ -61,3 +64,15 @@ class AnthropicInferer:
         if text is None:
             raise InferenceError("response had no text block")
         return parse_result(text, self.arch, self.tts_provider)
+
+    def _report_usage(self, resp: Any) -> None:
+        """Pass the call's tokens to on_usage. A refused or cut-off reply is
+        billed too, so this runs before those are checked. The model is the
+        one that answered, which a server-side fallback can change."""
+        usage = getattr(resp, "usage", None)
+        if self.on_usage is None or usage is None:
+            return
+        model = getattr(resp, "model", None)
+        tokens = [getattr(usage, f, None) for f in ("input_tokens", "output_tokens")]
+        self.on_usage(model if isinstance(model, str) and model else self.model,
+                      *(t if isinstance(t, int) else 0 for t in tokens))

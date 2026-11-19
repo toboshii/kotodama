@@ -5,7 +5,7 @@ from __future__ import annotations
 import http.client
 import json
 import urllib.parse
-from typing import Any
+from typing import Any, Callable
 
 from .archetypes import Archetypes
 from .config import Config
@@ -13,6 +13,8 @@ from .infer import SYSTEM_PROMPT, InferenceError, build_user_prompt, parse_resul
 
 
 class OpenAIInferer:
+    on_usage: Callable[[str, int, int], None] | None = None
+
     def __init__(self, cfg: Config, arch: Archetypes, schema: dict[str, Any], tts_provider: str):
         self.arch = arch
         self.schema = schema
@@ -53,10 +55,24 @@ class OpenAIInferer:
         if resp.status != 200:
             raise InferenceError(f"HTTP {resp.status}: {data[:300].decode('utf-8', 'replace')}")
         try:
-            choice = json.loads(data)["choices"][0]
+            reply = json.loads(data)
+        except ValueError as exc:
+            raise InferenceError("unexpected response shape") from exc
+        self._report_usage(reply)
+        try:
+            choice = reply["choices"][0]
             message = choice["message"]
         except (ValueError, KeyError, IndexError, TypeError) as exc:
             raise InferenceError("unexpected response shape") from exc
         if message.get("refusal"):
             raise InferenceError("the model declined the request")
         return parse_result(message.get("content") or "", self.arch, self.tts_provider)
+
+    def _report_usage(self, reply: Any) -> None:
+        """Pass the call's tokens to on_usage, priced by the configured model
+        (the reply names a dated snapshot such as gpt-4o-mini-2024-07-18)."""
+        usage = reply.get("usage") if isinstance(reply, dict) else None
+        if self.on_usage is None or not isinstance(usage, dict):
+            return
+        tokens = [usage.get(f) for f in ("prompt_tokens", "completion_tokens")]
+        self.on_usage(self.model, *(t if isinstance(t, int) else 0 for t in tokens))

@@ -502,11 +502,14 @@ class EngineProviderTests(KotodamaTestCase):
     def test_usage_summary_reports_credits(self):
         u = Usage(self.tmp / "u.json")
         u.add_tts("elevenlabs", 120, 4.0, 60.0)
-        u.add_tts("openai", 40, 2.0)
+        u.add_tts("openai", 40, 2.0, cost=0.0025)
         text = u.summary()
         self.assertIn("2 synthesized", text)
         self.assertIn("ElevenLabs 120 chars (~60 credits est.)", text)
-        self.assertIn("OpenAI ~$", text)
+        self.assertIn("OpenAI ~$0.003 est.", text)
+        unpriced = Usage(self.tmp / "u2.json")
+        unpriced.add_tts("openai", 40, 2.0)
+        self.assertIn("OpenAI 40 chars", unpriced.summary())
 
     def test_usage_summary_prices_credits(self):
         u = Usage(self.tmp / "u.json", el_usd_per_1k_credits=0.08)

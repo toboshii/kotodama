@@ -22,7 +22,7 @@ from .config import Config
 from .library import Library
 from .protocol import Speaker
 from .textnorm import scrub_player
-from .usage import Usage
+from .usage import Usage, token_cost
 
 log = logging.getLogger("kotodama.infer")
 
@@ -55,6 +55,9 @@ class InferenceError(Exception):
 
 
 class Inferer(Protocol):
+    """Casting clients may also have an `on_usage(model, input_tokens,
+    output_tokens)` attribute, which InferenceManager sets to record what
+    each call used."""
     model: str
 
     def infer(self, context: dict[str, Any]) -> dict[str, Any]: ...
@@ -123,6 +126,21 @@ class InferenceManager:
         self._inflight: dict[str, Future] = {}
         self._failed: dict[str, float] = {}
         self._calls: deque[float] = deque()
+        if inferer is not None and hasattr(inferer, "on_usage"):
+            inferer.on_usage = self._record_usage  # type: ignore[attr-defined]
+
+    def _record_usage(self, model: str, input_tokens: int, output_tokens: int) -> None:
+        """Tokens one casting call used, with a list-price estimate when
+        inference.prices has the model."""
+        prices = self.cfg.get("inference.prices")
+        cost = token_cost(prices.get(model) if isinstance(prices, dict) else None, input_tokens, output_tokens)
+        counts: dict[str, float] = {"infer_input_tokens": input_tokens, "infer_output_tokens": output_tokens}
+        if cost:
+            counts["infer_cost"] = cost
+        try:
+            self.usage.add(**counts)
+        except Exception:  # noqa: BLE001 - usage is best effort
+            pass
 
     @property
     def enabled(self) -> bool:
