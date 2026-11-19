@@ -20,10 +20,9 @@ EnvironmentFile=-%h/.config/kotodama.env
 # A server/kotodama.env next to the sidecar overrides it. Keep this path in
 # step with ExecStart below.
 EnvironmentFile=-%h/.var/app/net.windower.Lumoria/data/prefixes/prefix-1/pfx/drive_c/Windower4/addons/Kotodama/server/kotodama.env
-# Adjust the path if your Windower lives elsewhere. If you installed the
-# optional `anthropic` SDK in server/.venv, use .venv/bin/python instead of
-# /usr/bin/python3.
-ExecStart=/usr/bin/python3 %h/.var/app/net.windower.Lumoria/data/prefixes/prefix-1/pfx/drive_c/Windower4/addons/Kotodama/server/kotodama_server.py serve
+# Adjust the path if your Windower lives elsewhere. kotodama.sh uses the
+# Python in server/.venv if you made one, otherwise python3.
+ExecStart=%h/.var/app/net.windower.Lumoria/data/prefixes/prefix-1/pfx/drive_c/Windower4/addons/Kotodama/server/kotodama.sh serve
 Restart=on-failure
 RestartSec=3
 

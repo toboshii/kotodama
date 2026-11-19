@@ -5,11 +5,10 @@ rem   kotodama.cmd doctor
 rem   kotodama.cmd test --name Ayame --race 2 "Welcome to Norg."
 rem In its window, press R to restart it or Q to quit.
 setlocal
-cd /d "%~dp0"
 
 set "PY="
 rem 1. A virtual environment next to this file (server\.venv), if you made one.
-if exist ".venv\Scripts\python.exe" set "PY=".venv\Scripts\python.exe""
+if exist "%~dp0.venv\Scripts\python.exe" set PY="%~dp0.venv\Scripts\python.exe"
 rem 2. The py launcher that python.org's installer adds.
 if not defined PY (
     where py >nul 2>nul && set "PY=py -3"
@@ -28,7 +27,7 @@ if not defined PY (
     exit /b 1
 )
 
-%PY% kotodama_server.py %*
+%PY% "%~dp0kotodama_server.py" %*
 set "CODE=%ERRORLEVEL%"
 if not "%CODE%"=="0" (
     echo.
