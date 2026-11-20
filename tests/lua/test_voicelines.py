@@ -116,7 +116,7 @@ class SavedLineTests(unittest.TestCase):
 
     def test_add_play_list_delete(self):
         self.a.command("line", "add", "Rally", "To", "me,", "everyone!")
-        self.assertIn("/console koto line rally", self.a.chat()[-1])
+        self.assertIn("/con koto line rally", self.a.chat()[-1])
         self.a.command("line", "rally")
         self.assertEqual(self.said(), ["To me, everyone!"])
         self.assertEqual(self.a.speaks()[0]["speaker"]["role"], "custom")

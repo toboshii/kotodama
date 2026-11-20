@@ -629,7 +629,7 @@ local function show_help()
         '  cutscene | cutscene forget    mark the current/last NPC event as a cutscene (remembered), or undo that',
         '  status | inspect [t] | debug on|off',
         '  say <text>                    speak the text in the custom voice (placeholders: <me> <t> <bt> <pet> <ft> <lastst>)',
-        '  line <name> | line list       speak a saved line / list them  (macro: /console koto line <name>)',
+        '  line <name> | line list       speak a saved line / list them  (macro: /con koto line <name>)',
         '  line add <name> <text> | line del <name>   save / delete a line',
         '  voice @custom [key=value ...|reset]   the voice for say and line (the narrator\'s until changed)',
         '  test [event|cutscene|ambient|battle] <Name> : <text>',
@@ -876,7 +876,7 @@ windower.register_event('addon command', function(command, ...)
     elseif cmd == 'say' then
         local text = table.concat({ select(2, unpack(args)) }, ' ')
         if text == '' then
-            say('usage: //koto say <text>   (in a macro: /console koto say <text>)')
+            say('usage: //koto say <text>   (in a macro: /con koto say <text>)')
         else
             speak_custom(text, 'say')
         end
@@ -897,7 +897,7 @@ windower.register_event('addon command', function(command, ...)
             local text = table.concat({ select(4, unpack(args)) }, ' ')
             local ok, err = voicelines.set(name, text)
             if ok then
-                say('saved line ' .. name:lower() .. '. Macro: /console koto line ' .. name:lower())
+                say('saved line ' .. name:lower() .. '. Macro: /con koto line ' .. name:lower())
             else
                 say('line add: ' .. err .. '. Usage: //koto line add <name> <text>')
             end

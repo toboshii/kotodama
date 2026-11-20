@@ -186,13 +186,13 @@ Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xm
 
 ## Voice lines and macros
 
-`//koto say <text>` speaks any line you like, and `//koto line <name>` speaks one you saved. Use them for callouts and reminders, such as a battle cry when you use a weapon skill, or a cue to recast a buff. The voice plays on your own machine, so only you hear it, not your party.
+`//koto say <text>` speaks any line you like, and `//koto line <name>` speaks one you saved. Use them for callouts and reminders, such as a battle cry when you use a weapon skill, or a cue to recast a buff.
 
-**In a macro**, FFXI can't run `//` commands, so use `/console`:
+**In a macro**, FFXI can't run `//` commands, so use `/console`, or `/con` for short to save space on the macro line:
 
 ```
-/console koto say Weapon skill on <bt>!
-/console koto line resleep
+/con koto say Weapon skill on <bt>!
+/con koto line resleep
 ```
 
 A macro line holds only about 60 characters, so save longer lines first and trigger them by name:
