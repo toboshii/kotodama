@@ -8,6 +8,11 @@ from typing import Any
 
 MAX_DATAGRAM = 16384
 
+# Speaker roles other than an NPC. "custom": a line the player triggered
+# (//koto say, //koto line), voiced as the narrator until "@custom" is tuned.
+ROLES = ("custom",)
+KINDS = ("ambient", "event", "cutscene", "battle", "custom")
+
 
 def decode(data: bytes) -> dict[str, Any] | None:
     """Parse one datagram; None if it is not a well-formed message."""
@@ -54,6 +59,7 @@ class Speaker:
     model: int | None = None
     creature: str | None = None
     was: str | None = None           # the "???" identity this character spoke as before being named
+    role: str | None = None          # one of ROLES, or None for an ordinary speaker
 
 
 @dataclass
@@ -80,6 +86,7 @@ def parse_speaker(raw: Any) -> Speaker:
         model=_int(raw.get("model")),
         creature=_str(raw.get("creature"), 32),
         was=_str(raw.get("was"), 64),
+        role=raw.get("role") if raw.get("role") in ROLES else None,
     )
 
 
@@ -88,7 +95,7 @@ def parse_speak(msg: dict[str, Any], max_chars: int = 1500) -> Speak | None:
     if not isinstance(text, str) or not text.strip():
         return None
     kind = msg.get("kind")
-    if kind not in ("ambient", "event", "cutscene", "battle"):
+    if kind not in KINDS:
         kind = "ambient"
     return Speak(
         seq=_int(msg.get("seq")) or 0,

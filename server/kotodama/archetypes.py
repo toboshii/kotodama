@@ -9,6 +9,14 @@ from typing import Any
 
 from .config import SERVER_DIR
 
+# Role keys voiced as narration (the narrator, and the player's custom lines):
+# steadier delivery, narration-style voices.
+NARRATION_KEYS = frozenset({"@narrator", "@custom"})
+
+
+def is_narration(ident: str | None) -> bool:
+    return bool(ident) and ident.strip().lower() in NARRATION_KEYS
+
 PROFILE_FIELDS = (
     "gender", "age", "species", "personality", "tone", "accent", "pitch", "pace", "direction",
 )

@@ -6,7 +6,9 @@ Layers, lowest to highest priority:
   3. library                   curated > community pack > learned (LLM)
   4. overrides                 config/overrides.json (//koto voice ...)
 Within a layer a zone-specific key ("Name@<zone>") beats the plain name, and
-the role keys "@player" / "@narrator" apply to those speakers.
+the role keys "@player" / "@narrator" apply to those speakers. A custom line
+(role "custom") takes the "@narrator" layers and then "@custom" on top, so it
+sounds exactly like the narrator until "@custom" is given a layer of its own.
 """
 
 from __future__ import annotations
@@ -20,6 +22,12 @@ from .library import Library, _norm_key
 from .protocol import Speaker
 
 _NUDGE = (-1, 0, 0, 1)
+
+CUSTOM_KEY = "@custom"
+
+
+def _narrated(speaker: Speaker) -> bool:
+    return speaker.narrator or speaker.role == "custom"
 
 
 @dataclass
@@ -46,7 +54,7 @@ class ProfileResolver:
     def archetype_key(self, speaker: Speaker) -> str:
         return self.arch.key_for(
             name=speaker.name, race=speaker.race, creature=speaker.creature,
-            narrator=speaker.narrator,
+            narrator=_narrated(speaker),
         )
 
     def _base(self, speaker: Speaker) -> tuple[dict[str, Any], str]:
@@ -54,9 +62,10 @@ class ProfileResolver:
         arch = self.arch.items[akey]
         profile = {f: arch[f] for f in PROFILE_FIELDS if f in arch}
 
-        ident = "@narrator" if speaker.narrator else (speaker.name or "@unknown")
+        narrated = _narrated(speaker)
+        ident = "@narrator" if narrated else (speaker.name or "@unknown")
         h = stable_hash(ident)
-        if not speaker.narrator:
+        if not narrated:
             profile["pitch"] = _nudge(self.arch.vocab["pitch"], profile.get("pitch", "medium"), h, 8)
             profile["pace"] = _nudge(self.arch.vocab["pace"], profile.get("pace", "normal"), h, 16)
 
@@ -79,7 +88,13 @@ class ProfileResolver:
         profile, akey = self._base(speaker)
         sources = [f"archetype:{akey}"]
 
-        if speaker.narrator:
+        ident = None
+        if speaker.role == "custom":
+            keys = [CUSTOM_KEY, "@narrator"]
+            # The narrator's identity (and with it the narrator's remembered
+            # voice) until "@custom" is tuned; then a voice of its own.
+            ident = CUSTOM_KEY if self.has_layer(CUSTOM_KEY) else "@narrator"
+        elif speaker.narrator:
             keys = ["@narrator"]
         elif speaker.is_player:
             keys = ["@player"]
@@ -103,12 +118,17 @@ class ProfileResolver:
         if not profile["voice"]:
             pool = self.arch.provider_voices.get(self.provider, [])
             profile["voice"] = pool[0] if pool else None
-        return Resolved(profile=profile, archetype=akey, key=_norm_key(speaker.name or "@narrator"),
+        return Resolved(profile=profile, archetype=akey, key=_norm_key(ident or speaker.name or "@narrator"),
                         sources=sources)
+
+    def has_layer(self, key: str) -> bool:
+        """True when the library or an override has anything for this key."""
+        k = _norm_key(key)
+        return bool(self.lib.lookup(k) or self.lib.override(k))
 
     def needs_inference(self, speaker: Speaker) -> bool:
         """True for a named NPC nobody has described yet."""
-        if speaker.narrator or speaker.is_player or not speaker.name:
+        if speaker.narrator or speaker.role or speaker.is_player or not speaker.name:
             return False
         return not self.lib.has_any(speaker.name)
 

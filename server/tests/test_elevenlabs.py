@@ -157,6 +157,7 @@ class ElevenLabsClientTests(ELTestCase):
         self.assertEqual(tts.voice_settings({"tone": "bubbly"}, "x")["stability"], 0.35)
         self.assertEqual(tts.voice_settings({"personality": "stoic and stern"}, "x")["stability"], 0.65)
         self.assertEqual(tts.voice_settings({}, "@narrator")["stability"], 0.6)
+        self.assertEqual(tts.voice_settings({}, "@custom")["stability"], 0.6)
         self.assertEqual(tts.voice_settings({"pace": "slow"}, "x")["speed"], 0.88)
 
     def test_no_tags_on_models_without_them_or_when_disabled(self):

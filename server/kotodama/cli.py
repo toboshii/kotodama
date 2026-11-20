@@ -34,7 +34,7 @@ from .library import Library
 from .net import UDPServer
 from .player import install_hint
 from .profiles import ProfileResolver
-from .protocol import Speaker, parse_speak
+from .protocol import KINDS, ROLES, Speaker, parse_speak
 from .tts_base import TTSError
 from .tts_elevenlabs import ElevenLabsTTS
 from .tts_gemini import TEMPLATE_FIELDS as GEMINI_TEMPLATE_FIELDS, GeminiClient
@@ -163,10 +163,11 @@ def cmd_test(cfg: Config, args: argparse.Namespace) -> int:
         return 1
     text = " ".join(args.text)
     speaker = {"name": args.name, "race": args.race, "creature": args.creature,
-               "narrator": args.name is None}
+               "narrator": args.name is None, "role": args.role}
+    kind = "custom" if args.role == "custom" else args.kind
     engine.handle({"t": "hello", "player": args.player})
     job = engine.speak(parse_speak({
-        "seq": 1, "kind": args.kind, "mode": 150, "text": text, "zone": args.zone,
+        "seq": 1, "kind": kind, "mode": 150, "text": text, "zone": args.zone,
         "zone_name": args.zone_name, "player": args.player, "speaker": speaker}))
     if not engine.wait_idle(60):
         print("timed out waiting for playback")
@@ -835,7 +836,9 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--name", help="speaker name (omit for narrator)")
     t.add_argument("--race", type=int, help="FFXI race id (1-8, 29-31)")
     t.add_argument("--creature", help="creature archetype key, e.g. moogle")
-    t.add_argument("--kind", default="event", choices=["ambient", "event", "cutscene", "battle"])
+    t.add_argument("--kind", default="event", choices=list(KINDS))
+    t.add_argument("--role", choices=list(ROLES),
+                   help="speak as a role instead of an NPC: custom = a //koto say line (implies --kind custom)")
     t.add_argument("--zone", type=int)
     t.add_argument("--zone-name")
     t.add_argument("--player", default="Adventurer", help="player name (scrubbed from shared files)")

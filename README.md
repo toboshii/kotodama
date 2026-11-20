@@ -21,7 +21,7 @@ This README has three parts:
 
 ## What gets sent where
 
-Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, Google, Inworld, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken.
+Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, Google, Inworld, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken. The same goes for your own **[voice lines](#voice-lines-and-macros)**: `<me>` and `<t>` are filled in with real names before the line is sent.
 
 ## Linux and the Steam Deck
 
@@ -86,6 +86,7 @@ All commands start with `//koto` (or `//kotodama`).
 | `duck <0-100>` | How much of the game's audio is kept while a line is spoken (default 40) |
 | `stop`, `replay` | Stop the current line, or play the last one again |
 | `deny t` / `allow t` | Silence your target, or undo that |
+| `say <text>` / `line <name>` | Speak your own line, or one you saved (see **[Voice lines and macros](#voice-lines-and-macros)**) |
 | `status` | Check that the game is connected to the sidecar (`link UP`) |
 
 Your settings are saved and come back next time. For every command, see **[All in-game commands](#all-in-game-commands)**.
@@ -139,6 +140,7 @@ Under systemd there's no terminal, so use `systemctl --user restart kotodama` to
 server/kotodama.sh doctor --live               # also speak one short line with every provider that has a key
 server/kotodama.sh doctor --provider inworld   # ...or with just one
 server/kotodama.sh test --name Ayame --race 2 "Welcome to Norg."   # run twice: the second comes from cache, no API call
+server/kotodama.sh test --role custom "For the Crystal!"   # a //koto say line, in the custom voice
 ```
 
 The live test runs every provider at once, reports each one's time to first audio, and ends with them ranked fastest first. It plays and caches nothing, and costs a fraction of a cent per provider. A cold Replicate model can take a minute.
@@ -169,6 +171,10 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 | `voice <name\|t\|last>` | Show the voice an NPC will get and why |
 | `voice <name> key=value ...` | Override it. Keys: `gender` `age` `species` `personality` `tone` `accent` `pitch` `pace` `voice` `direction`. Use `_` for spaces: `//koto voice t age=elderly tone=gruff_and_weary` |
 | `voice <name> reset` / `reinfer` / `promote` | Clear your overrides / ask the casting model again / save the effective profile to the shared library |
+| `say <text>` | Speak your own line in the custom voice. Placeholders such as `<t>` and `<me>` are filled in (see **[Voice lines and macros](#voice-lines-and-macros)**) |
+| `line <name>` / `line list` | Speak a saved line / list them |
+| `line add <name> <text>` / `line del <name>` | Save a line (replacing one with that name) / delete one |
+| `voice @custom [key=value ...\|reset]` | Show or change the voice for `say` and `line`. Until changed, it's the narrator's voice |
 | `cutscene` / `cutscene forget` | Mark the NPC event you're in (or just finished) as a cutscene, remembered for next time, or undo that |
 | `status` | Link, mode, event state, cache and estimated cost |
 | `test [event\|cutscene\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
@@ -177,6 +183,44 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account, e.g. `voice=George`; for a model, any name from `server/kotodama.sh voices list --provider <model>`, e.g. `voice=English_ManWithDeepVoice`.
 
 Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xml`.
+
+## Voice lines and macros
+
+`//koto say <text>` speaks any line you like, and `//koto line <name>` speaks one you saved. Use them for a battle cry, a party call-out or a greeting.
+
+**In a macro**, FFXI can't run `//` commands, so use `/console`:
+
+```
+/console koto say Thank you, <t>!
+/console koto line rally
+```
+
+A macro line holds only about 60 characters, so save longer lines first and trigger them by name:
+
+```
+//koto line add rally Everyone, gather around me. We push on the next pull!
+//koto line list
+//koto line del rally
+```
+
+Names are letters, digits, `_` and `-`. Saved lines are kept in `data/voicelines.json` and shared by all your characters.
+
+**Placeholders.** FFXI doesn't fill in `<t>` and the rest in text passed through `/console`, so Kotodama does. They're filled in when the line is spoken, not when it's saved, so `Go, <t>!` names whoever is targeted at that moment.
+
+| Placeholder | Becomes |
+|---|---|
+| `<me>` | Your character's name |
+| `<t>` | Your current target |
+| `<bt>` | Your battle target |
+| `<pet>` | Your pet |
+| `<ft>` | Your focus target |
+| `<lastst>` | Your last sub-target |
+
+Placeholders are not case-sensitive. If one has nothing to stand for (no target for `<t>`, no pet for `<pet>`), nothing is spoken and chat says why. An unknown placeholder, and `<st>`, which needs you to pick a target on screen, are refused the same way, so you never hear "Go, !".
+
+**The voice.** Voice lines use the narrator's voice until you change them with `//koto voice @custom`, for example `//koto voice @custom tone=rousing pace=brisk` or `//koto voice @custom voice=onyx`. Changes to `@custom` affect only your lines, not real narration. `//koto voice @custom reset` brings back the narrator's voice. Your lines aren't affected by `mode`, `narrator off` or the deny list, but `//koto off` silences them and `//koto stop` cuts them off.
+
+**Cost.** Audio is cached by its text and voice, so a line costs one request the first time and then plays from cache for free. Each different name a placeholder fills in is cached separately.
 
 ## Voice providers
 

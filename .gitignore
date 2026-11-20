@@ -7,6 +7,7 @@ __pycache__/
 cache/
 config/overrides.json
 data/settings.xml
+data/voicelines.json
 data/*.log
 library/packs/
 
