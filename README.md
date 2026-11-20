@@ -186,7 +186,7 @@ To add a provider, put its key in **[the key file](#the-key-file)** and press R 
 
 ### OpenAI
 
-**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through. `//koto status` estimates cost at OpenAI's list price for the model in `tts.model` (`gpt-4o-mini-tts`, `tts-1` or `tts-1-hd`); prices for other models go in `tts.prices`.
+**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through. `//koto status` estimates cost at OpenAI's list price for the model in `openai.model` (`gpt-4o-mini-tts`, `tts-1` or `tts-1-hd`); prices for other models go in `openai.prices`.
 
 **OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. Until then, you can use it with `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json`. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
 

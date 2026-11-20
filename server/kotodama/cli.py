@@ -782,8 +782,8 @@ def cmd_doctor(cfg: Config, args: argparse.Namespace) -> int:
     has_key = not getattr(engine.tts, "needs_key", True) or bool(getattr(engine.tts, "api_key", None))
     check(f"{active} API key", has_key, "set" if has_key else
           f"missing ({getattr(engine.tts, 'key_hint', None) or PROVIDER_KEYS.get(active, 'see README')})")
-    notice = shutdown_notice(cfg.get("tts.base_url"))
-    if notice and (active == "openai" or cfg.api_key("tts")):
+    notice = shutdown_notice(cfg.get("openai.base_url"))
+    if notice and (active == "openai" or cfg.api_key("openai")):
         print(f"[warn] {notice}")
     live = args.live or bool(args.provider)
     _doctor_elevenlabs(cfg, check)

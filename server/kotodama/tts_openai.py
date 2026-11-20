@@ -55,22 +55,22 @@ class OpenAITTS:
     dynamic_voices = False    # fixed voice list (server/archetypes.json)
 
     def __init__(self, cfg: Config):
-        self.model: str = cfg.get("tts.model")
-        self.timeout: float = float(cfg.get("tts.timeout", 30))
-        self.sample_rate: int = int(cfg.get("tts.sample_rate", 24000))
-        self.api_key = cfg.api_key("tts")
-        self.base_url = str(cfg.get("tts.base_url"))
+        self.model: str = cfg.get("openai.model")
+        self.timeout: float = float(cfg.get("openai.timeout", 30))
+        self.sample_rate: int = int(cfg.get("openai.sample_rate", 24000))
+        self.api_key = cfg.api_key("openai")
+        self.base_url = str(cfg.get("openai.base_url"))
         self.http = HTTPStreamer(self.base_url, self.timeout)
         self.notify = lambda _msg: None
         self.today: Callable[[], date] = date.today   # tests move the clock
-        prices = cfg.get("tts.prices")
+        prices = cfg.get("openai.prices")
         raw = prices.get(self.model) if isinstance(prices, dict) else None
         self.price: dict[str, float] = {
             k: float(v) for k, v in (raw if isinstance(raw, dict) else {}).items()
             if isinstance(v, (int, float)) and not isinstance(v, bool)}
 
     def estimate_cost(self, chars: int, seconds: float) -> float | None:
-        """List-price dollars for one line, or None when tts.prices has no
+        """List-price dollars for one line, or None when openai.prices has no
         entry for this model. gpt-4o-mini-tts bills text tokens (about 4
         characters each) plus audio by the minute; tts-1 bills characters."""
         if not self.price:
@@ -129,7 +129,7 @@ class OpenAITTS:
     def stream(self, text: str, request: VoiceRequest) -> Iterator[bytes]:
         """Yield PCM chunks (always an even number of bytes)."""
         if not self.api_key:
-            raise TTSError("no OpenAI API key (set OPENAI_API_KEY or tts.api_key in server/config.json)",
+            raise TTSError("no OpenAI API key (set OPENAI_API_KEY or openai.api_key in server/config.json)",
                            code="auth")
         body = self._body(text, request.voice, request.options.get("instructions", ""))
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}

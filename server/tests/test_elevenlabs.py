@@ -407,7 +407,7 @@ class EngineProviderTests(KotodamaTestCase):
         return eng, oa, el
 
     def test_openai_cache_keys_are_unchanged_by_the_refactor(self):
-        cfg = self.make_config(tts={"api_key": "sk-test"})
+        cfg = self.make_config(openai={"api_key": "sk-test"})
         eng = self.make_engine(_NoNetOpenAI(cfg), cfg=cfg)
         for (name, race), expected in PINNED_OPENAI_KEYS.items():
             eng.speak(protocol.parse_speak(speak_msg("Welcome to Norg.", name=name, race=race, zone=230)))
@@ -480,7 +480,7 @@ class EngineProviderTests(KotodamaTestCase):
         self.assertIn("Rok", el.forgotten, "reset also clears the casting memory")
 
     def test_inference_schema_follows_the_provider(self):
-        cfg = self.make_config(tts={"api_key": "sk-test"}, inference={"provider": "openai"})
+        cfg = self.make_config(openai={"api_key": "sk-test"}, inference={"provider": "openai"})
         oa, el = FakeTTS(), FakeElevenLabs()
         eng = build_engine(cfg, tts=oa, reply=self.replies.append, null_player=True,
                            ducker=Ducker(enabled=False),

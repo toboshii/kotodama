@@ -20,10 +20,10 @@ class OpenAIInferer:
         self.schema = schema
         self.tts_provider = tts_provider
         self.model: str = cfg.get("inference.openai_model", "gpt-4o-mini")
-        self.key = cfg.api_key("inference", "openai_api_key", "openai_api_key_env") or cfg.api_key("tts")
+        self.key = cfg.api_key("inference", "openai_api_key", "openai_api_key_env") or cfg.api_key("openai")
         if not self.key:
             raise InferenceError("no OpenAI API key for voice casting (OPENAI_API_KEY)")
-        parsed = urllib.parse.urlparse(str(cfg.get("tts.base_url")))
+        parsed = urllib.parse.urlparse(str(cfg.get("openai.base_url")))
         self._https = parsed.scheme == "https"
         self._host = parsed.hostname or "api.openai.com"
         self._port = parsed.port or (443 if self._https else 80)

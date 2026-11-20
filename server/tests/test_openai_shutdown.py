@@ -62,7 +62,7 @@ class NoticeTests(unittest.TestCase):
 
 class ProviderErrorTests(KotodamaTestCase):
     def provider(self, today: date, base_url: str = "https://api.openai.com") -> OpenAITTS:
-        prov = OpenAITTS(self.make_config(tts={"api_key": "sk-test", "base_url": base_url}))
+        prov = OpenAITTS(self.make_config(openai={"api_key": "sk-test", "base_url": base_url}))
         prov.today = lambda: today
         self.addCleanup(prov.close)
         return prov
@@ -120,7 +120,7 @@ class DefaultProviderTests(KotodamaTestCase):
         cfg = self.make_config()
         desc = provider_catalog(cfg, load_adapters(cfg))["openai"][0]
         self.assertIn("2027-01-06", desc)
-        local = self.make_config(tts={"base_url": "http://127.0.0.1:8880"})
+        local = self.make_config(openai={"base_url": "http://127.0.0.1:8880"})
         self.assertNotIn("2027-01-06", provider_catalog(local, load_adapters(local))["openai"][0])
 
 
@@ -128,11 +128,11 @@ class EngineNoticeTests(KotodamaTestCase):
     def test_switching_to_openai_says_the_notice(self):
         start = FakeTTS()
         start.name = "inworld"
-        openai = OpenAITTS(self.make_config(tts={"api_key": "sk-test"}))
+        openai = OpenAITTS(self.make_config(openai={"api_key": "sk-test"}))
         openai.warm = lambda: None            # no network in tests
         openai.today = lambda: BEFORE
         self.addCleanup(openai.close)
-        eng = self.make_engine(start, cfg=self.make_config(tts={"api_key": "sk-test"}),
+        eng = self.make_engine(start, cfg=self.make_config(openai={"api_key": "sk-test"}),
                                provider_factory={"openai": openai}.__getitem__)
         eng.handle({"t": "config", "provider": "openai"})
         self.assertIs(eng.tts, openai)
@@ -158,7 +158,7 @@ class ServeWarningTests(KotodamaTestCase):
         return [r.getMessage() for r in logs.records]
 
     def test_missing_key_names_the_providers_that_are_ready(self):
-        cfg = self.make_config(tts={"api_key": "sk-test"}, inworld=NO_INWORLD)
+        cfg = self.make_config(openai={"api_key": "sk-test"}, inworld=NO_INWORLD)
         inworld = make_provider(cfg, "inworld")
         self.addCleanup(inworld.close)
         msgs = self.serve_logs(cfg, inworld)
@@ -168,7 +168,7 @@ class ServeWarningTests(KotodamaTestCase):
         self.assertIn("ready to use: openai", missing[0])
 
     def test_openai_at_startup_logs_the_notice(self):
-        cfg = self.make_config(tts={"api_key": "sk-test"}, inworld=NO_INWORLD)
+        cfg = self.make_config(openai={"api_key": "sk-test"}, inworld=NO_INWORLD)
         openai = OpenAITTS(cfg)
         openai.today = lambda: BEFORE
         self.addCleanup(openai.close)
@@ -196,7 +196,7 @@ class DoctorTests(KotodamaTestCase):
                                 **over)
 
     def test_keyless_default_fails_the_key_check(self):
-        cfg = self.config(tts=NO_KEY, inworld=NO_INWORLD)
+        cfg = self.config(openai=NO_KEY, inworld=NO_INWORLD)
         inworld = make_provider(cfg, "inworld")
         self.addCleanup(inworld.close)
         out = self.doctor(cfg, inworld)
@@ -204,7 +204,7 @@ class DoctorTests(KotodamaTestCase):
         self.assertNotIn("2027-01-06", out)      # no OpenAI key, OpenAI not active
 
     def test_openai_with_a_key_passes_and_warns(self):
-        cfg = self.config(tts={"api_key": "sk-test"}, inworld=NO_INWORLD)
+        cfg = self.config(openai={"api_key": "sk-test"}, inworld=NO_INWORLD)
         openai = OpenAITTS(cfg)
         self.addCleanup(openai.close)
         out = self.doctor(cfg, openai)

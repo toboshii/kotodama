@@ -24,9 +24,12 @@ DEFAULTS: dict[str, Any] = {
     "tts": {
         # The voice provider used unless //koto provider picks another:
         # inworld, openai, elevenlabs, or any model in server/tts_models.json.
-        # The rest of this block is OpenAI's own settings; OpenAI shuts down
-        # its speech models on 2027-01-06, so it's no longer the default.
         "provider": DEFAULT_PROVIDER,
+    },
+    "openai": {
+        # Used when tts.provider is "openai" or after //koto provider openai,
+        # and for the key and host of inference.provider "openai". OpenAI
+        # shuts down its speech models on 2027-01-06.
         "model": "gpt-4o-mini-tts",
         "base_url": "https://api.openai.com",
         "api_key": None,

@@ -8,10 +8,9 @@ import threading
 from pathlib import Path
 from typing import Any
 
-# Dollar figures are estimates at list price, from the price tables in the
-# config (tts.prices, inference.prices, each model adapter's price).
-# ElevenLabs is billed in credits per character; dollars come from the
-# configured price per 1,000 credits (elevenlabs.price.per_1k_credits).
+# Dollar figures are estimates at list price, from each model's price in the
+# config. ElevenLabs is billed in credits per character; dollars come from
+# the configured price per 1,000 credits (elevenlabs.price.per_1k_credits).
 
 
 def token_cost(price: Any, input_tokens: float, output_tokens: float) -> float:

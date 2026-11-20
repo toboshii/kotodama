@@ -134,7 +134,7 @@ class TTSClientTests(KotodamaTestCase):
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
         self.addCleanup(self.httpd.server_close)
         self.addCleanup(self.httpd.shutdown)
-        self.cfg = Config({"tts": {"base_url": f"http://127.0.0.1:{self.httpd.server_port}", "api_key": "sk-test"}})
+        self.cfg = Config({"openai": {"base_url": f"http://127.0.0.1:{self.httpd.server_port}", "api_key": "sk-test"}})
 
     def new_tts(self, cfg=None):
         tts = OpenAITTS(cfg or self.cfg)
@@ -177,21 +177,21 @@ class TTSClientTests(KotodamaTestCase):
 
     def test_missing_key_and_non_gpt4o_models(self):
         with self.assertRaises(TTSError):
-            list(OpenAITTS(Config({"tts": {"api_key": None, "api_key_env": "KOTODAMA_NO_SUCH_ENV"}}))
+            list(OpenAITTS(Config({"openai": {"api_key": None, "api_key_env": "KOTODAMA_NO_SUCH_ENV"}}))
                  .stream("a", VoiceRequest("onyx", {"instructions": ""})))
-        cfg = Config({"tts": {"model": "tts-1", "base_url": self.cfg.get("tts.base_url"), "api_key": "k"}})
+        cfg = Config({"openai": {"model": "tts-1", "base_url": self.cfg.get("openai.base_url"), "api_key": "k"}})
         list(self.new_tts(cfg).stream("a", VoiceRequest("onyx", {"instructions": "ignored"})))
         self.assertNotIn("instructions", _Handler.requests[-1]["body"])
 
 
     def test_openai_cost_follows_the_model(self):
         def cost(model, chars, seconds):
-            return OpenAITTS(Config({"tts": {"model": model}})).estimate_cost(chars, seconds)
+            return OpenAITTS(Config({"openai": {"model": model}})).estimate_cost(chars, seconds)
         self.assertAlmostEqual(cost("tts-1", 1000, 5.0), 0.015)
         self.assertAlmostEqual(cost("tts-1-hd", 1000, 5.0), 0.030)
         self.assertAlmostEqual(cost("gpt-4o-mini-tts", 4000, 60.0), 0.0006 + 0.015)
         self.assertIsNone(cost("some-server-model", 1000, 5.0), "an unpriced model gets no dollar figure")
-        odd = Config({"tts": {"model": "tts-1", "prices": {"tts-1": {"per_1k_chars": "free"}}}})
+        odd = Config({"openai": {"model": "tts-1", "prices": {"tts-1": {"per_1k_chars": "free"}}}})
         self.assertIsNone(OpenAITTS(odd).estimate_cost(1000, 5.0), "a non-number price is ignored")
 
 

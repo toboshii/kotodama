@@ -21,11 +21,15 @@
   },
 
   "tts": {
-    "_comment": "provider: inworld (the default) | elevenlabs | openai | a model adapter such as inworld-flash, minimax, gemini, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live. The other keys here are OpenAI's.",
-    "provider": "inworld",
-    "model": "gpt-4o-mini-tts",
+    "_comment": "provider: inworld (the default) | elevenlabs | openai | a model adapter such as inworld-flash, minimax, gemini, chatterbox-turbo, kokoro (kotodama_server.py providers). //koto provider switches live.",
+    "provider": "inworld"
+  },
+
+  "openai": {
+    "_comment": "Used by the openai provider. model: gpt-4o-mini-tts | tts-1 | tts-1-hd, all of which OpenAI shuts down on 2027-01-06.",
     "api_key": null,
-    "api_key_env": "OPENAI_API_KEY"
+    "api_key_env": "OPENAI_API_KEY",
+    "model": "gpt-4o-mini-tts"
   },
 
   "elevenlabs": {

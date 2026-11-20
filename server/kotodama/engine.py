@@ -919,9 +919,9 @@ def provider_notice(prov: Any) -> str | None:
 
 def provider_catalog(cfg: Config, adapters: dict[str, Adapter]) -> dict[str, tuple[str, bool]]:
     """name -> (description, has the key it needs), built-ins first."""
-    label = shutdown_label(cfg.get("tts.base_url"))
+    label = shutdown_label(cfg.get("openai.base_url"))
     info = {
-        "openai": ("OpenAI gpt-4o-mini-tts" + (f" ({label})" if label else ""), bool(cfg.api_key("tts"))),
+        "openai": ("OpenAI gpt-4o-mini-tts" + (f" ({label})" if label else ""), bool(cfg.api_key("openai"))),
         "elevenlabs": ("ElevenLabs", bool(cfg.api_key("elevenlabs"))),
     }
     replicate_key = bool(cfg.api_key("replicate"))
