@@ -116,6 +116,39 @@ function M.remove(name)
     return true
 end
 
+-- Auto-translate -------------------------------------------------------------
+
+-- An auto-translate phrase in typed text is 0xFD, type, language, then two
+-- bytes for the id, then 0xFD: id = high * 256 + low, the key into
+-- resources.auto_translates ("Healing" is 8 * 256 + 60 = 2108).
+local AT_PATTERN = '\253(.)(.)(.)(.)\253'
+M.AT_PHRASE = 2                   -- the type byte of a standard phrase
+
+-- Replace auto-translate phrases with their words. lookup(type, id) returns
+-- the text or nil; a phrase it doesn't know is dropped, never read out as
+-- symbols. Spaces are added only where the phrase would touch a word.
+function M.auto_translate(text, lookup)
+    if not text:find('\253', 1, true) then return text end
+    local out, pos = {}, 1
+    while true do
+        local a, b, kind, _, hi, lo = text:find(AT_PATTERN, pos)
+        if not a then break end
+        local before = text:sub(pos, a - 1)
+        out[#out + 1] = before
+        local words = lookup(kind:byte(), hi:byte() * 256 + lo:byte())
+        if type(words) == 'string' and words ~= '' then
+            local prev = (#before > 0) and before:sub(-1) or (out[#out - 1] or ''):sub(-1)
+            if prev:find('[%w%.,!%?]') then words = ' ' .. words end
+            if text:sub(b + 1, b + 1):find('%w') then words = words .. ' ' end
+            out[#out + 1] = words
+        end
+        pos = b + 1
+    end
+    out[#out + 1] = text:sub(pos)
+    -- A stray marker from a phrase cut short: drop it rather than say "you".
+    return (table.concat(out):gsub('\253', ''))
+end
+
 -- Placeholders -------------------------------------------------------------
 
 -- Placeholder -> what's missing when it can't be filled in. Each is looked up

@@ -53,7 +53,9 @@ package.preload['luau'] = function() return true end
 package.preload['resources'] = function()
   return { zones = {[230] = {en = "Southern San d'Oria"}, [235] = {en = 'Bastok Markets'}, [50] = {en = 'Aht Urhgan Whitegate'}},
            races = {[1] = {en = 'Hume M'}, [2] = {en = 'Hume F'}, [4] = {en = 'Elvaan F'}, [5] = {en = 'Tarutaru M'},
-                    [6] = {en = 'Tarutaru F'}, [7] = {en = 'Mithra'}, [8] = {en = 'Galka'}} }
+                    [6] = {en = 'Tarutaru F'}, [7] = {en = 'Mithra'}, [8] = {en = 'Galka'}},
+           auto_translates = {[1286] = {id = 1286, en = 'Healing!'}, [2108] = {id = 2108, en = 'Healing'},
+                              [257] = {id = 257, en = 'Nice to meet you.'}} }
 end
 package.preload['socket'] = function()
   return { udp = function()

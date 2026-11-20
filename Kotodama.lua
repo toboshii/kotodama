@@ -428,6 +428,17 @@ local function placeholder_name(key)
     return mob and mob.name or nil
 end
 
+-- The words of an auto-translate phrase (resources.auto_translates), or nil.
+local function auto_translate_words(kind, id)
+    if kind ~= voicelines.AT_PHRASE or not ok_res then return nil end
+    local ok, entry = pcall(function() return res.auto_translates[id] end)
+    if not ok or type(entry) ~= 'table' then
+        debug_log('auto-translate id %s not found', tostring(id))
+        return nil
+    end
+    return entry.en
+end
+
 -- Speak text the player asked for (//koto say, //koto line) in the custom
 -- voice: the narrator's until //koto voice @custom changes it. The dialog
 -- filters (mode, narrator, deny, battle) don't apply; //koto off does.
@@ -437,7 +448,10 @@ local function speak_custom(text, label)
         say(label .. ': voiceover is off (//koto on)')
         return false
     end
-    -- The same cleanup as an NPC line (autotranslate, markup), then placeholders.
+    -- Auto-translate phrases to their words, the same cleanup as an NPC line
+    -- (markup, glyphs), then placeholders.
+    debug_log('custom line (%s) raw=[%s]', label, hex(text))
+    text = voicelines.auto_translate(text, auto_translate_words)
     local raw = text
     pcall(function() raw = windower.to_shift_jis(text) end)
     local cleaned, err = voicelines.expand(dialog.clean(raw), placeholder_name)

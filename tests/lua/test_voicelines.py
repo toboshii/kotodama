@@ -104,6 +104,60 @@ class PlaceholderTests(unittest.TestCase):
         self.assertEqual(self.said(), ["I <3 you, a>b."])
 
 
+def at(hi: int, lo: int, kind: int = 2) -> bytes:
+    """An auto-translate phrase as the game types it: 0xFD type lang hi lo 0xFD."""
+    return bytes([0xFD, kind, 0x02, hi, lo, 0xFD])
+
+
+HEALING = at(8, 60)          # 2108 "Healing"
+HEALING_BANG = at(5, 6)      # 1286 "Healing!"
+
+
+@unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
+class AutoTranslateTests(unittest.TestCase):
+    def setUp(self):
+        self.a = Addon()
+        self.addCleanup(self.a.close)
+
+    def say(self, *args: bytes) -> None:
+        self.a.fire("addon command", b"say", *args)
+
+    def said(self) -> list[str]:
+        return [s["text"] for s in self.a.speaks()]
+
+    def test_phrase_is_spoken_as_its_words(self):
+        self.say(b"I", b"need", HEALING)
+        self.assertEqual(self.said(), ["I need Healing"])
+
+    def test_phrase_touching_words_gets_spaces_but_not_before_punctuation(self):
+        self.say(b"I need" + HEALING + b"now" + HEALING_BANG + b"!")
+        self.assertEqual(self.said(), ["I need Healing now Healing!!"])
+
+    def test_phrase_alone(self):
+        self.say(HEALING_BANG)
+        self.assertEqual(self.said(), ["Healing!"])
+
+    def test_unknown_phrase_or_type_is_dropped_not_read_out(self):
+        self.say(b"I", b"need", at(99, 99), b"help", at(8, 60, kind=7))
+        self.assertEqual(self.said(), ["I need help"])
+
+    def test_stray_marker_is_dropped(self):
+        self.say(b"I", b"need\xfd", b"you")
+        self.assertEqual(self.said(), ["I need you"])
+
+    def test_saved_line_keeps_the_phrase_and_speaks_its_words(self):
+        self.a.fire("addon command", b"line", b"add", b"heal", b"I", b"need", HEALING)
+        self.a.command("line", "heal")
+        self.a.fire("load")                  # the phrase's bytes survive the file
+        self.a.command("line", "heal")
+        self.assertEqual(self.said(), ["I need Healing", "I need Healing"])
+
+    def test_raw_bytes_are_in_the_debug_log(self):
+        self.a.command("debug", "on")
+        self.say(b"I", b"need", HEALING)
+        self.assertIn("FD 02 02 08 3C FD", self.a.debug_log().upper())
+
+
 @unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
 class SavedLineTests(unittest.TestCase):
     def setUp(self):
