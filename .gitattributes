@@ -1,2 +1,12 @@
 # cmd.exe misreads batch files with LF line endings.
 *.cmd text eol=crlf
+
+# Left out of release zips (git archive). See scripts/build_release.sh.
+/.github        export-ignore
+/.claude        export-ignore
+/CLAUDE.md      export-ignore
+/.gitattributes export-ignore
+/.gitignore     export-ignore
+/scripts        export-ignore
+/tests          export-ignore
+/server/tests   export-ignore

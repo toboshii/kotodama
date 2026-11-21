@@ -19,6 +19,15 @@ This README has three parts:
 - On Linux and the Steam Deck, an audio player: `pw-play`, `paplay`, or `ffplay`. Windows needs nothing extra.
 - An API key for **Inworld**, the default voice provider. Create one at platform.inworld.ai (API Keys) and copy the **Base64** credential. To use a different provider, see **[Voice providers](#voice-providers)**.
 
+## Install
+
+1. Download `Kotodama-vX.Y.Z.zip` from the project's **Releases** page on GitHub.
+2. Open the zip. It holds one folder, `Kotodama`. Drag that folder into Windower's `addons` folder, so you get `Windower/addons/Kotodama/Kotodama.lua`.
+
+The rest of this guide calls `Windower/addons/Kotodama` the **addon folder**.
+
+**To upgrade,** drag the new `Kotodama` folder over the old one and let it replace the files. Your settings, keys, cache and everything Kotodama has learned are in files the zip doesn't contain, so they are kept. Restart the sidecar and reload the addon (`//lua reload kotodama`) after you upgrade.
+
 ## What gets sent where
 
 Dialog text is sent to the voice provider you use (OpenAI, ElevenLabs, MiniMax, Google, Inworld, a model on Replicate, or a TTS server you point it at) to be turned into speech. With a voice-cloning model, the reference clip chosen from your voice bank is uploaded to Replicate with each line. If you turn on voice casting (optional, off by default), the NPC's name, race, zone and up to three sample lines are sent to the casting provider you pick. **Your character's name is replaced with `{player}` before anything is stored in a shareable file or sent for casting.** Speech requests do contain the literal line, including your name if the NPC says it, because that's what has to be spoken. The same goes for your own **[voice lines](#voice-lines-and-macros)**: `<me>` and `<t>` are filled in with real names before the line is sent.
@@ -422,7 +431,12 @@ By default (`inference.provider: "none"`) voices come from archetypes plus your 
 
 ### Sharing a library
 
-`library/npcs.json` is plain, sorted, diff-friendly JSON with no player names in it.
+The library is in two files:
+
+- `library/npcs.default.json` holds the voices that ship with Kotodama. Each release replaces it, so don't edit it.
+- `library/npcs.json` holds what your install learned or you saved. Releases don't contain this file, so an upgrade never overwrites it. Its entries win over the shipped ones, and a new release's shipped voices still reach NPCs you have no entry for.
+
+Both are plain, sorted, diff-friendly JSON with no player names in them.
 
 ```
 server/kotodama.sh library export -o my-npcs.json --source llm --source curated
@@ -472,9 +486,9 @@ Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-p
 
 ## Cutscenes
 
-FFXI doesn't flag cutscenes, so Kotodama works them out from what the game sends. Once an event is recognised as a cutscene, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. The file ships with a few confirmed entries, and it's plain sorted JSON you can share.
+FFXI doesn't flag cutscenes, so Kotodama works them out from what the game sends. Once an event is recognised as a cutscene, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. A few confirmed entries ship in `library/cutscenes.default.json`, which each release replaces. Your own file is never in a release, so an upgrade keeps what you learned. Both are plain sorted JSON you can share.
 
-A cutscene that opens with several lines from the NPC you talked to looks like ordinary dialog until someone else speaks. In `mode cutscenes`, the first viewing of such a scene can therefore lose its opening lines. If you spot a cutscene that Kotodama missed, type `//koto cutscene` during it (or just after) so it's recognised next time. `//koto cutscene forget` undoes that.
+A cutscene that opens with several lines from the NPC you talked to looks like ordinary dialog until someone else speaks. In `mode cutscenes`, the first viewing of such a scene can therefore lose its opening lines. If you spot a cutscene that Kotodama missed, type `//koto cutscene` during it (or just after) so it's recognised next time. `//koto cutscene forget` undoes that. Forgetting a shipped entry writes a `forgotten` marker into your own file, so it stays forgotten after an upgrade.
 
 # Developers
 
@@ -508,10 +522,35 @@ Non-player creatures and some fixed-model townsfolk carry a model id instead of 
 ## Tests
 
 - **Sidecar:** `cd server && python3 -m unittest discover -s tests` (`py -3` instead of `python3` on Windows).
-- **Lua:** the addon runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package:
+- **Lua:** the addon runs under Lua 5.1 with a stubbed Windower via the optional `lupa` package (pinned in `tests/lua/requirements.txt`):
   ```
-  python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua
+  python3 -m venv .venv-lua && .venv-lua/bin/pip install -r tests/lua/requirements.txt && .venv-lua/bin/python -m unittest discover -s tests/lua
   ```
+  Without `lupa` these tests are skipped, not failed, so check that the run says more than `skipped`.
+
+GitHub Actions (`.github/workflows/tests.yml`) runs both on every pull request and every push to `main`: the sidecar tests on Linux and Windows with Python 3.10 and the newest Python, and the Lua tests on Linux. The Lua job stops with an error if `lupa` can't load Lua 5.1.
+
+## Releases
+
+1. Set the same version in `Kotodama.lua` (`_addon.version`) and `server/kotodama/__init__.py` (`__version__`), and merge that to `main`.
+2. Tag the commit and push the tag:
+   ```
+   git tag v0.2.0 && git push origin v0.2.0
+   ```
+
+`.github/workflows/release.yml` then runs all the tests, builds `Kotodama-v0.2.0.zip` with a `.sha256` file, and publishes a GitHub release with notes generated from the merged pull requests. If the tag doesn't match both versions, nothing is published. A tag with a hyphen, such as `v0.2.0-rc1`, is published as a prerelease.
+
+The zip holds one `Kotodama/` folder built with `git archive`, so only committed files go in. Anything marked `export-ignore` in `.gitattributes` is left out (tests, CI files, repository tooling), and the build stops if the zip contains files it must not ship, such as a learned library or a key file. To build the same zip locally, run `scripts/build_release.sh` (it writes to `dist/`).
+
+### Updating the shipped library
+
+The sidecar writes only to `library/npcs.json`, which git ignores. To add your learned voices to the ones Kotodama ships, merge them into the shipped file and commit it:
+
+```
+server/kotodama.sh library export --with-defaults -o library/npcs.default.json
+```
+
+For cutscenes, copy the entries you want from `library/cutscenes.json` into `library/cutscenes.default.json`, keeping it sorted by zone and menu id. Leave out any `forgotten` markers.
 
 # AI usage and disclosure
 
@@ -522,3 +561,7 @@ A human reviews all code before it goes into the project. A human also tests eac
 # Credits
 
 Dialog markup handling is derived from the Balloon addon (Hando, Yuki, Ghosty; BSD-3-Clause).
+
+# License
+
+Kotodama is released under the MIT License. The code derived from Balloon keeps its BSD-3-Clause notice. Both are in [LICENSE](LICENSE).
