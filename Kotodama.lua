@@ -9,7 +9,7 @@
 -- (Copyright 2018 Hando, 2021 Yuki, 2022 Ghosty; BSD-3-Clause).
 
 _addon.name = 'Kotodama'
-_addon.author = 'Kotodama'
+_addon.author = 'Toboshii'
 _addon.version = '0.1.0'
 _addon.commands = { 'kotodama', 'koto' }
 
