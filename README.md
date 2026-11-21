@@ -16,7 +16,7 @@ This README has three parts:
 
 - Final Fantasy XI with Windower 4.
 - Python 3.10 or newer.
-- On Linux and the Steam Deck, an audio player: `pw-play`, `paplay`, or `ffplay`. Windows needs nothing extra.
+- On Linux and the Steam Deck, an audio player: `pw-play`, `paplay`, or `ffplay` (likely already installed). Windows needs nothing extra.
 - An API key for **Inworld**, the default voice provider. Create one at platform.inworld.ai (API Keys) and copy the **Base64** credential. To use a different provider, see **[Voice providers](#voice-providers)**.
 
 ## Install
