@@ -218,7 +218,7 @@ Names are letters, digits, `_` and `-`. Saved lines are kept in `data/voicelines
 
 Placeholders are not case-sensitive. If one has nothing to stand for (no target for `<t>`, no pet for `<pet>`), nothing is spoken and chat says why. An unknown placeholder, and `<st>`, which needs you to pick a target on screen, are refused the same way, so you never hear "Go, !".
 
-**Auto-translate.** Auto-translate phrases are spoken as their words, so `I need {Healing}` says "I need Healing". This covers the standard phrase list. Items and other kinds of auto-translate entries are left out of the spoken line for now. If a phrase comes out wrong, turn on `//koto debug on`, speak the line again, and look for `custom line` in `data/debug.log`: it shows the raw bytes the game sent.
+**Auto-translate.** Auto-translate phrases and items are spoken as their words, so `I need {Healing}` says "I need Healing" and `{Bone Mittens}` says "Bone Mittens". Other kinds of auto-translate entry, such as key items, are left out of the spoken line for now. If a phrase comes out wrong, turn on `//koto debug on`, speak the line again, and look for `custom line` in `data/debug.log`: it shows the raw bytes the game sent.
 
 **The voice.** Voice lines use the narrator's voice until you change them with `//koto voice @custom`, for example `//koto voice @custom tone=rousing pace=brisk` or `//koto voice @custom voice=onyx`. Changes to `@custom` affect only your lines, not real narration. `//koto voice @custom reset` brings back the narrator's voice. Your lines aren't affected by `mode`, `narrator off` or the deny list, but `//koto off` silences them and `//koto stop` cuts them off.
 

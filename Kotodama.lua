@@ -428,12 +428,19 @@ local function placeholder_name(key)
     return mob and mob.name or nil
 end
 
--- The words of an auto-translate phrase (resources.auto_translates), or nil.
+-- The words of an auto-translate entry, or nil: a standard phrase
+-- (resources.auto_translates) or an item's short name (resources.items).
+local AT_TABLES = { [voicelines.AT_PHRASE] = 'auto_translates', [voicelines.AT_ITEM] = 'items' }
+
 local function auto_translate_words(kind, id)
-    if kind ~= voicelines.AT_PHRASE or not ok_res then return nil end
-    local ok, entry = pcall(function() return res.auto_translates[id] end)
+    local tbl = AT_TABLES[kind]
+    if not tbl or not ok_res then
+        debug_log('auto-translate type %s id %s not handled', tostring(kind), tostring(id))
+        return nil
+    end
+    local ok, entry = pcall(function() return res[tbl][id] end)
     if not ok or type(entry) ~= 'table' then
-        debug_log('auto-translate id %s not found', tostring(id))
+        debug_log('auto-translate %s id %s not found', tbl, tostring(id))
         return nil
     end
     return entry.en
