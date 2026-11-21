@@ -517,7 +517,7 @@ Non-player creatures and some fixed-model townsfolk carry a model id instead of 
 
 Agentic AI tools help with the design and development of Kotodama. They draft code, tests and documentation, and they help explore design options.
 
-A human reviews all code before it goes into the project. A human also tests each change, with the test suites above and in the game.
+A human reviews all code before it goes into the project. A human also tests each change, with the test suites above and, where possible, in the game.
 
 # Credits
 
