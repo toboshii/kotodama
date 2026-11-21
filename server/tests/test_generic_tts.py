@@ -492,8 +492,21 @@ class ReplicateProviderTests(GenericCase):
     def test_async_prediction_is_polled_by_id_with_cold_boot_notice(self):
         _API.mode = "async"
         _API.polls_needed = 3
+
+        class FrozenClock:
+            """Windows on Python 3.10 ticks every 15.6 ms, so a fast poll can
+            see no time pass. A clock that never moves is the worst case."""
+            now = time.monotonic()
+
+            def monotonic(self):
+                return self.now
+
+            def __getattr__(self, name):
+                return getattr(time, name)
+
         with mock.patch.object(tts_generic, "POLL_EVERY", 0.01), \
-                mock.patch.object(tts_generic, "COLD_NOTICE_AFTER", 0.0):
+                mock.patch.object(tts_generic, "COLD_NOTICE_AFTER", 0.0), \
+                mock.patch.object(tts_generic, "time", FrozenClock()):
             pcm = self.synth(self.provider("minimax-replicate"), "Slow start.")
         polls = [e for e in _API.log if e["method"] == "GET" and e["path"].startswith("/v1/predictions/")]
         self.assertEqual(len(polls), 3)
