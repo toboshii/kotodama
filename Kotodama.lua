@@ -20,6 +20,7 @@ local bridge   = require('lib/bridge')
 local scene    = require('lib/scene')
 local cutscenes = require('lib/cutscenes')
 local speakers = require('lib/speakers')
+local voicelines = require('lib/voicelines')
 
 local ok_res, res = pcall(require, 'resources')
 local zones = ok_res and res and res.zones or {}
@@ -418,6 +419,84 @@ windower.register_event('incoming text', function(original, modified, mode)
     if not ok then debug_log('process_line error: %s', tostring(err)) end
 end)
 
+-- Custom voice lines ---------------------------------------------------------
+
+-- What a placeholder (<t>, <me>, ...) stands for right now, or nil.
+local function placeholder_name(key)
+    if key == 'me' then return player_name() end
+    local mob = windower.ffxi.get_mob_by_target(key)
+    return mob and mob.name or nil
+end
+
+-- The words of an auto-translate entry, or nil: a standard phrase
+-- (resources.auto_translates), an item's short name (resources.items) or a
+-- key item (resources.key_items).
+local AT_TABLES = {
+    [voicelines.AT_PHRASE] = 'auto_translates',
+    [voicelines.AT_ITEM] = 'items',
+    [voicelines.AT_KEY_ITEM] = 'key_items',
+}
+
+local function auto_translate_words(kind, id)
+    local tbl = AT_TABLES[kind]
+    if not tbl or not ok_res then
+        debug_log('auto-translate type %s id %s not handled', tostring(kind), tostring(id))
+        return nil
+    end
+    local ok, entry = pcall(function() return res[tbl][id] end)
+    if not ok or type(entry) ~= 'table' then
+        debug_log('auto-translate %s id %s not found', tbl, tostring(id))
+        return nil
+    end
+    return entry.en
+end
+
+-- Speak text the player asked for (//koto say, //koto line) in the custom
+-- voice: the narrator's until //koto voice @custom changes it. The dialog
+-- filters (mode, narrator, deny, battle) don't apply; //koto off does.
+local function speak_custom(text, label)
+    label = label or 'say'
+    if not settings.enabled then
+        say(label .. ': voiceover is off (//koto on)')
+        return false
+    end
+    -- Auto-translate phrases to their words, the same cleanup as an NPC line
+    -- (markup, glyphs), then placeholders.
+    debug_log('custom line (%s) raw=[%s]', label, hex(text))
+    text = voicelines.auto_translate(text, auto_translate_words)
+    local raw = text
+    pcall(function() raw = windower.to_shift_jis(text) end)
+    local cleaned, err = voicelines.expand(dialog.clean(raw), placeholder_name)
+    if not cleaned then
+        say(label .. ': ' .. err)
+        return false
+    end
+    if not dialog.speakable(cleaned) then
+        say(label .. ': nothing to say')
+        return false
+    end
+    cleaned = cleaned:sub(1, voicelines.MAX_TEXT)
+
+    state.seq = state.seq + 1
+    local zid, zname = zone_info()
+    debug_log('custom line (%s) text=[%s]', label, cleaned)
+    -- narrator = true: an older sidecar that doesn't know the custom role
+    -- still speaks it, as narration.
+    bridge.send({
+        t = 'speak',
+        seq = state.seq,
+        kind = 'custom',
+        mode = 0,
+        timed = false,
+        zone = zid,
+        zone_name = zname,
+        text = cleaned,
+        player = player_name(),
+        speaker = { role = 'custom', narrator = true },
+    })
+    return true
+end
+
 -- Packets: scene tracking and interruption ----------------------------------
 
 -- Zone changes end every scene, and with them who was who.
@@ -528,6 +607,7 @@ end)
 local function initialize()
     load_settings()
     cutscenes.load()
+    voicelines.load()
     state.loaded_at = os.clock()
     state.warned_down = false
     open_link()
@@ -574,6 +654,10 @@ local function show_help()
         '  voice <name|t|last> reset | reinfer | promote',
         '  cutscene | cutscene forget    mark the current/last NPC event as a cutscene (remembered), or undo that',
         '  status | inspect [t] | debug on|off',
+        '  say <text>                    speak the text in the custom voice (placeholders: <me> <t> <bt> <pet> <ft> <lastst>)',
+        '  line <name> | line list       speak a saved line / list them  (macro: /con koto line <name>)',
+        '  line add <name> <text> | line del <name>   save / delete a line',
+        '  voice @custom [key=value ...|reset]   the voice for say and line (the narrator\'s until changed)',
         '  test [event|cutscene|ambient|battle] <Name> : <text>',
     }
     for _, l in ipairs(lines) do windower.add_to_chat(207, l) end
@@ -814,6 +898,52 @@ windower.register_event('addon command', function(command, ...)
         settings.debug = v
         send_config()
         say('debug ' .. (v and 'on (writing to data/debug.log)' or 'off'))
+
+    elseif cmd == 'say' then
+        local text = table.concat({ select(2, unpack(args)) }, ' ')
+        if text == '' then
+            say('usage: //koto say <text>   (in a macro: /con koto say <text>)')
+        else
+            speak_custom(text, 'say')
+        end
+        return
+
+    elseif cmd == 'line' or cmd == 'lines' then
+        local sub = args[2] and args[2]:lower()
+        if sub == nil or sub == 'list' then
+            local names = voicelines.names()
+            if #names == 0 then
+                say('no saved lines. Save one with //koto line add <name> <text>')
+            else
+                say(#names .. ' saved line(s):')
+                for _, n in ipairs(names) do say('  ' .. n .. ': ' .. voicelines.get(n)) end
+            end
+        elseif sub == 'add' then
+            local name = args[3]
+            local text = table.concat({ select(4, unpack(args)) }, ' ')
+            local ok, err = voicelines.set(name, text)
+            if ok then
+                say('saved line ' .. name:lower() .. '. Macro: /con koto line ' .. name:lower())
+            else
+                say('line add: ' .. err .. '. Usage: //koto line add <name> <text>')
+            end
+        elseif sub == 'del' then
+            if not args[3] then
+                say('usage: //koto line del <name>')
+            elseif voicelines.remove(args[3]) then
+                say('deleted line ' .. args[3]:lower())
+            else
+                say('no saved line called ' .. tostring(args[3]))
+            end
+        else
+            local text = voicelines.get(sub)
+            if text then
+                speak_custom(text, 'line ' .. sub)
+            else
+                say('no saved line called ' .. sub .. ' (//koto line list)')
+            end
+        end
+        return
 
     elseif cmd == 'test' then
         local rest = {}

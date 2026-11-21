@@ -356,7 +356,7 @@ class Engine:
 
     def _remember(self, speaker: Speaker, zone: int | None, zone_name: str | None,
                   text: str | None = None) -> None:
-        if not speaker.name or speaker.is_player or speaker.narrator:
+        if not speaker.name or speaker.is_player or speaker.narrator or speaker.role:
             return
         key = speaker.name.lower()
         entry = self._seen.setdefault(key, {"speaker": speaker, "samples": []})
@@ -688,7 +688,17 @@ class Engine:
                 speaker, zone=zone, zone_name=zone_name, samples=None, player=self.player_name,
                 archetype_key=res.archetype, base_profile=res.profile)
 
+    # //koto voice @custom / @narrator / @player: the role, not an NPC so named.
+    ROLE_SPEAKERS = {
+        "@custom": lambda: Speaker(role="custom", narrator=True),
+        "@narrator": lambda: Speaker(narrator=True),
+        "@player": lambda: Speaker(is_player=True),
+    }
+
     def _speaker_for(self, npc: str) -> tuple[Speaker, int | None, str | None, list[str]]:
+        role = self.ROLE_SPEAKERS.get(npc.strip().lower())
+        if role is not None:
+            return role(), None, None, []
         entry = self._seen.get(npc.lower())
         if entry:
             return entry["speaker"], entry.get("zone"), entry.get("zone_name"), list(entry["samples"])
@@ -775,6 +785,11 @@ class Engine:
             self._forget_casting(npc)
             removed = self.lib.reset_override(npc)
             self.say(f"{npc}: overrides cleared" if removed else f"{npc}: no overrides to clear")
+
+        elif name in ("voice_promote", "voice_reinfer") and npc.strip().lower() in self.ROLE_SPEAKERS:
+            action = "promote" if name == "voice_promote" else "reinfer"
+            self.say(f"{npc} is a role, not an NPC: {action} doesn't apply. "
+                     f"Use //koto voice {npc} key=value or //koto voice {npc} reset")
 
         elif name == "voice_promote":
             res = self.resolver.resolve(speaker, zone)

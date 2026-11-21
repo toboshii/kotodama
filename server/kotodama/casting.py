@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from .archetypes import stable_hash
+from .archetypes import is_narration, stable_hash
 from .fsutil import replace_file
 
 log = logging.getLogger("kotodama.voices")
@@ -426,7 +426,7 @@ def score_voice(voice: Voice, profile: dict[str, Any], role: str | None) -> floa
 
 
 def role_for(profile: dict[str, Any], ident: str) -> str | None:
-    if ident.lower() == "@narrator":
+    if is_narration(ident):
         return "narrator"
     if str(profile.get("species") or "").lower() in CREATURE_SPECIES:
         return "creature"

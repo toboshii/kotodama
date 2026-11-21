@@ -20,6 +20,7 @@ import time
 import urllib.parse
 from typing import Any, Callable, Iterator
 
+from .archetypes import is_narration
 from .casting import CastingMemory, VoiceCatalog, cast
 from .config import Config
 from .delivery import speed_for, tag_for, temperament
@@ -137,7 +138,7 @@ class ElevenLabsTTS:
     def voice_settings(self, profile: dict[str, Any], ident: str) -> dict[str, Any]:
         settings = dict(self.base_settings)
         mood = temperament(profile)
-        if ident.lower() == "@narrator":
+        if is_narration(ident):
             settings["stability"] = 0.6
         elif mood == "expressive":
             settings["stability"] = 0.35

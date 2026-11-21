@@ -53,7 +53,11 @@ package.preload['luau'] = function() return true end
 package.preload['resources'] = function()
   return { zones = {[230] = {en = "Southern San d'Oria"}, [235] = {en = 'Bastok Markets'}, [50] = {en = 'Aht Urhgan Whitegate'}},
            races = {[1] = {en = 'Hume M'}, [2] = {en = 'Hume F'}, [4] = {en = 'Elvaan F'}, [5] = {en = 'Tarutaru M'},
-                    [6] = {en = 'Tarutaru F'}, [7] = {en = 'Mithra'}, [8] = {en = 'Galka'}} }
+                    [6] = {en = 'Tarutaru F'}, [7] = {en = 'Mithra'}, [8] = {en = 'Galka'}},
+           auto_translates = {[1286] = {id = 1286, en = 'Healing!'}, [2108] = {id = 2108, en = 'Healing'},
+                              [257] = {id = 257, en = 'Nice to meet you.'}},
+           items = {[12710] = {id = 12710, en = 'Bone Mittens', enl = 'pair of bone mittens'}},
+           key_items = {[1111] = {id = 1111, en = 'Delkfutt Key'}} }
 end
 package.preload['socket'] = function()
   return { udp = function()
@@ -67,6 +71,7 @@ package.preload['socket'] = function()
 end
 
 MOBS_BY_ID, MOBS_BY_NAME, TARGET, ZONE, PLAYER_STATUS = {}, {}, nil, 230, 0
+TARGETS = {}          -- get_mob_by_target(key) for keys other than 't': bt, pet, ft, lastst
 function add_mob(id, name, race, models, spawn_type, distance)
   local m = {id = id, name = name, race = race, models = models, spawn_type = spawn_type or 2,
              distance = distance and distance * distance or nil}     -- Windower reports it squared
@@ -96,7 +101,10 @@ windower = {
     get_mob_by_index = function(i) return MOBS_BY_ID[i] end,
     get_mob_by_name = function(n) return MOBS_BY_NAME[n] end,
     get_mob_array = function() return MOBS_BY_ID end,
-    get_mob_by_target = function() return TARGET end,
+    get_mob_by_target = function(key)
+      if key == nil or key == 't' then return TARGET end
+      return TARGETS[key]
+    end,
   },
 }
 function function_schedule() end
@@ -160,6 +168,11 @@ class Addon:
 
     def set_target(self, mob_id: int | None) -> None:
         self.lua.globals().TARGET = None if mob_id is None else self.lua.globals().MOBS_BY_ID[mob_id]
+
+    def set_target_of(self, key: str, mob_id: int | None) -> None:
+        """What get_mob_by_target(key) returns, for keys other than 't' (bt, pet, ft, lastst)."""
+        g = self.lua.globals()
+        g.TARGETS[key.encode()] = None if mob_id is None else g.MOBS_BY_ID[mob_id]
 
     # -- events -----------------------------------------------------------
 
