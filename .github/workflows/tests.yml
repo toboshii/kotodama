@@ -25,8 +25,8 @@ jobs:
         # The oldest supported version and the newest release.
         python: ["3.10", "3.x"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
       # The runners have no sound card, and test_windows.py plays silence on
@@ -45,8 +45,8 @@ jobs:
     name: Addon (Lua 5.1)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.x"
           cache: pip

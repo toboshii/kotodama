@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build the zip
         run: scripts/build_release.sh "$GITHUB_REF_NAME" dist
       - name: Publish the release
