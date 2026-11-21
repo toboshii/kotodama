@@ -56,7 +56,8 @@ package.preload['resources'] = function()
                     [6] = {en = 'Tarutaru F'}, [7] = {en = 'Mithra'}, [8] = {en = 'Galka'}},
            auto_translates = {[1286] = {id = 1286, en = 'Healing!'}, [2108] = {id = 2108, en = 'Healing'},
                               [257] = {id = 257, en = 'Nice to meet you.'}},
-           items = {[12710] = {id = 12710, en = 'Bone Mittens', enl = 'pair of bone mittens'}} }
+           items = {[12710] = {id = 12710, en = 'Bone Mittens', enl = 'pair of bone mittens'}},
+           key_items = {[1111] = {id = 1111, en = 'Delkfutt Key'}} }
 end
 package.preload['socket'] = function()
   return { udp = function()

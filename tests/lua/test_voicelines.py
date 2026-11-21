@@ -138,13 +138,18 @@ class AutoTranslateTests(unittest.TestCase):
         self.assertEqual(self.said(), ["Healing!"])
 
     def test_unknown_phrase_or_type_is_dropped_not_read_out(self):
-        self.say(b"I", b"need", at(99, 99), b"help", at(8, 60, kind=0x13))
+        self.say(b"I", b"need", at(99, 99), b"help", at(8, 60, kind=0x20))
         self.assertEqual(self.said(), ["I need help"])
 
     def test_item_is_spoken_by_its_short_name(self):
         # Recorded in game: FD 07 02 31 A6 FD is Bone Mittens (item 12710).
         self.say(b"Selling", bytes.fromhex("FD070231A6FD"), b"cheap.")
         self.assertEqual(self.said(), ["Selling Bone Mittens cheap."])
+
+    def test_key_item_is_spoken_by_its_name(self):
+        # Recorded in game: FD 13 02 04 57 FD is the Delkfutt Key (key item 1111).
+        self.say(b"Got", b"the", bytes.fromhex("FD13020457FD") + b"!")
+        self.assertEqual(self.said(), ["Got the Delkfutt Key!"])
 
     def test_unknown_item_is_dropped(self):
         self.say(b"Selling", at(0x7F, 0x7F, kind=7), b"cheap.")

@@ -121,11 +121,13 @@ end
 -- An auto-translate phrase in typed text is 0xFD, type, language, then two
 -- bytes for the id, then 0xFD: id = high * 256 + low, the key into
 -- resources.auto_translates for a standard phrase ("Healing" is 8 * 256 + 60
--- = 2108), or into resources.items for an item (FD 07 02 31 A6 FD is item
--- 12710, Bone Mittens).
+-- = 2108), into resources.items for an item (FD 07 02 31 A6 FD is item
+-- 12710, Bone Mittens), or into resources.key_items for a key item
+-- (FD 13 02 04 57 FD is key item 1111, Delkfutt Key).
 local AT_PATTERN = '\253(.)(.)(.)(.)\253'
 M.AT_PHRASE = 2                   -- the type byte of a standard phrase
 M.AT_ITEM = 7                     -- the type byte of an item
+M.AT_KEY_ITEM = 0x13              -- the type byte of a key item
 
 -- Replace auto-translate phrases with their words. lookup(type, id) returns
 -- the text or nil; a phrase it doesn't know is dropped, never read out as

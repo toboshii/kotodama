@@ -429,8 +429,13 @@ local function placeholder_name(key)
 end
 
 -- The words of an auto-translate entry, or nil: a standard phrase
--- (resources.auto_translates) or an item's short name (resources.items).
-local AT_TABLES = { [voicelines.AT_PHRASE] = 'auto_translates', [voicelines.AT_ITEM] = 'items' }
+-- (resources.auto_translates), an item's short name (resources.items) or a
+-- key item (resources.key_items).
+local AT_TABLES = {
+    [voicelines.AT_PHRASE] = 'auto_translates',
+    [voicelines.AT_ITEM] = 'items',
+    [voicelines.AT_KEY_ITEM] = 'key_items',
+}
 
 local function auto_translate_words(kind, id)
     local tbl = AT_TABLES[kind]
