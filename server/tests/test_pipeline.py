@@ -20,7 +20,7 @@ from kotodama.infer import (InferenceError, InferenceManager, build_schema, pars
 from kotodama.infer_anthropic import AnthropicInferer
 from kotodama.net import UDPServer
 from kotodama.player import Player
-from kotodama.tts_base import VoiceRequest
+from kotodama.tts_base import HTTPStreamer, VoiceRequest
 from kotodama.tts_openai import OpenAITTS, TTSError
 from kotodama.usage import Usage
 
@@ -160,6 +160,36 @@ class TTSClientTests(KotodamaTestCase):
         conn = tts.http._pool[0][0]
         list(tts.stream("b", VoiceRequest("onyx", {"instructions": ""})))
         self.assertIs(tts.http._pool[0][0], conn)
+
+    def test_a_sized_body_read_to_the_end_leaves_the_connection_reusable(self):
+        # Python 3.10's read1() didn't finish a Content-Length response, so
+        # the next request on the pooled connection failed and was sent twice.
+        class Sized(http.server.BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+            posts = 0
+
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers["Content-Length"]))
+                type(self).posts += 1
+                self.send_response(200)
+                self.send_header("Content-Length", "4")
+                self.end_headers()
+                self.wfile.write(b"abcd")
+
+        srv = _Server(("127.0.0.1", 0), Sized)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        http_ = HTTPStreamer(f"http://127.0.0.1:{srv.server_port}", 5)
+        self.addCleanup(http_.close)
+        for _ in range(3):
+            body = b"".join(http_.stream("POST", "/x", b"{}", {}, lambda st, b: TTSError("bad", st), align=False))
+            self.assertEqual(body, b"abcd")
+        self.assertEqual(Sized.posts, 3, "each request reached the server once")
+        self.assertEqual(http_.pooled, 1, "one connection, reused")
 
     def test_early_close_drops_connection(self):
         tts = self.new_tts()
