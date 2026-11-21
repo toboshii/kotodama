@@ -513,6 +513,12 @@ Non-player creatures and some fixed-model townsfolk carry a model id instead of 
   python3 -m venv .venv-lua && .venv-lua/bin/pip install lupa && .venv-lua/bin/python -m unittest discover -s tests/lua
   ```
 
+# AI usage and disclosure
+
+Agentic AI tools help with the design and development of Kotodama. They draft code, tests and documentation, and they help explore design options.
+
+A human reviews all code before it goes into the project. A human also tests each change, with the test suites above and, where possible, in the game.
+
 # Credits
 
 Dialog markup handling is derived from the Balloon addon (Hando, Yuki, Ghosty; BSD-3-Clause).
