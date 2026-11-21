@@ -241,6 +241,7 @@ class Ducker:
         self._release_at: float | None = None
         self._factor = 1.0
         self._streams: dict[Any, list[int]] = {}
+        self._restoring = 0     # restores still setting volumes or removing the state file
         self._keys: dict[Any, str] = {}            # stream id -> identifier stable across runs
         self._stop = False
         self._thread: threading.Thread | None = None
@@ -290,7 +291,8 @@ class Ducker:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             with self._cond:
-                if self._active == 0 and self._factor >= 0.999 and not self._streams:
+                if (self._active == 0 and self._factor >= 0.999 and not self._streams
+                        and not self._restoring):
                     return True
             time.sleep(0.01)
         return False
@@ -417,12 +419,21 @@ class Ducker:
                 self._streams.pop(sid, None)
 
     def _restore_now(self) -> None:
+        # Take the streams under the lock, so the worker and shutdown() can't
+        # both restore them. The volumes and the state file are done outside
+        # it; _restoring keeps settled() waiting until they are.
         with self._cond:
             streams, self._streams = self._streams, {}
             self._factor = 1.0
-        for sid, original in streams.items():
-            self._set_raw(sid, original)
-        self._clear_state()
+            self._restoring += 1
+        try:
+            for sid, original in streams.items():
+                self._set_raw(sid, original)
+            self._clear_state()
+        finally:
+            with self._cond:
+                self._restoring -= 1
+                self._cond.notify_all()
 
     def _set_raw(self, sid: Any, volumes: list[int]) -> bool:
         return self.backend.set_volumes(sid, volumes)
