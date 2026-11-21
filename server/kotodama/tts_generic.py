@@ -338,7 +338,9 @@ class ReplicateClient:
             if time.monotonic() > deadline:
                 self._cancel(pred_id)
                 raise TTSError(f"{adapter.label} took longer than {self.timeout:.0f} s on Replicate", code="timeout")
-            if (pred.get("status") == "starting" and time.monotonic() - started > COLD_NOTICE_AFTER
+            # >= so that a threshold of 0 means "at once", even with a clock
+            # that ticks every 15.6 ms (Windows, Python 3.10).
+            if (pred.get("status") == "starting" and time.monotonic() - started >= COLD_NOTICE_AFTER
                     and adapter.model not in self._cold_noticed):
                 self._cold_noticed.add(adapter.model)
                 self.notify(f"{adapter.label} is starting up on Replicate (cold boot); the first line may take a while")
