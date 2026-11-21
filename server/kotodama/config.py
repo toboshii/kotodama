@@ -192,6 +192,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "library": {
         "file": "library/npcs.json",
+        "defaults": "library/npcs.default.json",
         "packs_dir": "library/packs",
         "overrides": "config/overrides.json",
     },

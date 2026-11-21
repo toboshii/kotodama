@@ -248,5 +248,79 @@ class LibraryTests(KotodamaTestCase):
         self.assertEqual(lib.local, {})
 
 
+class ShippedLibraryTests(KotodamaTestCase):
+    """library/npcs.default.json ships with Kotodama and an upgrade replaces
+    it; library/npcs.json is this install's own and an upgrade never touches it."""
+
+    def setUp(self):
+        super().setUp()
+        cfg = self.make_config()
+        self.shipped = cfg.path("library.defaults")
+        self.shipped.parent.mkdir(parents=True, exist_ok=True)
+        self.write_shipped({"Zeid": {"profile": {"tone": "shipped"}, "meta": {"source": "llm:m",
+                                                                             "sample_lines": ["Hm."]}}})
+        self.cfg = cfg
+
+    def write_shipped(self, npcs):
+        self.shipped.write_text(json.dumps({"format": 1, "npcs": npcs}), encoding="utf-8")
+
+    def make_lib(self):
+        cfg = self.cfg
+        return Library(Archetypes.load(), cfg.path("library.file"), cfg.path("library.packs_dir"),
+                       cfg.path("library.overrides"), save_delay=0.05, defaults_file=self.shipped)
+
+    def test_shipped_entries_are_used_but_never_written(self):
+        lib = self.make_lib()
+        before = self.shipped.read_text(encoding="utf-8")
+        self.assertEqual(lib.lookup("zeid")[0]["tone"], "shipped")
+        self.assertTrue(lib.has_any("Zeid"), "a shipped NPC is not cast again")
+        lib.put("Aaron", {"age": "elderly"}, source="llm:m")
+        lib.note_seen("Zeid", 230, "A new line.")
+        lib.flush(force=True)
+        self.assertEqual(self.shipped.read_text(encoding="utf-8"), before)
+        self.assertEqual(list(json.loads(lib.file.read_text(encoding="utf-8"))["npcs"]), ["Aaron"],
+                         "only this install's entries go in its own file")
+
+    def test_own_and_pack_entries_beat_shipped_ones(self):
+        lib = self.make_lib()
+        lib.packs["zeid"] = {"key": "Zeid", "profile": {"tone": "pack"}, "meta": {"source": "curated"}}
+        self.assertEqual(lib.lookup("zeid")[0]["tone"], "pack")
+        lib.put("Zeid", {"tone": "recast"}, source="llm:m")
+        del lib.packs["zeid"]
+        self.assertEqual(lib.lookup("zeid")[0]["tone"], "recast", "a recast replaces the shipped casting")
+
+    def test_upgrade_adds_new_shipped_entries_and_keeps_ours(self):
+        lib = self.make_lib()
+        lib.put("Aaron", {"age": "elderly"}, source="llm:m")
+        lib.flush()
+        self.write_shipped({"Zeid": {"profile": {"tone": "shipped"}},
+                            "Naji": {"profile": {"tone": "new in this release"}}})
+        again = self.make_lib()
+        self.assertEqual(again.lookup("naji")[0]["tone"], "new in this release")
+        self.assertEqual(again.lookup("aaron")[0]["age"], "elderly")
+
+    def test_export_with_defaults_rebuilds_the_shipped_file(self):
+        lib = self.make_lib()
+        lib.put("Aaron", {"age": "elderly"}, source="llm:m")
+        self.assertEqual(list(lib.export()["npcs"]), ["Aaron"])
+        merged = lib.export(with_defaults=True)["npcs"]
+        self.assertEqual(sorted(merged), ["Aaron", "Zeid"])
+        lib.put("Zeid", {"tone": "recast"}, source="llm:m")
+        self.assertEqual(lib.export(with_defaults=True)["npcs"]["Zeid"]["profile"]["tone"], "recast")
+
+    def test_known_entry_falls_back_to_shipped(self):
+        lib = self.make_lib()
+        self.assertEqual(lib.known_entry("zeid")["meta"]["sample_lines"], ["Hm."])
+        self.assertIsNone(lib.known_entry("nobody"))
+
+    def test_real_shipped_file_is_a_valid_library(self):
+        from kotodama.config import ROOT
+        path = ROOT / "library" / "npcs.default.json"
+        lib = Library(Archetypes.load(), self.tmp / "npcs.json", self.tmp / "packs", self.tmp / "o.json",
+                      defaults_file=path)
+        self.assertGreater(len(lib.defaults), 0)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["format"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

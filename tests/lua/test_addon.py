@@ -345,8 +345,53 @@ class RegistryFileTests(unittest.TestCase):
         self.assertTrue(writes, modes)
         self.assertTrue(all("b" in m for m in writes), modes)
 
+    def _two_layers(self):
+        a = Addon(seed_cutscenes=True)
+        self.addCleanup(a.close)
+        shipped = a.dir / "library" / "cutscenes.default.json"
+        self.shipped_text = shipped.read_text(encoding="utf-8")
+        self.shipped_keys = list(json.loads(self.shipped_text)["events"])
+        return a, shipped
+
+    def test_learning_writes_only_our_own_file(self):
+        # An upgrade replaces the shipped file; what this install learned must
+        # live in a file the upgrade never touches.
+        a, shipped = self._two_layers()
+        a.lua.execute(b"local c = require('lib/cutscenes'); c.load(); c.learn(1, 2, 'x', 'y')")
+        self.assertEqual(shipped.read_text(encoding="utf-8"), self.shipped_text, "shipped file is never written")
+        self.assertEqual(list(a.registry_file()["events"]), ["1:2"], "only our entry is in our file")
+        count = a.lua.eval(b"require('lib/cutscenes').count()")
+        self.assertEqual(count, len(self.shipped_keys) + 1)
+
+    def test_new_shipped_entries_reach_an_existing_install(self):
+        a, shipped = self._two_layers()
+        a.lua.execute(b"local c = require('lib/cutscenes'); c.load(); c.learn(1, 2, 'x', 'y')")
+        data = json.loads(self.shipped_text)
+        data["events"]["3:4"] = {"menu": 4, "npc": "New", "reason": "", "source": "confirmed", "zone": 3}
+        shipped.write_text(json.dumps(data), encoding="utf-8")          # the upgrade
+        lua = a.lua
+        lua.execute(b"require('lib/cutscenes').load()")
+        self.assertTrue(lua.eval(b"require('lib/cutscenes').known(3, 4) ~= nil"), "new shipped entry is used")
+        self.assertTrue(lua.eval(b"require('lib/cutscenes').known(1, 2) ~= nil"), "learned entry survived")
+
+    def test_forgetting_a_shipped_entry_survives_a_reload(self):
+        a, shipped = self._two_layers()
+        zone, menu = map(int, self.shipped_keys[0].split(":"))
+        lua = a.lua
+        lua.execute(f"local c = require('lib/cutscenes'); c.load(); FORGOT = c.forget({zone}, {menu})".encode())
+        self.assertTrue(lua.globals().FORGOT)
+        self.assertEqual(shipped.read_text(encoding="utf-8"), self.shipped_text)
+        self.assertEqual(a.registry_file()["events"][self.shipped_keys[0]]["source"], "forgotten")
+        lua.execute(b"require('lib/cutscenes').load()")
+        self.assertTrue(lua.eval(f"require('lib/cutscenes').known({zone}, {menu}) == nil".encode()))
+        self.assertEqual(lua.eval(b"require('lib/cutscenes').count()"), len(self.shipped_keys) - 1)
+        # Marking it again replaces the marker with a real entry.
+        lua.execute(f"require('lib/cutscenes').learn({zone}, {menu}, 'x', 'manual', 'manual')".encode())
+        self.assertEqual(a.registry_file()["events"][self.shipped_keys[0]]["source"], "manual")
+        self.assertEqual(lua.eval(b"require('lib/cutscenes').count()"), len(self.shipped_keys))
+
     def test_shipped_seed_is_valid(self):
-        seed = json.loads((ROOT / "library" / "cutscenes.json").read_text(encoding="utf-8"))
+        seed = json.loads((ROOT / "library" / "cutscenes.default.json").read_text(encoding="utf-8"))
         self.assertEqual(seed["format"], 1)
         for key, e in seed["events"].items():
             self.assertEqual(key, f"{e['zone']}:{e['menu']}")

@@ -743,7 +743,9 @@ class CliTests(GenericCase):
         cfg_path = self.tmp / "config.json"
         cfg_path.write_text(json.dumps({
             "cache": {"dir": str(self.tmp / "cache")},
-            "library": {"file": str(self.tmp / "lib" / "npcs.json"), "packs_dir": str(self.tmp / "lib" / "packs"),
+            "library": {"file": str(self.tmp / "lib" / "npcs.json"),
+                        "defaults": str(self.tmp / "lib" / "npcs.default.json"),
+                        "packs_dir": str(self.tmp / "lib" / "packs"),
                         "overrides": str(self.tmp / "lib" / "overrides.json")},
             "voice_bank": {"dir": str(self.tmp / "voices")},
             "replicate": {"base_url": f"http://127.0.0.1:{self.api.server_port}", "api_key": TOKEN,
