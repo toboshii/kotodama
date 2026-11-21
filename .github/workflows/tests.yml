@@ -33,7 +33,7 @@ jobs:
       # the real default device. This installs the VB-CABLE virtual device.
       - name: Add a virtual audio device
         if: runner.os == 'Windows'
-        uses: LABSN/sound-ci-helpers@v1.0.4
+        uses: LABSN/sound-ci-helpers@d08c889a7bba7d9b1b059f8f76dac4672ea3a9cf  # v1.0.4
       - name: Check that Windows has an audio output device
         if: runner.os == 'Windows'
         run: python -c "import ctypes, sys; n = ctypes.windll.winmm.waveOutGetNumDevs(); print(n, 'waveOut device(s)'); sys.exit(n == 0)"
