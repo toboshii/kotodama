@@ -29,6 +29,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      # The runners have no sound card, and test_windows.py plays silence on
+      # the real default device. This installs the VB-CABLE virtual device.
+      - name: Add a virtual audio device
+        if: runner.os == 'Windows'
+        uses: LABSN/sound-ci-helpers@v1.0.4
+      - name: Check that Windows has an audio output device
+        if: runner.os == 'Windows'
+        run: python -c "import ctypes, sys; n = ctypes.windll.winmm.waveOutGetNumDevs(); print(n, 'waveOut device(s)'); sys.exit(n == 0)"
       - name: Run the sidecar tests
         working-directory: server
         run: python -m unittest discover -s tests -v
