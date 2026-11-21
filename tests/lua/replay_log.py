@@ -7,7 +7,7 @@ The log's packets, timings and raw text are fed to the real addon in a Lua
 state, and each line's new classification is compared with the one recorded.
 Use it after changing lib/scene.lua to see exactly which lines move.
 
-  --seed   start with the shipped library/cutscenes.json (default: empty, so
+  --seed   start with the shipped library/cutscenes.default.json (default: empty, so
            the heuristics are judged on their own)
   --all    list every line, not only the ones that changed
 """

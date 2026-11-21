@@ -186,7 +186,7 @@ def cmd_library(cfg: Config, args: argparse.Namespace) -> int:
         dest, n = lib.import_pack(Path(args.file))
         print(f"imported {n} NPC profiles -> {dest}")
     elif args.action == "export":
-        data = lib.export(args.source or None)
+        data = lib.export(args.source or None, with_defaults=args.with_defaults)
         out = json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         if args.output:
             Path(args.output).write_text(out, encoding="utf-8")
@@ -196,7 +196,8 @@ def cmd_library(cfg: Config, args: argparse.Namespace) -> int:
     else:
         for entry in sorted(lib.local.values(), key=lambda e: e["key"].lower()):
             print(f"{entry['key']:<28} {entry['meta'].get('source', '?')}")
-        print(f"-- {len(lib.local)} local, {len(lib.packs)} pack, {len(lib.overrides)} override entries")
+        print(f"-- {len(lib.local)} local, {len(lib.packs)} pack, {len(lib.defaults)} shipped, "
+              f"{len(lib.overrides)} override entries")
     return 0
 
 
@@ -374,7 +375,8 @@ def _voices_show(cfg: Config, args: argparse.Namespace, catalog: Any, provider: 
     # cast: show what auto-casting picks, without touching the casting memory
     arch = Archetypes.load()
     if args.npc:
-        lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"))
+        lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"),
+                  defaults_file=cfg.path("library.defaults"))
         resolved = ProfileResolver(arch, lib, provider=provider).resolve(
             Speaker(name=args.npc, race=args.race, creature=args.creature), None)
         targets = [(args.npc, resolved.key, resolved.profile)]
@@ -688,7 +690,8 @@ def _doctor_live(cfg: Config, check, only: str | None = None) -> None:
             print("[info] live test: no provider has a key")
             return
     arch = Archetypes.load()
-    lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"))
+    lib = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"), cfg.path("library.overrides"),
+                  defaults_file=cfg.path("library.defaults"))
     bank = _bank(cfg)
     # Resolved up front, one thread: the library isn't shared across threads.
     profiles = {n: ProfileResolver(arch, lib, provider=n).resolve(LIVE_SPEAKER, None).profile for n in names}
@@ -853,6 +856,9 @@ def main(argv: list[str] | None = None) -> int:
     exp = libsub.add_parser("export", help="write your learned/curated NPC profiles")
     exp.add_argument("-o", "--output")
     exp.add_argument("--source", action="append", help="only entries whose source starts with this (llm, curated, manual)")
+    exp.add_argument("--with-defaults", action="store_true",
+                     help="also include the shipped profiles you have no entry of your own for "
+                          "(to rebuild library/npcs.default.json)")
     libsub.add_parser("list", help="list local library entries")
 
     c = sub.add_parser("cache", help="audio cache maintenance")

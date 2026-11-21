@@ -808,10 +808,12 @@ class Engine:
             if local and not is_learned(local["meta"].get("source")):
                 self.say(f"{npc} has a {local['meta'].get('source')} library entry; remove it first to recast")
                 return
-            if not samples and local:
+            known = self.lib.known_entry(key)
+            if not samples and known:
                 # Sidecar restarted since the NPC last spoke: reuse the lines
-                # stored with the old casting so the new one isn't name-only.
-                stored = local["meta"].get("sample_lines")
+                # stored with the old casting (ours, or the shipped one's) so
+                # the new one isn't name-only.
+                stored = known["meta"].get("sample_lines")
                 samples = [s for s in stored if isinstance(s, str)][:3] if isinstance(stored, list) else []
             self.lib.delete_local(key)
             self._forget_casting(npc)
@@ -898,7 +900,7 @@ class Engine:
         self.say(f"volume {self.volume}% ({level}, peak-limited) | "
                  f"duck {'on' if self.ducker.enabled else 'off'} to {self.ducker.level * 100:.0f}%")
         self.say(f"library: {len(self.lib.local)} local, {len(self.lib.packs)} pack, "
-                 f"{len(self.lib.overrides)} override entries")
+                 f"{len(self.lib.defaults)} shipped, {len(self.lib.overrides)} override entries")
 
     def close(self) -> None:
         self.stop_all()
@@ -974,7 +976,7 @@ def build_engine(cfg: Config, *, tts: Any = None, player: Player | None = None,
                  provider_factory: Callable[[str], Any] | None = None) -> Engine:
     arch = Archetypes.load()
     library = Library(arch, cfg.path("library.file"), cfg.path("library.packs_dir"),
-                      cfg.path("library.overrides"))
+                      cfg.path("library.overrides"), defaults_file=cfg.path("library.defaults"))
     cache = AudioCache(cfg.path("cache.dir"), int(cfg.get("cache.max_mb", 2048)))
     el_price = cfg.get("elevenlabs.price.per_1k_credits")
     if not isinstance(el_price, (int, float)) or isinstance(el_price, bool) or el_price < 0:

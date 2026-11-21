@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # The release workflow runs these before it builds anything.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  python:
+    name: Sidecar (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # The oldest supported version and the newest release.
+        python: ["3.10", "3.x"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      # The runners have no sound card, and test_windows.py plays silence on
+      # the real default device. This installs the VB-CABLE virtual device.
+      - name: Add a virtual audio device
+        if: runner.os == 'Windows'
+        uses: LABSN/sound-ci-helpers@d08c889a7bba7d9b1b059f8f76dac4672ea3a9cf  # v1.0.4
+      - name: Check that Windows has an audio output device
+        if: runner.os == 'Windows'
+        run: python -c "import ctypes, sys; n = ctypes.windll.winmm.waveOutGetNumDevs(); print(n, 'waveOut device(s)'); sys.exit(n == 0)"
+      - name: Run the sidecar tests
+        working-directory: server
+        run: python -m unittest discover -s tests -v
+
+  lua:
+    name: Addon (Lua 5.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: tests/lua/requirements.txt
+      - name: Install lupa
+        run: python -m pip install -r tests/lua/requirements.txt
+      # Without lupa the Lua tests skip and the run still passes. Stop here
+      # instead, so a broken install can't look like a green run.
+      - name: Check that Lua 5.1 is available
+        run: python -c "from lupa.lua51 import LuaRuntime; print(LuaRuntime().eval('_VERSION'))"
+      - name: Run the addon tests
+        run: python -m unittest discover -s tests/lua -v

@@ -126,7 +126,7 @@ class Addon:
         (self.dir / "data").mkdir()
         (self.dir / "library").mkdir()
         if seed_cutscenes:
-            shutil.copy(ROOT / "library" / "cutscenes.json", self.dir / "library" / "cutscenes.json")
+            shutil.copy(ROOT / "library" / "cutscenes.default.json", self.dir / "library" / "cutscenes.default.json")
 
         self.lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
         self.lua.execute(f"package.path = '{ROOT}/?.lua;' .. package.path".encode())

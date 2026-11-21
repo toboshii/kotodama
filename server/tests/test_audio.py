@@ -216,6 +216,29 @@ class DuckerTests(KotodamaTestCase):
         self.assertEqual(pactl.live[1641], [41943, 41943], "restored to the exact original raw values")
         self.assertFalse((self.tmp / "duck.json").exists(), "state file removed once restored")
 
+    def test_settled_waits_for_the_restore_to_finish(self):
+        # The restore sets the volumes and removes the state file after it
+        # clears the ducked streams. settled() must not return in between
+        # (seen on a slow Windows runner as a state file still there).
+        pactl = FakePactl()
+
+        def slow(*args):
+            if args[0] == "set-sink-input-volume":
+                time.sleep(0.05)
+            return pactl(*args)
+
+        d = make_ducker(slow, state_path=self.tmp / "duck.json", attack_ms=0, release_ms=0, hold_ms=0)
+        self.addCleanup(d.shutdown)
+        d.acquire()
+        deadline = time.time() + 3
+        while not (self.tmp / "duck.json").exists() and time.time() < deadline:
+            time.sleep(0.01)
+        time.sleep(0.1)
+        d.release()
+        self.assertTrue(d.settled(3))
+        self.assertEqual(pactl.live[1641], [41943, 41943], "volume back before settled() returns")
+        self.assertFalse((self.tmp / "duck.json").exists(), "state file gone before settled() returns")
+
     def test_ramps_smoothly(self):
         pactl = FakePactl()
         d = make_ducker(pactl, attack_ms=180, release_ms=240)

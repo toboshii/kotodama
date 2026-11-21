@@ -1,0 +1,2 @@
+# Runs the addon under Lua 5.1 for tests/lua. Pinned so CI changes only on purpose.
+lupa==2.8

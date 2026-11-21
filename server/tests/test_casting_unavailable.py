@@ -79,7 +79,8 @@ class CastingUnavailableTests(KotodamaTestCase):
         cfg = self.tmp / "config.json"
         cfg.write_text(json.dumps({
             "cache": {"dir": str(self.tmp / "cache")},
-            "library": {"file": str(self.tmp / "npcs.json"), "packs_dir": str(self.tmp / "packs"),
+            "library": {"file": str(self.tmp / "npcs.json"), "defaults": str(self.tmp / "npcs.default.json"),
+                        "packs_dir": str(self.tmp / "packs"),
                         "overrides": str(self.tmp / "overrides.json")},
             "inference": {"provider": "anthropic"},
         }), encoding="utf-8")

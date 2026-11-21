@@ -178,6 +178,11 @@ class HTTPStreamer:
             raise TTSError(f"TTS stream interrupted: {exc}", code="network") from exc
         finally:
             if reusable:
+                # Python 3.10's read1() doesn't mark a Content-Length body
+                # done when it reaches the end, so the connection would still
+                # hold this response. Its next request would then fail as if
+                # the connection were stale, and be sent a second time.
+                resp.close()
                 self._give_back(conn)
             else:
                 conn.close()

@@ -84,6 +84,7 @@ class KotodamaTestCase(unittest.TestCase):
             "cache": {"dir": str(self.tmp / "cache"), "max_mb": 64, "finish_download_on_stop": True},
             "library": {
                 "file": str(self.tmp / "library" / "npcs.json"),
+                "defaults": str(self.tmp / "library" / "npcs.default.json"),
                 "packs_dir": str(self.tmp / "library" / "packs"),
                 "overrides": str(self.tmp / "config" / "overrides.json"),
             },

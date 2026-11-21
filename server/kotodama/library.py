@@ -1,11 +1,14 @@
 """The shareable NPC voice library, community packs and personal overrides.
 
-library/npcs.json   learned (LLM) and curated profiles; stable, diff-friendly
-                    JSON meant to be shared and merged between players.
+library/npcs.default.json  profiles shipped with Kotodama, read-only. A new
+                    release replaces this file, so nothing of yours goes in it.
+library/npcs.json   what this install learned (LLM) and curated; stable,
+                    diff-friendly JSON meant to be shared and merged between
+                    players. Not shipped, so an upgrade never overwrites it.
 library/packs/*.json  imported libraries from other people, read-only.
 config/overrides.json personal per-NPC settings; always win.
 
-All three use the same envelope:  {"format": 1, "npcs": {<key>: ...}}
+All four use the same envelope:  {"format": 1, "npcs": {<key>: ...}}
 Keys are NPC names, optionally zone-specific as "Name@<zone id>"; the special
 keys "@player" and "@narrator" apply to those roles.
 
@@ -61,9 +64,10 @@ def is_learned(source: Any) -> bool:
 
 class Library:
     def __init__(self, archetypes: Archetypes, file: Path, packs_dir: Path, overrides_file: Path,
-                 save_delay: float = 2.0):
+                 save_delay: float = 2.0, defaults_file: Path | None = None):
         self.arch = archetypes
         self.file = Path(file)
+        self.defaults_file = Path(defaults_file) if defaults_file else None
         self.packs_dir = Path(packs_dir)
         self.overrides_file = Path(overrides_file)
         self.save_delay = save_delay
@@ -74,6 +78,7 @@ class Library:
         self._dirty_overrides = False
         # normalized key -> {"key": display key, "profile": {...}, "meta": {...}}
         self.local: dict[str, dict[str, Any]] = {}
+        self.defaults: dict[str, dict[str, Any]] = {}
         self.packs: dict[str, dict[str, Any]] = {}
         self.overrides: dict[str, dict[str, Any]] = {}
         self.load()
@@ -98,15 +103,17 @@ class Library:
 
     def load(self) -> None:
         with self._lock:
-            self.local, self.packs, self.overrides = {}, {}, {}
-            if self.file.is_file():
+            self.local, self.defaults, self.packs, self.overrides = {}, {}, {}, {}
+            for path, into in ((self.defaults_file, self.defaults), (self.file, self.local)):
+                if not path or not path.is_file():
+                    continue
                 try:
-                    for key, raw in self._load_envelope(self.file).items():
+                    for key, raw in self._load_envelope(path).items():
                         entry = self._entry(key, raw)
                         if entry:
-                            self.local[_norm_key(key)] = entry
+                            into[_norm_key(key)] = entry
                 except (ValueError, OSError) as exc:
-                    log.error("could not read %s: %s", self.file, exc)
+                    log.error("could not read %s: %s", path, exc)
 
             if self.packs_dir.is_dir():
                 for pack in sorted(self.packs_dir.glob("*.json")):
@@ -143,7 +150,8 @@ class Library:
         """Library profile for one normalized key, or None.
 
         Precedence: locally curated/manual > community pack > locally learned
-        (LLM) entry."""
+        (LLM) entry > shipped default. Anything of this install's own, or
+        imported on purpose, beats what ships with Kotodama."""
         with self._lock:
             local = self.local.get(key)
             pack = self.packs.get(key)
@@ -153,12 +161,20 @@ class Library:
                 return pack["profile"], pack["meta"]
             if local:
                 return local["profile"], local["meta"]
+            shipped = self.defaults.get(key)
+            if shipped:
+                return shipped["profile"], shipped["meta"]
         return None
 
     def has_any(self, name: str) -> bool:
         k = _norm_key(name)
         with self._lock:
-            return k in self.local or k in self.packs
+            return k in self.local or k in self.packs or k in self.defaults
+
+    def known_entry(self, key: str) -> dict[str, Any] | None:
+        """This install's entry for a normalized key, else the shipped one."""
+        with self._lock:
+            return self.local.get(key) or self.defaults.get(key)
 
     def override(self, key: str) -> dict[str, Any] | None:
         with self._lock:
@@ -278,12 +294,16 @@ class Library:
 
     # -- sharing ----------------------------------------------------------
 
-    def export(self, sources: list[str] | None = None) -> dict[str, Any]:
+    def export(self, sources: list[str] | None = None, with_defaults: bool = False) -> dict[str, Any]:
         """Envelope of local entries, optionally filtered by meta.source
-        prefix (e.g. ["llm", "curated"])."""
+        prefix (e.g. ["llm", "curated"]). with_defaults also includes the
+        shipped entries this install has no entry of its own for; that is how
+        a maintainer rebuilds library/npcs.default.json."""
         with self._lock:
             npcs = {}
-            for e in self.local.values():
+            entries = dict(self.defaults) if with_defaults else {}
+            entries.update(self.local)
+            for e in entries.values():
                 src = str(e["meta"].get("source", ""))
                 if sources and not any(src.startswith(s) for s in sources):
                     continue
