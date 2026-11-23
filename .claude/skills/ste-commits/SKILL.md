@@ -9,6 +9,10 @@ Write for a tired reader who must understand the change in one pass. Use loose
 STE100: follow the structure rules below, but keep the technical terms the
 change needs (addon, sidecar, placeholder, cache, auto-translate).
 
+After you write the draft, apply the `ste80-humanizer` skill in embedded mode
+(`.claude/skills/ste80-humanizer/SKILL.md`). If the two skills disagree, the
+rules in this file win.
+
 ## Never add attribution
 
 Add no attribution of any kind: no `Co-Authored-By` or `Claude-Session`
