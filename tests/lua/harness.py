@@ -11,7 +11,6 @@ survive untouched.
 from __future__ import annotations
 
 import json
-import shutil
 import tempfile
 from pathlib import Path
 
@@ -118,15 +117,13 @@ def _sjis_to_utf8(data: bytes) -> bytes:
 class Addon:
     """One loaded copy of Kotodama.lua in its own Lua state and scratch directory."""
 
-    def __init__(self, *, seed_cutscenes: bool = False, debug: bool = False, mobs=None):
+    def __init__(self, *, debug: bool = False, mobs=None):
         if LuaRuntime is None:
             raise RuntimeError("lupa is not installed")
         self._tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self._tmp.name)
         (self.dir / "data").mkdir()
         (self.dir / "library").mkdir()
-        if seed_cutscenes:
-            shutil.copy(ROOT / "library" / "cutscenes.default.json", self.dir / "library" / "cutscenes.default.json")
 
         self.lua = LuaRuntime(encoding=None, unpack_returned_tuples=True)
         self.lua.execute(f"package.path = '{ROOT}/?.lua;' .. package.path".encode())
@@ -263,6 +260,3 @@ class Addon:
         path = self.dir / "data" / "debug.log"
         return path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
 
-    def registry_file(self) -> dict | None:
-        path = self.dir / "library" / "cutscenes.json"
-        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None

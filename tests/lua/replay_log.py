@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Replay a recorded data/debug.log through the current scene heuristics.
+"""Replay a recorded data/debug.log through the current scene rules.
 
-    .venv-lua/bin/python tests/lua/replay_log.py data/debug.log [--seed] [--all]
+    .venv-lua/bin/python tests/lua/replay_log.py data/debug.log [--all]
 
 The log's packets, timings and raw text are fed to the real addon in a Lua
 state, and each line's new classification is compared with the one recorded.
 Use it after changing lib/scene.lua to see exactly which lines move.
 
-  --seed   start with the shipped library/cutscenes.default.json (default: empty, so
-           the heuristics are judged on their own)
   --all    list every line, not only the ones that changed
+
+Logs from older versions record some lines as "cutscene". Those are compared
+as "event", which is what that kind became.
 """
 
 from __future__ import annotations
@@ -23,6 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from harness import Addon  # noqa: E402
 
+# Kinds an older addon logged, and what each is called now.
+OLD_KINDS = {"cutscene": "event"}
 TIME = re.compile(r"^(\d\d):(\d\d):(\d\d) (.*)$")
 
 
@@ -70,7 +73,6 @@ def parse(path: Path):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("log", type=Path)
-    ap.add_argument("--seed", action="store_true")
     ap.add_argument("--all", action="store_true")
     args = ap.parse_args()
 
@@ -85,7 +87,7 @@ def main() -> int:
             names[d["speaker"]] = (None if d["race"] == "nil" else int(d["race"]),
                                    None if d["model"] == "nil" else int(d["model"]))
 
-    addon = Addon(seed_cutscenes=args.seed, debug=True, mobs={})
+    addon = Addon(debug=True, mobs={})
     addon.command("narrator", "on")
     addon.command("battle", "on")
     for npc_id, name in ids.items():
@@ -110,7 +112,7 @@ def main() -> int:
         elif kind == "zone":
             addon.zone_out()
         elif kind == "line":
-            old_kinds.append((t, d))
+            old_kinds.append((t, dict(d, old=OLD_KINDS.get(d["old"], d["old"]))))
             addon.line(d["raw"], d["mode"])
 
     # Pair each replayed line with the reason the new run logged for it.
@@ -135,8 +137,7 @@ def main() -> int:
         if d["old"] != new:
             changed[(d["old"], new, reason)] += 1
 
-    print(f"{len(records)} records replayed, {len(old_kinds)} spoken lines, "
-          f"registry: {'shipped seed' if args.seed else 'empty'}\n")
+    print(f"{len(records)} records replayed, {len(old_kinds)} spoken lines\n")
     shown = [r for r in rows if args.all or r[2] != r[3]]
     for t, who, old, new, reason, text in shown:
         hh, mm, ss = t // 3600, t // 60 % 60, t % 60

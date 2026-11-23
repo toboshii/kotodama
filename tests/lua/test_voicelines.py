@@ -30,8 +30,8 @@ class SayTests(unittest.TestCase):
         self.assertEqual(msg["player"], "Adventurer")
 
     def test_dialog_filters_do_not_apply(self):
-        # narrator is off by default; cutscenes-only mode would drop any NPC line.
-        self.a.command("mode", "cutscenes")
+        # narrator is off by default; events mode drops any ambient line.
+        self.a.command("mode", "events")
         self.a.command("narrator", "off")
         self.a.command("say", "Still", "spoken.")
         self.assertEqual([s["text"] for s in self.a.speaks()], ["Still spoken."])

@@ -1,6 +1,6 @@
 # Kotodama
 
-AI voiceover for Final Fantasy XI. Kotodama reads NPC quest and cutscene dialog as it appears in your chat log and speaks it aloud, with a different voice for each kind of character.
+AI voiceover for Final Fantasy XI. Kotodama reads NPC dialog, from quests to cutscenes, as it appears in your chat log and speaks it aloud, with a different voice for each kind of character.
 
 Kotodama is a Windower addon plus a small Python program, the **sidecar**, that runs next to the game and does the speaking.
 
@@ -90,7 +90,7 @@ All commands start with `//koto` (or `//kotodama`).
 | Command | What it does |
 |---|---|
 | `on` / `off` | Turn voiceover on or off |
-| `mode all` / `events` / `cutscenes` | **all**: every NPC line; **events**: only quest dialog and cutscenes; **cutscenes**: only cutscenes |
+| `mode all` / `events` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes), not one-line greetings |
 | `volume <0-400>` | Voice loudness in percent. 100 is normal |
 | `duck <0-100>` | How much of the game's audio is kept while a line is spoken (default 40) |
 | `stop`, `replay` | Stop the current line, or play the last one again |
@@ -163,7 +163,7 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 | Command | What it does |
 |---|---|
 | `on` / `off` | Turn voiceover on or off |
-| `mode all` / `events` / `cutscenes` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes, not one-line ambient chatter); **cutscenes**: only cutscenes |
+| `mode all` / `events` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes, not one-line ambient chatter). See **[Choosing what is spoken](#choosing-what-is-spoken)** |
 | `battle on/off` | Voice battle chatter such as Trusts (default off) |
 | `own on/off` | Voice your own character's lines (default on) |
 | `narrator on/off` | Voice lines with no speaker name (default off). A character the game hasn't introduced yet, shown as `???`, isn't narration: they're always voiced, with one voice for the whole scene, under a name like `??? (243:10191)` (zone and event). Their race comes from their actor in the scene when the game has exactly one `???` with a body nearby. When they're introduced (the same actor or look, or the scene's only `???` while their name is said), they keep that voice. `//koto voice last` adjusts them |
@@ -184,9 +184,8 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 | `line <name>` / `line list` | Speak a saved line / list them |
 | `line add <name> <text>` / `line del <name>` | Save a line (replacing one with that name) / delete one |
 | `voice @custom [key=value ...\|reset]` | Show or change the voice for `say` and `line`. Until changed, it's the narrator's voice |
-| `cutscene` / `cutscene forget` | Mark the NPC event you're in (or just finished) as a cutscene, remembered for next time, or undo that |
 | `status` | Link, mode, event state, cache and estimated cost |
-| `test [event\|cutscene\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
+| `test [event\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
 | `debug on/off`, `inspect [t]` | Write `data/debug.log`; dump the target's fields to `data/inspect.log` |
 
 Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account, e.g. `voice=George`; for a model, any name from `server/kotodama.sh voices list --provider <model>`, e.g. `voice=English_ManWithDeepVoice`.
@@ -484,11 +483,18 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price, voice casting included. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `server/kotodama.sh cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
 
-## Cutscenes
+## Choosing what is spoken
 
-FFXI doesn't flag cutscenes, so Kotodama works them out from what the game sends. Once an event is recognised as a cutscene, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line. A few confirmed entries ship in `library/cutscenes.default.json`, which each release replaces. Your own file is never in a release, so an upgrade keeps what you learned. Both are plain sorted JSON you can share.
+FFXI doesn't mark which events are cutscenes, so Kotodama doesn't try to sort them out. It only puts a line in the smaller group when the game sends a packet that says so. If it is wrong, you hear a line you didn't want, not silence where a line should be.
 
-A cutscene that opens with several lines from the NPC you talked to looks like ordinary dialog until someone else speaks. In `mode cutscenes`, the first viewing of such a scene can therefore lose its opening lines. If you spot a cutscene that Kotodama missed, type `//koto cutscene` during it (or just after) so it's recognised next time. `//koto cutscene forget` undoes that. Forgetting a shipped entry writes a `forgotten` marker into your own file, so it stays forgotten after an upgrade.
+To control what you hear:
+
+- **`mode events`** drops one-line greetings and town criers. The game announces each of these with its own packet. Quest dialog, cutscenes and zone-in scenes are still spoken.
+- **`deny <name>`** silences an NPC everywhere, for example `//koto deny Survival Guide` or `//koto deny *Moogle`. Use `deny t` for your target and `deny last` for the last speaker. `allow` undoes it.
+- **`battle`**, **`narrator`** and **`own`** turn battle chatter, unnamed narration and your own character's lines on or off.
+- **Enter** (or advancing the dialog with a controller) cuts off the line that is playing while `interrupt` is on, which is the default. `//koto stop` always stops it.
+
+`mode cutscenes` was removed. If your saved settings use it, Kotodama changes it to `mode events`. Kotodama no longer reads or writes `library/cutscenes.json`, so you can delete that file.
 
 # Developers
 
@@ -496,22 +502,22 @@ A cutscene that opens with several lines from the NPC you talked to looks like o
 
 Kotodama has two parts:
 
-- **The addon** (`Kotodama.lua`, `lib/`) runs inside Windower. It only listens: it captures dialog lines, works out who is speaking and whether it's a cutscene, and decides whether to voice the line.
+- **The addon** (`Kotodama.lua`, `lib/`) runs inside Windower. It only listens: it captures dialog lines, works out who is speaking and whether the line is part of an NPC event, and decides whether to voice the line.
 - **The sidecar** (`server/`) is a small Python program that runs on your machine outside the game. It holds your API keys, picks the voice, calls the text-to-speech service, caches the audio, and plays it. It is separate because Windower can't stream or stop audio, and a network call inside an addon would freeze the game.
 
 The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed beyond your own machine.
 
-## How cutscenes are detected
+## How dialog is classified
 
-`lib/scene.lua` infers cutscenes from packet flow and from the dialog itself. Inside an NPC event, it's a cutscene if you didn't start it, a second speaker joins, the speaker isn't the NPC you talked to, your own character speaks, or lines auto-advance. Outside an event:
+`lib/scene.lua` follows NPC events from the packets the game sends: `0x032`, `0x033` and `0x034` start an event, `0x052` releases it, and `0x00B` (zone out) ends everything. Each line gets one of these kinds:
 
-- A line right after an NPC-chat packet (`0x036`) is a one-liner such as a shop greeting, and stays **ambient** even though it auto-advances.
-- A line that straggles in just after an event was released stays with that event.
-- Any other speech is a scene the server drove without an event packet, such as a zone-in cutscene, and counts as a **cutscene**.
+- **event**: the line arrives while an event is open, or just after one was released (a late line from that event). Speech that arrives with no event and no NPC-chat packet is also an event. These are scenes the server drives without an event packet, such as zone-in cutscenes.
+- **ambient**: a line right after an NPC-chat packet (`0x036`), such as a shop greeting, or a system-mode line (chat mode 151) outside an event.
+- **battle**: chat mode 142.
 
-**The known gap:** a cutscene that opens with several lines from the NPC you talked to looks exactly like ordinary dialog until someone else speaks (the opening of the Fochacha scene is one). To close it, the first time an event is recognised as a cutscene by a solid signal, its zone and menu id are saved to `library/cutscenes.json`, and every later viewing is a cutscene from its first line.
+Kotodama doesn't try to tell cutscenes from other events. The game has no flag for it, and a filter built on a guess would drop lines without telling you.
 
-With `//koto debug on`, `data/debug.log` records every decision with its reason, the raw bytes of each event-start packet, the player's status at each event start and on each line, and a count of the packets that flew by during each event or untracked scene. If you find a scene that's misclassified, that log is what to look at, and the packet counts are the place to look for a real start-of-cutscene signal.
+With `//koto debug on`, `data/debug.log` records every decision with its reason, the raw bytes of each event-start packet, the player's status at each event start and on each line, and a count of the packets that flew by during each event or untracked scene. If you find a line that's misclassified, that log is what to look at.
 
 `python3 tests/lua/replay_log.py data/debug.log` replays a recorded log through the current rules and lists every line whose classification changed, which is the way to check a tweak against your real sessions.
 
@@ -549,8 +555,6 @@ The sidecar writes only to `library/npcs.json`, which git ignores. To add your l
 ```
 server/kotodama.sh library export --with-defaults -o library/npcs.default.json
 ```
-
-For cutscenes, copy the entries you want from `library/cutscenes.json` into `library/cutscenes.default.json`, keeping it sorted by zone and menu id. Leave out any `forgotten` markers.
 
 # AI usage and disclosure
 

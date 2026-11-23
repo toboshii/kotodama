@@ -18,7 +18,7 @@ def custom_msg(text="For the Crystal!", seq=1, **speaker):
 
 
 def narrator_msg(text="For the Crystal!", seq=1):
-    return {"t": "speak", "seq": seq, "kind": "cutscene", "mode": 150, "text": text, "zone": 230,
+    return {"t": "speak", "seq": seq, "kind": "event", "mode": 150, "text": text, "zone": 230,
             "player": "Adventurer", "speaker": {"narrator": True}}
 
 

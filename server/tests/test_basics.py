@@ -32,7 +32,7 @@ class ProtocolTests(unittest.TestCase):
         sp = protocol.parse_speak({"t": "speak", "seq": 3, "kind": "cutscene", "mode": 150,
                                    "text": "  Hi!  ", "speaker": {"name": "Prishe", "race": 4}})
         self.assertEqual((sp.seq, sp.kind, sp.text, sp.speaker.name, sp.speaker.race),
-                         (3, "cutscene", "Hi!", "Prishe", 4))
+                         (3, "event", "Hi!", "Prishe", 4), "an older addon's cutscene is an event")
         self.assertIsNone(protocol.parse_speak({"text": "   "}))
         self.assertIsNone(protocol.parse_speak({"text": 5}))
         self.assertEqual(protocol.parse_speak({"text": "x", "kind": "weird"}).kind, "ambient")
