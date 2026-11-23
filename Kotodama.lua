@@ -1,4 +1,4 @@
--- Kotodama: AI voiceover for FFXI NPC dialog and cutscenes.
+-- Kotodama: AI voiceover for FFXI NPC dialog.
 --
 -- This addon only *listens*: it captures dialog lines, decides whether they
 -- should be voiced, and hands them to the Kotodama sidecar
@@ -18,7 +18,6 @@ require('luau')
 local dialog   = require('lib/dialog')
 local bridge   = require('lib/bridge')
 local scene    = require('lib/scene')
-local cutscenes = require('lib/cutscenes')
 local speakers = require('lib/speakers')
 local voicelines = require('lib/voicelines')
 
@@ -27,7 +26,7 @@ local zones = ok_res and res and res.zones or {}
 
 local defaults = {
     enabled   = true,
-    mode      = 'all',     -- all | events | cutscenes
+    mode      = 'all',     -- all | events
     battle    = false,     -- voice battle chatter (Trusts etc.)
     own_voice = true,      -- voice your own character's lines
     narrator  = false,     -- voice lines that have no speaker name
@@ -57,7 +56,7 @@ local state = {
     ever_up = false,
 }
 
-local MODES = { all = true, events = true, cutscenes = true }
+local MODES = { all = true, events = true }
 -- Provider names are checked by the sidecar (openai, elevenlabs, and every
 -- model adapter it knows: minimax, chatterbox, kokoro, ...); here only the shape.
 local PROVIDER_NAME = '^[%l%d][%l%d_%-]*$'
@@ -209,7 +208,6 @@ local function skip_reason(kind, name, info)
     if info.is_player and not settings.own_voice then return 'own-voice-off' end
     if info.narrator and not settings.narrator then return 'narrator-off' end
     if denied(name) then return 'denied' end
-    if settings.mode == 'cutscenes' and kind ~= 'cutscene' then return 'mode-cutscenes' end
     if settings.mode == 'events' and kind == 'ambient' then return 'mode-events' end
     return nil
 end
@@ -273,7 +271,7 @@ local function scene_key(ev)
 end
 
 -- Every character the game hasn't introduced yet is "???", so each one is
--- named after its scene instead: one voice for the whole cutscene (and its
+-- named after its scene instead: one voice for the whole scene (and its
 -- replays), rather than one voice for every "???" in the game. Who they
 -- are (race, look) comes from their actor, looked up once per scene so the
 -- voice can't change mid-scene.
@@ -361,7 +359,7 @@ local function process_line(raw, mode, forced_kind)
     end
     if name then state.spoken[name:lower()] = true end
     state.prev_line = { text = text, scene = skey }
-    local kind, reason = scene.classify(mode, name, info, timed)
+    local kind, reason = scene.classify(mode, name)
     if forced_kind then kind = forced_kind end
 
     if reason then
@@ -524,9 +522,9 @@ windower.register_event('incoming chunk', function(id, original)
         if duplicate then
             debug_log('event begin (repeat) packet=0x%03X npc=%s menu=%s', id, tostring(npc_id), tostring(menu))
         else
-            debug_log('event begin packet=0x%03X npc=%s name=%s zone=%s menu=%s initiated=%s known=%s player_status=%s',
+            debug_log('event begin packet=0x%03X npc=%s name=%s zone=%s menu=%s player_status=%s',
                 id, tostring(npc_id), tostring(ev.npc_name), tostring(zid), tostring(menu),
-                tostring(ev.initiated), tostring(ev.reason == 'known-event'), tostring(player_status()))
+                tostring(player_status()))
             debug_log('  begin packet bytes: %s', hex(original:sub(1, 80)))
             if ev.npc_name then
                 local info = speakers.resolve(ev.npc_name, ev)
@@ -536,9 +534,8 @@ windower.register_event('incoming chunk', function(id, original)
     elseif id == 0x052 then
         census_flush('event')
         local old = scene.finish()
-        debug_log('event release (0x052) type=%s lines=%s cutscene=%s reason=%s',
-            tostring(original:byte(5)), old and tostring(old.lines) or '-',
-            old and tostring(old.cutscene) or '-', old and tostring(old.reason) or '-')
+        debug_log('event release (0x052) type=%s lines=%s',
+            tostring(original:byte(5)), old and tostring(old.lines) or '-')
         stop_audio('release')
     elseif id == 0x00B then
         forget_zone()
@@ -555,7 +552,6 @@ end)
 windower.register_event('outgoing chunk', function(id, original)
     census_note('out', id)
     if id == 0x01A or id == 0x036 then
-        scene.on_outgoing(id, original)
         if settings.debug then
             debug_log('outgoing 0x%03X target=%s category=%s', id,
                 tostring(scene.u32(original, 4)), tostring(scene.u16(original, 0x0A)))
@@ -606,7 +602,6 @@ end)
 
 local function initialize()
     load_settings()
-    cutscenes.load()
     voicelines.load()
     state.loaded_at = os.clock()
     state.warned_down = false
@@ -636,7 +631,7 @@ local function show_help()
     local lines = {
         'Kotodama commands (//koto <command>):',
         '  on | off                      enable / disable voiceover',
-        '  mode all|events|cutscenes     what to voice (all dialog / any event / cutscenes only)',
+        '  mode all|events               what to voice (all dialog / NPC events, not one-line chatter)',
         '  battle|own|narrator on|off    battle chatter / your own lines / unnamed narration',
         '  interrupt on|off              new line cuts off the previous one',
         '  prefetch on|off               prepare voices when you target or talk to NPCs',
@@ -652,13 +647,12 @@ local function show_help()
         '  voice <name|t|last> key=value ...   set overrides: gender age species personality',
         '        tone accent pitch pace voice direction  (use _ for spaces, e.g. tone=dry_wit)',
         '  voice <name|t|last> reset | reinfer | promote',
-        '  cutscene | cutscene forget    mark the current/last NPC event as a cutscene (remembered), or undo that',
         '  status | inspect [t] | debug on|off',
         '  say <text>                    speak the text in the custom voice (placeholders: <me> <t> <bt> <pet> <ft> <lastst>)',
         '  line <name> | line list       speak a saved line / list them  (macro: /con koto line <name>)',
         '  line add <name> <text> | line del <name>   save / delete a line',
         '  voice @custom [key=value ...|reset]   the voice for say and line (the narrator\'s until changed)',
-        '  test [event|cutscene|ambient|battle] <Name> : <text>',
+        '  test [event|ambient|battle] <Name> : <text>',
     }
     for _, l in ipairs(lines) do windower.add_to_chat(207, l) end
 end
@@ -707,12 +701,10 @@ local function print_status()
         tostring(settings.interrupt), tostring(settings.prefetch), tostring(settings.debug),
         settings.deny:length()))
     if ev then
-        say(string.format('event: npc=%s cutscene=%s (%s) lines=%d', tostring(ev.npc_name),
-            tostring(ev.cutscene), tostring(ev.reason), ev.lines))
+        say(string.format('event: npc=%s menu=%s lines=%d', tostring(ev.npc_name), tostring(ev.menu), ev.lines))
     else
         say('event: none')
     end
-    say(string.format('%d cutscene events known (library/cutscenes.json)', cutscenes.count()))
     bridge.send({ t = 'cmd', name = 'status' })
 end
 
@@ -728,9 +720,9 @@ local function do_inspect(args)
     else
         local ev = scene.current()
         if ev then
-            say(string.format('event npc=%s id=%s packet=0x%03X menu=%s initiated=%s cutscene=%s (%s)',
-                tostring(ev.npc_name), tostring(ev.npc_id), ev.packet or 0, tostring(ev.menu),
-                tostring(ev.initiated), tostring(ev.cutscene), tostring(ev.reason)))
+            say(string.format('event npc=%s id=%s packet=0x%03X zone=%s menu=%s lines=%d',
+                tostring(ev.npc_name), tostring(ev.npc_id), ev.packet or 0, tostring(ev.zone),
+                tostring(ev.menu), ev.lines))
         else
             say('no active event. Use //koto inspect t to dump the target\'s fields.')
         end
@@ -755,7 +747,7 @@ windower.register_event('addon command', function(command, ...)
             settings.mode = m
             say('mode: ' .. m)
         else
-            say('mode is ' .. settings.mode .. ' (all | events | cutscenes)')
+            say('mode is ' .. settings.mode .. ' (all | events)')
         end
 
     elseif cmd == 'battle' or cmd == 'own' or cmd == 'narrator' or cmd == 'interrupt' or cmd == 'prefetch' then
@@ -871,21 +863,6 @@ windower.register_event('addon command', function(command, ...)
             end
         end
 
-    elseif cmd == 'cutscene' then
-        if args[2] == 'forget' then
-            local target, removed = scene.forget_cutscene()
-            say(target and (removed and ('forgot ' .. tostring(target.npc_name) .. ' (menu ' .. tostring(target.menu) .. ')')
-                or 'that event was not in the cutscene list') or 'no event to forget')
-        else
-            local target, result = scene.mark_cutscene()
-            if target then
-                say(string.format('%s (menu %s) is a cutscene: %s', tostring(target.npc_name),
-                    tostring(target.menu), result))
-            else
-                say(result)
-            end
-        end
-
     elseif cmd == 'status' then
         print_status()
 
@@ -950,7 +927,7 @@ windower.register_event('addon command', function(command, ...)
         local forced
         for i = 2, #args do
             local a = args[i]
-            if i == 2 and (a == 'event' or a == 'cutscene' or a == 'ambient' or a == 'battle') then
+            if i == 2 and (a == 'event' or a == 'ambient' or a == 'battle') then
                 forced = a
             else
                 rest[#rest + 1] = a
@@ -958,7 +935,7 @@ windower.register_event('addon command', function(command, ...)
         end
         local text = table.concat(rest, ' ')
         if text == '' then
-            say('usage: //koto test [event|cutscene|ambient|battle] <Name> : <text>')
+            say('usage: //koto test [event|ambient|battle] <Name> : <text>')
         else
             local raw = text
             pcall(function() raw = windower.to_shift_jis(text) end)

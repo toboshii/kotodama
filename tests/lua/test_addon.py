@@ -1,7 +1,7 @@
-"""Scene / cutscene heuristics and addon behaviour, run against the real Lua.
+"""Scene tracking and addon behaviour, run against the real Lua.
 
 Most scenarios here are lifted from a recorded play session (the NPC names,
-menu ids and packet orderings are real), so a regression in the heuristics
+menu ids and packet orderings are real), so a regression in the scene rules
 shows up as one of those scenes being misclassified.
 """
 
@@ -43,9 +43,12 @@ class SceneTests(unittest.TestCase):
         a.clear_sent()
         a.clock(1000)
 
+    def event_lines(self):
+        return self.a.lua.eval(b"require('lib/scene').current().lines")
+
     # -- zone-in scenes that never send an event packet ---------------------
 
-    def test_zone_in_scene_without_an_event_packet_is_a_cutscene_from_the_start(self):
+    def test_zone_in_scene_without_an_event_packet_is_event_dialog(self):
         """Makki-Chebukki: 31 lines, no 0x032/33/34 and no 0x036 anywhere."""
         a = self.a
         a.zone_out()
@@ -56,7 +59,7 @@ class SceneTests(unittest.TestCase):
                            ("Kukki-Chebukki", "Nah, you're wrong, it's our mom's homeland!")]:
             a.advance(4)
             a.line(f"{name} : {text}\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"] * 5)
+        self.assertEqual(kinds(a), ["event"] * 5)
         self.assertTrue(a.speaks()[0]["speaker"]["narrator"], "the opening line has no speaker")
 
     def test_untracked_scene_classification_is_logged_with_a_reason(self):
@@ -65,7 +68,7 @@ class SceneTests(unittest.TestCase):
         a.zone_out()
         a.advance(15)
         a.line(b"Makki-Chebukki : Oho\x7f1")
-        self.assertIn("scene: untracked-event -> cutscene", a.debug_log())
+        self.assertIn("scene: untracked-event -> event", a.debug_log())
         self.assertIn("packets during untracked scene", a.debug_log())
 
     def test_lines_log_the_players_status(self):
@@ -78,12 +81,12 @@ class SceneTests(unittest.TestCase):
         a.set_status(4)
         a.line(b"Makki-Chebukki : Oho\x7f1")
         line = next(entry for entry in a.debug_log().splitlines() if " line mode=" in entry)
-        self.assertIn("kind=cutscene", line)
+        self.assertIn("kind=event", line)
         self.assertIn(" status=4 ", line)
 
-    # -- one-liners announced by 0x036 are not cutscenes ----------------------
+    # -- one-liners announced by 0x036 are ambient -----------------------------
 
-    def test_shop_greeting_after_npc_chat_is_ambient_not_a_cutscene(self):
+    def test_shop_greeting_after_npc_chat_is_ambient(self):
         """Olwyn / Moogle: a timed mode-144 line right after a 0x036 packet."""
         a = self.a
         a.npc_chat(OLWYN)
@@ -97,7 +100,12 @@ class SceneTests(unittest.TestCase):
         a.npc_chat(OLWYN)
         a.advance(10)
         a.line(b"Makki-Chebukki : Oho\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"], "a line long after the bark is not the bark's")
+        self.assertEqual(kinds(a), ["event"], "a line long after the bark is not the bark's")
+
+    def test_other_chat_modes_outside_an_event_are_ambient(self):
+        a = self.a
+        a.line(b"Ayame : A system-mode line.", mode=151)
+        self.assertEqual(kinds(a), ["ambient"])
 
     # -- lines that straggle in after the release ------------------------------
 
@@ -109,7 +117,7 @@ class SceneTests(unittest.TestCase):
         a.event_option(10, automated=True)
         a.release()
         a.advance(0.2)
-        a.line(b"Igsli : A fair day to you, ma'am! How may I help you?")
+        a.line(b"Igsli : A fair day to you, ma'am! How may I help you?", mode=151)
         self.assertEqual(kinds(a), ["event"])
 
     def test_late_line_window_closes(self):
@@ -118,157 +126,59 @@ class SceneTests(unittest.TestCase):
         a.event_begin(IGSLI, 598, packet=0x034)
         a.release()
         a.advance(10)
-        a.line(b"Igsli : Another line much later")
-        self.assertEqual(kinds(a), ["cutscene"], "no longer attributable to the released event")
+        a.line(b"Igsli : Another line much later", mode=151)
+        self.assertEqual(kinds(a), ["ambient"], "no longer attributable to the released event")
 
     # -- events -------------------------------------------------------------
 
-    def test_ordinary_conversation_stays_an_event(self):
+    def test_every_line_of_an_event_is_event_dialog(self):
+        """Whoever speaks and however the lines advance, an event is an event."""
         a = self.a
-        a.talk_to(100)
-        a.event_begin(100, 90)
-        for i in range(5):
-            a.advance(8)
-            a.line(f"Ayame : Line number {i} of ordinary dialog.\x7f1")
-        a.release()
-        self.assertEqual(kinds(a), ["event"] * 5)
-
-    def test_second_speaker_promotes_and_is_remembered(self):
-        """Marin / Ken."""
-        a = self.a
-        a.talk_to(MARIN)
-        a.event_begin(MARIN, 361, packet=0x034)
-        a.line(b"Marin : Are you sure you'll be all right?\x7f1")
+        a.talk_to(FOCHACHA)
+        a.event_begin(FOCHACHA, 39)
+        a.line(b"Fochacha : You're an adventurer, right?\x7f1")
         a.advance(8)
-        a.line(b"Ken : Would you just get off my case?\x7f1")
-        self.assertEqual(kinds(a), ["event", "cutscene"])
+        a.line(b"Topok-Hippok : Mom! Someone ran off with the ingredients!\x7f1")   # a second speaker
+        a.line(b"Fochacha : An auto-advancing line.\x7f4\x01")                    # timed
+        a.line(b"Adventurer : I'll find them.\x7f1")                              # the player speaks
+        a.line(b"Fochacha bows.", mode=15)                                         # an emote
         a.release()
-        saved = a.registry_file()
-        self.assertEqual(saved["events"]["230:361"]["reason"], "multi-speaker")
-        self.assertEqual(saved["events"]["230:361"]["source"], "learned")
+        a.event_begin(MARIN, 361, packet=0x034)                                    # not started by the player
+        a.line(b"Marin : Are you sure you'll be all right?\x7f1")
+        self.assertEqual(kinds(a), ["event"] * len(a.speaks()))
+        self.assertGreaterEqual(len(a.speaks()), 5)
 
-    def test_remembered_cutscene_is_a_cutscene_from_the_first_line(self):
+    def test_nothing_is_written_to_the_library(self):
         a = self.a
         a.talk_to(MARIN)
         a.event_begin(MARIN, 361, packet=0x034)
         a.line(b"Marin : Are you sure?\x7f1")
         a.line(b"Ken : Get off my case.\x7f1")
         a.release()
-        a.advance(60)
-        a.clear_sent()
-
-        a.talk_to(MARIN)
-        a.event_begin(MARIN, 361, packet=0x034)
-        a.line(b"Marin : Are you sure?\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"], "second viewing: correct from line one")
-
-    def test_registry_survives_a_restart(self):
-        a = self.a
-        a.talk_to(MARIN)
-        a.event_begin(MARIN, 361, packet=0x034)
-        a.line(b"Marin : Hi.\x7f1")
-        a.line(b"Ken : Hi.\x7f1")
-        a.release()
-        b = Addon()                                   # fresh Lua state, shared nothing
-        self.addCleanup(b.close)
-        b.add_mob(MARIN, "Marin", 2, [2])
-        (b.dir / "library" / "cutscenes.json").write_text(
-            json.dumps(a.registry_file()), encoding="utf-8")
-        b.fire("load")                                 # re-initialise: reads the file
-        b.command("narrator", "on")
-        b.clear_sent()
-        b.clock(1000)
-        b.talk_to(MARIN)
-        b.event_begin(MARIN, 361, packet=0x034)
-        b.line(b"Marin : Hi.\x7f1")
-        self.assertEqual(kinds(b), ["cutscene"])
-
-    def test_shipped_seed_makes_fochacha_a_cutscene_from_line_one(self):
-        """The first four Fochacha lines look exactly like ordinary dialog."""
-        a = Addon(seed_cutscenes=True)
-        self.addCleanup(a.close)
-        a.set_zone(50)
-        a.add_mob(FOCHACHA, "Fochacha", 6, [0])
-        a.command("narrator", "on")
-        a.clear_sent()
-        a.clock(1000)
-        a.talk_to(FOCHACHA)
-        a.event_begin(FOCHACHA, 39)
-        for text in ["You're an adventurer, right?", "The name's Fochacha.", "My son is at the port now.",
-                     "Oh, speaking of ingredients..."]:
-            a.advance(8)
-            a.line(f"Fochacha : {text}\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"] * 4)
-
-    def test_without_the_seed_fochacha_is_only_caught_when_the_son_appears(self):
-        a = self.a
-        a.set_zone(50)
-        a.talk_to(FOCHACHA)
-        a.event_begin(FOCHACHA, 39)
-        a.line(b"Fochacha : You're an adventurer, right?\x7f1")
-        a.advance(8)
-        a.line(b"Fochacha : My son is at the port.\x7f1")
-        a.advance(8)
-        a.line(b"Topok-Hippok : Mom! Someone ran off with the ingredients!\x7f1")
-        self.assertEqual(kinds(a), ["event", "event", "cutscene"])
-        # ...and that is remembered for next time:
-        self.assertIn("50:39", a.registry_file()["events"])
-
-    def test_the_repeat_conversation_after_the_scene_is_not_a_cutscene(self):
-        """Fochacha menu 46 is a one-line reminder, a different event id."""
-        a = Addon(seed_cutscenes=True)
-        self.addCleanup(a.close)
-        a.set_zone(50)
-        a.add_mob(FOCHACHA, "Fochacha", 6, [0])
-        a.command("narrator", "on")
-        a.clear_sent()
-        a.clock(1000)
-        a.talk_to(FOCHACHA)
-        a.event_begin(FOCHACHA, 46)
-        a.line(b"Fochacha : If you want to know where my son is, he's at the teahouse.\x7f1")
-        self.assertEqual(kinds(a), ["event"])
+        self.assertEqual(list((a.dir / "library").iterdir()), [])
 
     def test_repeated_begin_packet_does_not_reset_the_event(self):
-        """38 of 109 begins in the log were an immediate repeat of the previous one.
-        A timed line promotes the event without touching the registry, so only the
-        event object itself can remember it across the repeat."""
+        """38 of 109 begins in the log were an immediate repeat of the previous one."""
         a = self.a
         a.talk_to(100)
         a.event_begin(100, 90)
-        a.line(b"Ayame : An auto-advancing line.\x7f4\x01")
+        a.line(b"Ayame : A first line.\x7f1")
         a.advance(1)
         a.event_begin(100, 90)                                   # repeat, after a line
         a.advance(1)
-        a.line(b"Ayame : A normal line after the repeat.\x7f1")
-        self.assertEqual(kinds(a), ["cutscene", "cutscene"], "the promotion survived the repeated packet")
+        a.line(b"Ayame : A line after the repeat.\x7f1")
+        self.assertEqual(self.event_lines(), 2, "the repeat kept the event's count")
 
     def test_a_new_event_for_the_same_npc_after_the_window_starts_fresh(self):
         a = self.a
         a.talk_to(100)
         a.event_begin(100, 90)
-        a.line(b"Ayame : An auto-advancing line.\x7f4\x01")
+        a.line(b"Ayame : A first line.\x7f1")
         a.advance(10)                                            # well past the duplicate window
         a.talk_to(100)
         a.event_begin(100, 90)
         a.line(b"Ayame : Fresh conversation.\x7f1")
-        self.assertEqual(kinds(a), ["cutscene", "event"])
-
-    def test_event_not_started_by_the_player_is_a_cutscene_but_not_remembered(self):
-        a = self.a
-        a.event_begin(FOCHACHA, 777)                            # no 0x01A talk before it
-        a.line(b"Fochacha : Something happens.\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"])
-        a.release()
-        self.assertIsNone(a.registry_file(), "weak signals never write to the registry")
-
-    def test_timed_lines_promote_but_are_not_remembered(self):
-        a = self.a
-        a.talk_to(100)
-        a.event_begin(100, 90)
-        a.line(b"Ayame : Auto advancing line.\x7f4\x01")
-        self.assertEqual(kinds(a), ["cutscene"])
-        a.release()
-        self.assertIsNone(a.registry_file())
+        self.assertEqual(self.event_lines(), 1)
 
     def test_battle_chatter_is_never_reclassified(self):
         a = self.a
@@ -277,126 +187,9 @@ class SceneTests(unittest.TestCase):
         a.line(b"Prishe : Get behind me!", mode=142)
         self.assertEqual(kinds(a), ["battle"])
 
-    # -- manual correction -----------------------------------------------------
-
-    def test_manual_cutscene_command_marks_and_remembers_the_event(self):
-        a = self.a
-        a.talk_to(100)
-        a.event_begin(100, 90)
-        a.command("cutscene")
-        a.line(b"Ayame : Now a cutscene.\x7f1")
-        self.assertEqual(kinds(a), ["cutscene"])
-        self.assertEqual(a.registry_file()["events"]["230:90"]["source"], "manual")
-
-    def test_manual_mark_works_just_after_the_event_ended(self):
-        a = self.a
-        a.talk_to(100)
-        a.event_begin(100, 90)
-        a.line(b"Ayame : Hello.\x7f1")
-        a.release()
-        a.command("cutscene")
-        self.assertIn("230:90", a.registry_file()["events"])
-        a.command("cutscene", "forget")
-        self.assertNotIn("230:90", a.registry_file()["events"])
-
-    def test_cutscene_command_without_an_event_explains_itself(self):
-        a = self.a
-        a.command("cutscene")
-        self.assertIn("no event to mark", a.chat()[-1])
-
 
 @unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
-class RegistryFileTests(unittest.TestCase):
-    def test_serialization_is_sorted_and_stable(self):
-        a = Addon()
-        self.addCleanup(a.close)
-        lua = a.lua
-        lua.execute(b"""
-            local c = require('lib/cutscenes')
-            c.load()
-            c.learn(235, 434, 'Shamarhaan', 'speaker-differs', 'learned')
-            c.learn(50, 39, 'Fochacha', 'multi-speaker', 'learned')
-            c.learn(235, 361, 'Marin', 'multi-speaker', 'learned')
-        """)
-        first = (a.dir / "library" / "cutscenes.json").read_text(encoding="utf-8")
-        self.assertEqual(list(json.loads(first)["events"]), ["50:39", "235:361", "235:434"])
-        # load -> add -> remove forces two more saves; the result must match byte for byte.
-        lua.execute(b"local c = require('lib/cutscenes'); c.load(); c.learn(1, 1, 'x', 'y'); c.forget(1, 1)")
-        self.assertEqual((a.dir / "library" / "cutscenes.json").read_text(encoding="utf-8"), first,
-                         "a load/save round trip is byte-identical")
-
-    def test_registry_is_written_in_binary_mode(self):
-        # Windows text mode turns every \n into \r\n, so one learned cutscene
-        # rewrote every line of the tracked file. Linux can't show that, so
-        # check the mode the file is written with.
-        a = Addon()
-        self.addCleanup(a.close)
-        a.lua.execute(b"""
-            MODES = {}
-            local real_open = io.open
-            io.open = function(path, mode) MODES[#MODES + 1] = tostring(mode); return real_open(path, mode) end
-            local c = require('lib/cutscenes')
-            c.load()
-            c.learn(1, 2, 'x', 'y')
-            io.open = real_open
-        """)
-        modes = [m.decode() if isinstance(m, bytes) else m for m in a.lua.globals().MODES.values()]
-        writes = [m for m in modes if "w" in m]
-        self.assertTrue(writes, modes)
-        self.assertTrue(all("b" in m for m in writes), modes)
-
-    def _two_layers(self):
-        a = Addon(seed_cutscenes=True)
-        self.addCleanup(a.close)
-        shipped = a.dir / "library" / "cutscenes.default.json"
-        self.shipped_text = shipped.read_text(encoding="utf-8")
-        self.shipped_keys = list(json.loads(self.shipped_text)["events"])
-        return a, shipped
-
-    def test_learning_writes_only_our_own_file(self):
-        # An upgrade replaces the shipped file; what this install learned must
-        # live in a file the upgrade never touches.
-        a, shipped = self._two_layers()
-        a.lua.execute(b"local c = require('lib/cutscenes'); c.load(); c.learn(1, 2, 'x', 'y')")
-        self.assertEqual(shipped.read_text(encoding="utf-8"), self.shipped_text, "shipped file is never written")
-        self.assertEqual(list(a.registry_file()["events"]), ["1:2"], "only our entry is in our file")
-        count = a.lua.eval(b"require('lib/cutscenes').count()")
-        self.assertEqual(count, len(self.shipped_keys) + 1)
-
-    def test_new_shipped_entries_reach_an_existing_install(self):
-        a, shipped = self._two_layers()
-        a.lua.execute(b"local c = require('lib/cutscenes'); c.load(); c.learn(1, 2, 'x', 'y')")
-        data = json.loads(self.shipped_text)
-        data["events"]["3:4"] = {"menu": 4, "npc": "New", "reason": "", "source": "confirmed", "zone": 3}
-        shipped.write_text(json.dumps(data), encoding="utf-8")          # the upgrade
-        lua = a.lua
-        lua.execute(b"require('lib/cutscenes').load()")
-        self.assertTrue(lua.eval(b"require('lib/cutscenes').known(3, 4) ~= nil"), "new shipped entry is used")
-        self.assertTrue(lua.eval(b"require('lib/cutscenes').known(1, 2) ~= nil"), "learned entry survived")
-
-    def test_forgetting_a_shipped_entry_survives_a_reload(self):
-        a, shipped = self._two_layers()
-        zone, menu = map(int, self.shipped_keys[0].split(":"))
-        lua = a.lua
-        lua.execute(f"local c = require('lib/cutscenes'); c.load(); FORGOT = c.forget({zone}, {menu})".encode())
-        self.assertTrue(lua.globals().FORGOT)
-        self.assertEqual(shipped.read_text(encoding="utf-8"), self.shipped_text)
-        self.assertEqual(a.registry_file()["events"][self.shipped_keys[0]]["source"], "forgotten")
-        lua.execute(b"require('lib/cutscenes').load()")
-        self.assertTrue(lua.eval(f"require('lib/cutscenes').known({zone}, {menu}) == nil".encode()))
-        self.assertEqual(lua.eval(b"require('lib/cutscenes').count()"), len(self.shipped_keys) - 1)
-        # Marking it again replaces the marker with a real entry.
-        lua.execute(f"require('lib/cutscenes').learn({zone}, {menu}, 'x', 'manual', 'manual')".encode())
-        self.assertEqual(a.registry_file()["events"][self.shipped_keys[0]]["source"], "manual")
-        self.assertEqual(lua.eval(b"require('lib/cutscenes').count()"), len(self.shipped_keys))
-
-    def test_shipped_seed_is_valid(self):
-        seed = json.loads((ROOT / "library" / "cutscenes.default.json").read_text(encoding="utf-8"))
-        self.assertEqual(seed["format"], 1)
-        for key, e in seed["events"].items():
-            self.assertEqual(key, f"{e['zone']}:{e['menu']}")
-        self.assertEqual(list(seed["events"]), sorted(seed["events"], key=lambda k: tuple(map(int, k.split(":")))))
-
+class ModelTableTests(unittest.TestCase):
     def test_model_table_names_real_archetypes(self):
         a = Addon()
         self.addCleanup(a.close)
@@ -406,16 +199,6 @@ class RegistryFileTests(unittest.TestCase):
         for model, arch in mapped.items():
             self.assertIn(arch, known, f"model {model} maps to {arch!r}, which the sidecar doesn't know")
         self.assertEqual(mapped[182], "mithra_child")
-
-    def test_corrupt_file_is_ignored(self):
-        a = Addon()
-        self.addCleanup(a.close)
-        (a.dir / "library" / "cutscenes.json").write_text("{ nope", encoding="utf-8")
-        a.fire("load")                      # must not raise
-        a.talk_to(100)
-        a.event_begin(100, 90)
-        a.line(b"Ayame : Hello.\x7f1")
-        self.assertEqual(kinds(a), ["event"])
 
 
 @unittest.skipIf(LuaRuntime is None, "lupa is not installed (pip install lupa)")
@@ -485,7 +268,7 @@ class UnnamedSpeakerTests(unittest.TestCase):
         for s in (first, second):
             self.assertEqual(s["speaker"]["name"], "??? (243:10191)", "one identity for the whole scene")
             self.assertFalse(s["speaker"]["narrator"])
-            self.assertEqual(s["kind"], "cutscene")
+            self.assertEqual(s["kind"], "event")
             self.assertNotIn("race", s["speaker"], "the zone's ??? quest marker is not this character")
             self.assertNotIn("model", s["speaker"])
         self.assertEqual(first["text"], "Hmph! And give me justaru one good reason why your associates won't help "
@@ -656,15 +439,22 @@ class AddonSmokeTests(unittest.TestCase):
     def test_mode_filters(self):
         a = self.a
         a.clear_sent()
-        a.command("mode", "cutscenes")
+        a.command("mode", "events")
+        a.npc_chat(100)
+        a.line(b"Ayame : Welcome!", mode=144)
+        self.assertEqual(a.speaks(), [], "events mode drops a bark")
+        a.advance(5)
         a.talk_to(100)
         a.event_begin(100, 90)
         a.line(b"Ayame : Ordinary dialog.\x7f1")
-        self.assertEqual(a.speaks(), [])
+        self.assertEqual(kinds(a), ["event"])
+        a.release()
         a.command("mode", "all")
         a.advance(5)
-        a.line(b"Ayame : Ordinary dialog again.\x7f1")
-        self.assertEqual(len(a.speaks()), 1)
+        a.npc_chat(100)
+        a.line(b"Ayame : Welcome back!", mode=144)
+        self.assertEqual(kinds(a), ["event", "ambient"])
+
 
     def test_deny_list_with_wildcards_and_stop(self):
         a = self.a
@@ -683,11 +473,11 @@ class AddonSmokeTests(unittest.TestCase):
     def test_test_command_defaults_to_ambient(self):
         a = self.a
         a.clear_sent()
-        a.command("mode", "cutscenes")
+        a.command("mode", "events")
         a.command("test", "Prishe", ":", "hello", "there.")
-        self.assertEqual(a.speaks(), [], "a plain test line is ambient and cutscenes mode filters it")
-        a.command("test", "cutscene", "Prishe", ":", "hello", "there.")
-        self.assertEqual(kinds(a), ["cutscene"])
+        self.assertEqual(a.speaks(), [], "a plain test line is ambient and events mode filters it")
+        a.command("test", "event", "Prishe", ":", "hello", "there.")
+        self.assertEqual(kinds(a), ["event"])
 
     def test_volume_duck_and_voice_commands(self):
         a = self.a
@@ -834,7 +624,8 @@ class AddonSmokeTests(unittest.TestCase):
 
 
 class ReplayLogTests(unittest.TestCase):
-    """replay_log.py reads logs from before and after status= was added."""
+    """replay_log.py reads logs from before and after status= was added, and from
+    before the cutscene kind was removed."""
 
     def test_line_records_parse_with_and_without_the_status_field(self):
         import replay_log
@@ -848,6 +639,7 @@ class ReplayLogTests(unittest.TestCase):
         self.assertEqual(len(records), 2, records)
         self.assertEqual(records[0], records[1])
         self.assertEqual(records[0][2]["raw"], b"Oho\x7f1")
+        self.assertEqual(replay_log.OLD_KINDS[records[0][2]["old"]], "event")
 
 
 if __name__ == "__main__":

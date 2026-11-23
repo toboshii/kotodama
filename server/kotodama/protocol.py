@@ -11,7 +11,9 @@ MAX_DATAGRAM = 16384
 # Speaker roles other than an NPC. "custom": a line the player triggered
 # (//koto say, //koto line), voiced as the narrator until "@custom" is tuned.
 ROLES = ("custom",)
-KINDS = ("ambient", "event", "cutscene", "battle", "custom")
+KINDS = ("ambient", "event", "battle", "custom")
+# An addon from before cutscene detection was removed still sends "cutscene".
+LEGACY_KINDS = {"cutscene": "event"}
 
 
 def decode(data: bytes) -> dict[str, Any] | None:
@@ -94,7 +96,7 @@ def parse_speak(msg: dict[str, Any], max_chars: int = 1500) -> Speak | None:
     text = msg.get("text")
     if not isinstance(text, str) or not text.strip():
         return None
-    kind = msg.get("kind")
+    kind = LEGACY_KINDS.get(msg.get("kind"), msg.get("kind"))
     if kind not in KINDS:
         kind = "ambient"
     return Speak(

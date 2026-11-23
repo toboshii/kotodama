@@ -49,7 +49,7 @@ import fnmatch, sys, zipfile
 
 names = zipfile.ZipFile(sys.argv[1]).namelist()
 required = ["Kotodama/Kotodama.lua", "Kotodama/LICENSE", "Kotodama/server/kotodama_server.py",
-            "Kotodama/library/npcs.default.json", "Kotodama/library/cutscenes.default.json"]
+            "Kotodama/library/npcs.default.json"]
 forbidden = ["*/.git*", "*/.github/*", "*/.claude/*", "Kotodama/CLAUDE.md", "Kotodama/scripts/*",
              "Kotodama/tests/*", "Kotodama/server/tests/*", "*__pycache__*", "*.pyc",
              "Kotodama/server/config.json", "*/kotodama.env",
