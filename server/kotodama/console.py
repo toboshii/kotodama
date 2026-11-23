@@ -1,14 +1,14 @@
 """Single-key controls for the sidecar's terminal: R restarts, Q quits.
 
-Ctrl+C is awkward on the Steam Deck's on-screen keyboard, so when the
+Ctrl+C is awkward on the Steam Deck's on-screen keyboard. So when the
 sidecar runs in the foreground of a terminal, stdin is put in cbreak mode
-(each key arrives without Enter; echo off; Ctrl+C still works) and read on
-a background thread. Under systemd, with stdin redirected, or in the
+and read on a background thread. In cbreak mode each key arrives without
+Enter, echo is off, and Ctrl+C still works. Under systemd, with stdin redirected, or in the
 background (`&`), there is no terminal to own and this does nothing.
 
-On Windows the console is read with msvcrt instead, and there is no exec:
-a restart is the child process exiting with RESTART_EXIT for the small
-supervisor in cli.py to start it again.
+On Windows the console is read with msvcrt instead. Windows has no exec,
+so a restart is the child process exiting with RESTART_EXIT. The small
+supervisor in cli.py then starts it again.
 """
 
 from __future__ import annotations

@@ -15,7 +15,7 @@ Format (systemd EnvironmentFile, plus `export` for shell-style files):
 
 Variables already in the environment win (your shell, or systemd having
 read the file already). Names that came from the file are remembered in
-KOTODAMA_ENV_LOADED, so a restart with R re-reads the file: edited values
+KOTODAMA_ENV_LOADED, so a restart with R re-reads the file. Edited values
 take effect and removed ones disappear, while shell-set ones stay untouched.
 Values are never logged.
 """

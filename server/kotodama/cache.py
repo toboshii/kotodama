@@ -86,7 +86,7 @@ class AudioCache:
             " npc TEXT, zone INTEGER, text TEXT, seconds REAL,"
             " created REAL NOT NULL, last_played REAL NOT NULL, plays INTEGER NOT NULL DEFAULT 0)"
         )
-        # Added for loudness normalization; older caches gain them empty.
+        # Added for loudness normalization. Older caches gain them empty.
         # voice: provider:model:voice of the line; lufs: its measured level.
         have = {row[1] for row in self._db.execute("PRAGMA table_info(audio)")}
         for column in ("voice TEXT", "lufs REAL"):

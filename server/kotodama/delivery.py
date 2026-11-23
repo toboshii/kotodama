@@ -120,8 +120,8 @@ def _plain(text: Any) -> str:
 
 def steering_text(profile: dict[str, Any], limit: int = 200) -> str | None:
     """Acting direction in the form Inworld TTS-2 steers best from: plain
-    lower-case English without punctuation. Age and gender are left out;
-    they come from the voice."""
+    lower-case English without punctuation. Age and gender are left out,
+    because they come from the voice."""
     parts = []
     tone = _plain(profile.get("tone"))
     if tone:

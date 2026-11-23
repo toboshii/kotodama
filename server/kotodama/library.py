@@ -52,9 +52,10 @@ def _norm_key(key: str) -> str:
     return key.strip().lower()
 
 
-# Entries the sidecar worked out for itself, which a community pack outranks
-# and //koto voice reinfer may replace: cast by a model ("llm:<model>"), or
-# carried over from the "???" a character spoke as ("same-as:<identity>").
+# Entries the sidecar worked out for itself. A community pack outranks them,
+# and //koto voice reinfer may replace them. They are either cast by a model
+# ("llm:<model>"), or carried over from the "???" a character spoke as
+# ("same-as:<identity>").
 LEARNED_SOURCES = ("llm", "same-as")
 
 

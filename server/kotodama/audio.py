@@ -39,8 +39,8 @@ class Limiter:
 
     A plain boost distorts as soon as speech peaks hit full scale. This
     limiter instead pulls its gain down quickly when a peak would exceed the
-    ceiling and lets it recover slowly, so the waveform keeps its shape and
-    the whole line simply gets louder. A tanh soft clip catches the few
+    ceiling, and lets it recover slowly. So the waveform keeps its shape and
+    the whole line gets louder. A tanh soft clip catches the few
     samples of overshoot during the attack.
 
     One instance per line: it carries its gain envelope from chunk to chunk.
@@ -215,10 +215,10 @@ class Ducker:
     """Smoothly lowers matching game streams while any line is playing.
 
     acquire()/release() bracket each playing line. The volume drops quickly
-    when a line starts, and rises slowly only after `hold_ms` of silence so a
-    run of lines in a cutscene doesn't pump the music up and down. Original
-    volumes are written to a state file so a crash can't leave the game
-    quiet: the next start (or `audio restore`) puts them back."""
+    when a line starts. It rises slowly, and only after `hold_ms` of silence,
+    so a run of lines in a cutscene doesn't pump the music up and down.
+    Original volumes are written to a state file so a crash can't leave the
+    game quiet. The next start (or `audio restore`) puts them back."""
 
     def __init__(self, *, enabled: bool = True, level: int = 40, match: list[str] | None = None,
                  attack_ms: int = 120, release_ms: int = 700, hold_ms: int = 500,
@@ -303,11 +303,11 @@ class Ducker:
     def restore_stale(self) -> int:
         """Undo a duck left behind by a crashed sidecar.
 
-        Streams are matched by id first, then by their stable identifier:
+        Streams are matched by id first, then by their stable identifier.
         Windows remembers each app's volume, so a game restarted since the
         crash has a new session that came back at the ducked level. Ids go
-        first so that with two copies of the game running (same identifier),
-        each keeps its own volume."""
+        first so that each copy keeps its own volume when two copies of the
+        game run with the same identifier."""
         if not self.state_path or not self.state_path.is_file():
             return 0
         restored = 0

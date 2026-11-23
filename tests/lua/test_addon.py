@@ -1,7 +1,7 @@
 """Scene tracking and addon behaviour, run against the real Lua.
 
-Most scenarios here are lifted from a recorded play session (the NPC names,
-menu ids and packet orderings are real), so a regression in the scene rules
+Most scenarios here are lifted from a recorded play session. The NPC names,
+menu ids and packet orderings are real. So a regression in the scene rules
 shows up as one of those scenes being misclassified.
 """
 

@@ -4,9 +4,10 @@ Per spoken line (one thread each):
   resolve voice profile (optionally waiting briefly for LLM casting)
   -> cache lookup -> stream the cached WAV, or
   -> stream TTS, tee PCM into the player and the cache.
-Both go through the same gain stage (volume + a per-voice loudness gain,
-peak-limited; see loudness.py) and the
-game audio is ducked while a line plays. A new line (when interrupt is on) or a stop message kills the player at once.
+Both go through the same gain stage: volume plus a per-voice loudness gain,
+peak-limited (see loudness.py). The game audio is ducked while a line plays.
+A new line (when interrupt is on) or a stop message kills the player at
+once.
 With cache.finish_download_on_stop the download still completes into the
 cache after a cut-off, because it has already been paid for.
 """
@@ -454,9 +455,9 @@ class Engine:
         return res
 
     def _carry_over(self, sp: Speak, resolver: ProfileResolver, tts: Any) -> None:
-        """A character introduced after speaking as "???" keeps that voice: the
-        "???"'s effective profile, with the voice the active provider gave it,
-        is saved under their name before anything casts them afresh. Not when
+        """A character introduced after speaking as "???" keeps that voice.
+        The "???"'s effective profile, with the voice the active provider gave
+        it, is saved under their name before anything casts them afresh. Not when
         they already have a voice of their own, nor when the game contradicts
         how the "???" was cast (correct beats consistent)."""
         speaker = sp.speaker
@@ -680,7 +681,7 @@ class Engine:
             res = self.resolver.resolve(speaker, zone)
             if res.archetype == "unknown":
                 # No race from the game (a fixed "precomposed" model) and
-                # nothing in the name: casting now would be a guess from the
+                # nothing in the name. Casting now would be a guess from the
                 # name alone, and the first line would join that guess
                 # instead of informing it. Cast when the NPC speaks.
                 return

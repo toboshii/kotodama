@@ -2,15 +2,15 @@
 models on Replicate and servers speaking OpenAI's /v1/audio/speech.
 
 Replicate returns finished audio files, never a stream, so a line is split
-at sentence boundaries: the first sentence is synthesized on its own and
-starts playing while the rest (at most two predictions in flight) are made,
-and the audio is yielded strictly in order. OpenAI-compatible servers stream
-PCM/WAV directly, and so does Inworld, which speaks the same request format;
+at sentence boundaries. The first sentence is synthesized on its own and
+starts playing while the rest (at most two predictions in flight) are made.
+The audio is yielded strictly in order. OpenAI-compatible servers stream
+PCM/WAV directly, and so does Inworld, which speaks the same request format.
 MiniMax and Gemini stream through their own clients.
 
 The Replicate token is only ever sent to the configured API host. Output
-files live on replicate.delivery and are fetched without credentials;
-predictions are polled by id, never via a URL taken from a response.
+files live on replicate.delivery and are fetched without credentials.
+Predictions are polled by id, never via a URL taken from a response.
 """
 
 from __future__ import annotations

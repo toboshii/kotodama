@@ -8,7 +8,7 @@ profile:
     "input": {"text": "{text}", "voice_id": "{voice}", "speed": "{speed}",
               "pitch": "{pitch}", "audio_format": "wav"}
 
-Shipped presets live in server/tts_models.json; the user's config.json
+Shipped presets live in server/tts_models.json. The user's config.json
 "models" section adds new adapters or overrides preset fields by name.
 Each adapter becomes a provider name (//koto provider minimax).
 
@@ -19,8 +19,8 @@ Placeholders:
   words for Inworld), voice_description, seed (stable per
   NPC), reference_audio / reference_text (a voice-bank clip).
 
-A value that is exactly "{name}" keeps its type; an unresolved placeholder
-drops the field so the model's default applies; numbers are clamped to the
+A value that is exactly "{name}" keeps its type. An unresolved placeholder
+drops the field, so the model's default applies. Numbers are clamped to the
 adapter's (or the model schema's) range.
 """
 

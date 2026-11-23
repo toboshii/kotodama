@@ -9,7 +9,7 @@
 -- lamia, ...) and also races, for fixed-model townsfolk (hume_m, taru_f,
 -- mithra_child, child_f, ...). Unmapped models fall back to the sidecar's
 -- name-keyword matching, voice casting from the NPC's lines, and your
--- per-NPC overrides, so this file may stay short; it only saves you from
+-- per-NPC overrides. So this file may stay short. It only saves you from
 -- writing overrides one NPC at a time.
 
 return {
