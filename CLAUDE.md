@@ -13,10 +13,11 @@ Use the `ste80-humanizer` skill (`.claude/skills/ste80-humanizer/SKILL.md`) for 
 - PR titles and descriptions.
 - Review comments, and replies to them.
 - Issue comments and PR comments.
+- Code comments and docstrings. Change only the comment text, never the code around it.
 
 Use these modes:
 
-- When you edit existing documentation, use light mode. Keep the original wording where it is already clear.
+- When you edit existing documentation or code comments, use light mode. Keep the original wording where it is already clear.
 - When you write new text, use the default Humanize mode.
 - For commit messages, PR text and comments, use embedded mode: return only the final text.
 
