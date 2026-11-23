@@ -10,7 +10,7 @@
 
 _addon.name = 'Kotodama'
 _addon.author = 'Toboshii'
-_addon.version = '0.1.0'
+_addon.version = '0.2.0'
 _addon.commands = { 'kotodama', 'koto' }
 
 require('luau')
