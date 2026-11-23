@@ -10,8 +10,8 @@ from .config import Config
 from .infer import SYSTEM_PROMPT, InferenceError, build_user_prompt, parse_result
 
 BETA_FALLBACK = "server-side-fallback-2026-07-01"
-# Models whose safety classifiers can decline a request; for these we opt in
-# to the server-side fallback so a spurious refusal is retried automatically.
+# Models whose safety classifiers can decline a request. For these we opt in
+# to the server-side fallback, so a spurious refusal is retried automatically.
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5", "claude-fable-5-1"}
 
 

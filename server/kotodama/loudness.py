@@ -1,11 +1,11 @@
 """Voice loudness normalization.
 
-TTS voices come out of their models at very different levels: in one real
+TTS voices come out of their models at very different levels. In one real
 cache the median line of the quietest voice measured 19 dB below the loudest,
 while the lines of any one voice stayed within about 1.3 dB of each other. So
-the fix is one steady gain per *voice*, not per line: every voice is brought
-to the same target, and everything within a voice (a whispered line, a
-shouted one, the shape of each line) passes through untouched.
+the fix is one steady gain per *voice*, not per line. Every voice is brought
+to the same target. Everything within a voice (a whispered line, a shouted
+one, the shape of each line) passes through untouched.
 
 LoudnessMeter   streaming ITU-R BS.1770 loudness (K-weighting, 400 ms blocks,
                 absolute and relative gates) of 16-bit mono PCM.
@@ -13,7 +13,7 @@ voice_gain_db   target minus a voice's typical level (the median of its
                 recent lines), clamped.
 LineGain        the gain for one line, chunk by chunk. Usually constant. For a
                 voice heard for the first time it settles slowly toward the
-                level being measured; the optional leveler lifts a line whose
+                level being measured. The optional leveler lifts a line whose
                 level sags well below how it began.
 
 Everything here measures the unscaled model output, which is also what the
@@ -215,7 +215,7 @@ class LineGain:
 
     base_db is the voice's steady gain. With `adapt` (a voice with no
     history), once a second of the line has been heard it moves toward
-    target - measured level at no more than adapt_rate_db_s, staying within
+    target - measured level at no more than adapt_rate_db_s. It stays within
     adapt_range_db of where it started. With a leveler, a line that sags more
     than the deadband below its opening level gets lifted (only lifted, and
     held still through pauses)."""

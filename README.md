@@ -6,9 +6,9 @@ Kotodama is a Windower addon plus a small Python program, the **sidecar**, that 
 
 This README has three parts:
 
-- **[Getting started](#getting-started)**: everything you need to hear voices in game.
-- **[Power users](#power-users)**: every command, the other voice providers, voice casting, loudness, and cost.
-- **[Developers](#developers)**: how it works inside, and how to run the tests.
+- [Getting started](#getting-started): everything you need to hear voices in game.
+- [Power users](#power-users): every command, the other voice providers, voice casting, loudness, and cost.
+- [Developers](#developers): how it works inside, and how to run the tests.
 
 # Getting started
 
@@ -90,7 +90,7 @@ All commands start with `//koto` (or `//kotodama`).
 | Command | What it does |
 |---|---|
 | `on` / `off` | Turn voiceover on or off |
-| `mode all` / `events` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes), not one-line greetings |
+| `mode all` / `events` | **all**: every NPC line. **events**: only NPC events (quest dialog and cutscenes), not one-line greetings |
 | `volume <0-400>` | Voice loudness in percent. 100 is normal |
 | `duck <0-100>` | How much of the game's audio is kept while a line is spoken (default 40) |
 | `stop`, `replay` | Stop the current line, or play the last one again |
@@ -163,14 +163,14 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 | Command | What it does |
 |---|---|
 | `on` / `off` | Turn voiceover on or off |
-| `mode all` / `events` | **all**: every NPC line; **events**: only NPC events (quest dialog and cutscenes, not one-line ambient chatter). See **[Choosing what is spoken](#choosing-what-is-spoken)** |
+| `mode all` / `events` | **all**: every NPC line. **events**: only NPC events (quest dialog and cutscenes, not one-line ambient chatter). See **[Choosing what is spoken](#choosing-what-is-spoken)** |
 | `battle on/off` | Voice battle chatter such as Trusts (default off) |
 | `own on/off` | Voice your own character's lines (default on) |
 | `narrator on/off` | Voice lines with no speaker name (default off). A character the game hasn't introduced yet, shown as `???`, isn't narration: they're always voiced, with one voice for the whole scene, under a name like `??? (243:10191)` (zone and event). Their race comes from their actor in the scene when the game has exactly one `???` with a body nearby. When they're introduced (the same actor or look, or the scene's only `???` while their name is said), they keep that voice. `//koto voice last` adjusts them |
 | `interrupt on/off` | A new line cuts off the previous one (on), or lines queue (off) |
 | `prefetch on/off` | Warm the connection and cast voices when you target or start talking to an NPC, so their first line is quicker (default on). NPCs whose race the game doesn't report are cast from their first line instead |
-| `volume <0-400>` | Voice loudness in percent. 100 is normal; go higher if the voice sits below the game audio (see **[Loudness and ducking](#loudness-and-ducking)**) |
-| `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken; the number is how much of it is kept (default 40) |
+| `volume <0-400>` | Voice loudness in percent. 100 is normal. Go higher if the voice sits below the game audio (see **[Loudness and ducking](#loudness-and-ducking)**) |
+| `duck on/off`, `duck <0-100>` | Lower the game's audio while a line is spoken. The number is how much of it is kept (default 40) |
 | `norm on/off/default` | Even out loudness between voices (see **[Loudness and ducking](#loudness-and-ducking)**). `default` follows `audio.normalize.enabled` in `server/config.json` (on unless changed) |
 | `stop`, `replay` | Playback controls |
 | `provider <name>` / `provider default` | Switch the voice provider live: `inworld`, `elevenlabs`, `openai`, or another model such as `minimax`, `gemini`, `chatterbox-turbo`, `kokoro`. `default` uses `tts.provider` from `server/config.json` |
@@ -186,9 +186,18 @@ On Windows, use `server\kotodama.cmd` in place of `server/kotodama.sh` in every 
 | `voice @custom [key=value ...\|reset]` | Show or change the voice for `say` and `line`. Until changed, it's the narrator's voice |
 | `status` | Link, mode, event state, cache and estimated cost |
 | `test [event\|ambient\|battle] <Name> : <text>` | Push a line through the whole pipeline |
-| `debug on/off`, `inspect [t]` | Write `data/debug.log`; dump the target's fields to `data/inspect.log` |
+| `debug on/off`, `inspect [t]` | Write `data/debug.log`. Dump the target's fields to `data/inspect.log` |
 
-Allowed values: `gender` male/female/neutral; `age` child/young/adult/middle-aged/elderly; `pitch` very low/low/medium/high/very high; `pace` slow/measured/normal/brisk/fast; `voice` one of the active provider's voices: for OpenAI one of alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar; for ElevenLabs any voice name on your account, e.g. `voice=George`; for a model, any name from `server/kotodama.sh voices list --provider <model>`, e.g. `voice=English_ManWithDeepVoice`.
+Allowed values:
+
+- `gender`: male, female, neutral.
+- `age`: child, young, adult, middle-aged, elderly.
+- `pitch`: very low, low, medium, high, very high.
+- `pace`: slow, measured, normal, brisk, fast.
+- `voice`: one of the active provider's voices.
+  - OpenAI: alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer, verse, marin, cedar.
+  - ElevenLabs: any voice name on your account, e.g. `voice=George`.
+  - A model: any name from `server/kotodama.sh voices list --provider <model>`, e.g. `voice=English_ManWithDeepVoice`.
 
 Addon settings (mode, toggles, volume, deny list) are saved in `data/settings.xml`.
 
@@ -234,13 +243,13 @@ Placeholders are not case-sensitive. If one has nothing to stand for (no target 
 
 ## Voice providers
 
-The default voice provider is **Inworld TTS-2** (`inworld`, see **[Inworld](#inworld)** below). Kotodama can also speak through **ElevenLabs**, **OpenAI**, and the models in the sections that follow. Switch any time in game with `//koto provider elevenlabs` / `//koto provider inworld`; the choice is remembered and restored when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To change the default, set `"tts": {"provider": "elevenlabs"}` (or any provider name) in `server/config.json`.
+The default voice provider is **Inworld TTS-2** (`inworld`, see **[Inworld](#inworld)** below). Kotodama can also speak through **ElevenLabs**, **OpenAI**, and the models in the sections that follow. Switch any time in game with `//koto provider elevenlabs` / `//koto provider inworld`. Kotodama remembers the choice and restores it when the sidecar restarts. Each provider keeps its own cached audio, so switching back and forth never re-synthesizes anything. To change the default, set `"tts": {"provider": "elevenlabs"}` (or any provider name) in `server/config.json`.
 
 To add a provider, put its key in **[the key file](#the-key-file)** and press R in the sidecar terminal.
 
 ### OpenAI
 
-**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through. `//koto status` estimates cost at OpenAI's list price for the model in `openai.model` (`gpt-4o-mini-tts`, `tts-1` or `tts-1-hd`); prices for other models go in `openai.prices`.
+**OpenAI** has 13 fixed voices and takes free-text acting directions, so an NPC's age, personality and tone are passed straight through. `//koto status` estimates cost at OpenAI's list price for the model in `openai.model` (`gpt-4o-mini-tts`, `tts-1` or `tts-1-hd`). Prices for other models go in `openai.prices`.
 
 **OpenAI's speech models shut down on 2027-01-06.** Every model on OpenAI's `/v1/audio/speech` endpoint (`gpt-4o-mini-tts`, `tts-1`, `tts-1-hd`) stops working that day, and their replacement only speaks over the Realtime API. Until then, you can use it with `//koto provider openai` or `"tts": {"provider": "openai"}` in `server/config.json`. Kotodama warns when you choose it, `//koto providers` and `providers` mark it, and `doctor` prints the date. A self-hosted server with an OpenAI-style endpoint (see **[Self-hosted and other OpenAI-compatible servers](#self-hosted-and-other-openai-compatible-servers)**) isn't affected.
 
@@ -248,8 +257,8 @@ To add a provider, put its key in **[the key file](#the-key-file)** and press R 
 
 **ElevenLabs** voices belong to your account (the stock voices plus any you add from their library, design or clone), and there are no free-text directions. So:
 
-- **Voices are auto-cast.** The sidecar fetches every voice your account can use and scores each against the NPC's profile: gender, age, and descriptive words from its tone, personality and pitch (a Galka's "deep, gravelly" against a voice described as deep and gravelly, a Tarutaru's "bright, bubbly" against bright and youthful voices). Among the best fits, the NPC's name picks one, so the same NPC always gets the same voice. Once cast, an NPC keeps its voice even if you add voices later; changing its profile (an override, a new LLM description) re-casts it. `//koto voice <npc> reset` re-casts by hand.
-- **Personality goes into the delivery:** speed follows the profile's pace, stability follows temperament (lower for excitable characters, higher for calm ones), and on the v4 models one leading audio tag such as `[excited]` or `[sarcastic]` is added when the profile calls for it. ElevenLabs warns a tag is occasionally read aloud; if you hear one, set `"elevenlabs": {"audio_tags": false}`.
+- **Voices are auto-cast.** The sidecar fetches every voice your account can use and scores each against the NPC's profile: gender, age, and descriptive words from its tone, personality and pitch (a Galka's "deep, gravelly" against a voice described as deep and gravelly, a Tarutaru's "bright, bubbly" against bright and youthful voices). Among the best fits, the NPC's name picks one, so the same NPC always gets the same voice. Once cast, an NPC keeps its voice even if you add voices later. Changing its profile (an override, a new LLM description) re-casts it. `//koto voice <npc> reset` re-casts by hand.
+- **Personality goes into the delivery:** speed follows the profile's pace, and stability follows temperament (lower for excitable characters, higher for calm ones). On the v4 models, one leading audio tag such as `[excited]` or `[sarcastic]` is added when the profile calls for it. ElevenLabs warns that a tag is occasionally read aloud. If you hear one, set `"elevenlabs": {"audio_tags": false}`.
 - **Model:** `eleven_v4_turbo` by default (their recommendation for real-time use). To use a different one, set `elevenlabs.model`.
 
 Setting up ElevenLabs:
@@ -280,8 +289,8 @@ server/kotodama.sh doctor --provider inworld   # time to first audio (one short 
 server/kotodama.sh voices cast --provider inworld
 ```
 
-- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' library voices are left out; widen that with `"inworld": {"voices": {"languages": ["en", "ja"]}}`.
-- `//koto status` estimates cost at Inworld's pay-as-you-go price per character ($25 per million for TTS-2, $15 for Flash). Plans are cheaper; set your own rate with `"models": {"inworld": {"price": {"per_1k_chars": 0.02}}}`.
+- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' library voices are left out. To include them, use `"inworld": {"voices": {"languages": ["en", "ja"]}}`.
+- `//koto status` estimates cost at Inworld's pay-as-you-go price per character ($25 per million for TTS-2, $15 for Flash). Plans are cheaper. Set your own rate with `"models": {"inworld": {"price": {"per_1k_chars": 0.02}}}`.
 - Square brackets in game text are spoken as parentheses, because Inworld treats `[...]` as a hidden instruction.
 - On a regional (Enterprise) plan, set `inworld.base_url` to `https://api.eu.inworld.ai` or `https://api.in.inworld.ai`.
 
@@ -319,7 +328,7 @@ server/kotodama.sh voices cast --provider gemini
 ```
 
 - `gemini-lite` uses Flash-Lite: cheaper, slightly less expressive.
-- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out; widen that with `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
+- The voice list refreshes daily (`//koto voices sync` forces it). Other languages' voices are left out. To include them, use `"gemini": {"voices": {"languages": ["en", "ja"]}}`.
 - Google bills by text and audio tokens. `//koto status` shows the audio tokens per day and estimates cost at Google's Standard-tier list price. Set your own rate with `"models": {"gemini": {"price": {"per_1m_input_tokens": 0.5, "per_1m_output_tokens": 9.0}}}`.
 - Tags like `<laugh>` or `<sigh>` are sound effects in Gemini, so Kotodama never adds them.
 
@@ -342,21 +351,21 @@ Shipped models:
 |---|---|---|
 | `minimax-replicate` | `minimax/speech-2.8-turbo` | MiniMax through Replicate: 62 labelled English voices, real pitch control. With a MiniMax key, `minimax` (above) is the same model and streams |
 | `minimax-replicate-hd` | `minimax/speech-2.8-hd` | The same voices at higher quality, a little slower |
-| `chatterbox-turbo` | `resemble-ai/chatterbox-turbo` | Fast open-source model; preset voices plus cloning from your voice bank |
-| `chatterbox` | `resemble-ai/chatterbox` | Expressive open-source model with emotion intensity; voices come only from your voice bank |
+| `chatterbox-turbo` | `resemble-ai/chatterbox-turbo` | Fast open-source model. Preset voices plus cloning from your voice bank |
+| `chatterbox` | `resemble-ai/chatterbox` | Expressive open-source model with emotion intensity. Voices come only from your voice bank |
 | `kokoro` | `jaaari/kokoro-82m` | Small, cheap open-source model with 26 English voices (a community model, so it can be slow to wake up) |
-| `qwen3` | `qwen/qwen3-tts` | Takes acting directions (tone, character, pace) as text; preset speakers plus cloning from the voice bank |
+| `qwen3` | `qwen/qwen3-tts` | Takes acting directions (tone, character, pace) as text. Preset speakers plus cloning from the voice bank |
 
-**Latency.** Replicate returns finished audio files, not a stream. So each line is split at sentence boundaries: the first sentence is made on its own and starts playing while the rest is made in parallel. Expect the first word a second or two after the line appears, depending on the model. Official models (everything above except Kokoro) are kept warm by Replicate; a community model that hasn't run lately can take a minute to start, and the sidecar says so in chat. Lines are cached like any other provider's, so repeats are instant and free.
+**Latency.** Replicate returns finished audio files, not a stream. So each line is split at sentence boundaries: the first sentence is made on its own and starts playing while the rest is made in parallel. Expect the first word a second or two after the line appears, depending on the model. Replicate keeps official models (everything above except Kokoro) warm. A community model that hasn't run lately can take a minute to start, and the sidecar says so in chat. Lines are cached like any other provider's, so repeats are instant and free.
 
-**Cost.** Replicate bills your account per run. `//koto status` shows characters and compute seconds per model, with a dollar estimate at Replicate's list price: per character for the official models, and per second of T4 GPU time for Kokoro. To use a different rate, set `price` on the model in `server/config.json`, e.g. `"chatterbox": {"price": {"per_1k_chars": 0.02}}` or `"kokoro": {"price": {"per_second": 0.0002}}`. A model you add gets a dollar estimate only once you give it a `price`.
+**Cost.** Replicate bills your account per run. `//koto status` shows characters and compute seconds per model, with a dollar estimate at Replicate's list price. The official models are priced per character, and Kokoro per second of T4 GPU time. To use a different rate, set `price` on the model in `server/config.json`, e.g. `"chatterbox": {"price": {"per_1k_chars": 0.02}}` or `"kokoro": {"price": {"per_second": 0.0002}}`. A model you add gets a dollar estimate only once you give it a `price`.
 
 ### The voice bank (for cloning models)
 
 Original Chatterbox has no preset voices, and Chatterbox Turbo and Qwen3 can also clone. They take a short reference clip of the voice to use. Kotodama keeps these clips in `voices/` (not committed) and casts NPCs to them by their labels:
 
-- **Make some automatically:** `server/kotodama.sh voices design` generates labelled clips for every race and creature with Qwen3-TTS voice design (3 variants each by default, about 70 predictions; it asks before spending). `--only galka,taru_m` and `--variants 2` narrow it down. Re-running only makes what's missing.
-- **Add your own:** drop a 5.5–7.5 second WAV of clean speech in `voices/`, optionally with a same-named `.json` holding `{"name", "gender", "age", "description", "reference_text"}` (the transcript helps Qwen3). Without one, labels are guessed from the file name (`old_man_gruff.wav` = old, male, gruff). Longer clips are trimmed.
+- **Make some automatically:** `server/kotodama.sh voices design` generates labelled clips for every race and creature with Qwen3-TTS voice design (3 variants each by default, about 70 predictions). It asks before spending. `--only galka,taru_m` and `--variants 2` narrow it down. Re-running only makes what's missing.
+- **Add your own:** drop a 5.5 to 7.5 second WAV of clean speech in `voices/`, optionally with a same-named `.json` holding `{"name", "gender", "age", "description", "reference_text"}` (the transcript helps Qwen3). Without one, labels are guessed from the file name (`old_man_gruff.wav` = old, male, gruff). Longer clips are trimmed.
 - `server/kotodama.sh voices bank` lists what's there and why anything was skipped. In game, `//koto voices sync` picks up changes.
 
 ### Adding another model
@@ -380,17 +389,18 @@ Paste the printed adapter into `server/config.json` under `"models"`, adjust it,
 ```
 
 Placeholders:
-- `{text}` and `{voice}`;
-- `{speed}`, from pace;
-- `{pitch}`, through the adapter's `controls.pitch` table;
-- `{emotion}`;
-- `{exaggeration}` and `{cfg_weight}`, from temperament, through `controls`;
-- `{style}`, a short acting direction;
-- `{voice_description}`;
-- `{seed}`, stable per NPC;
-- `{reference_audio}` and `{reference_text}`, from the voice bank.
 
-`input_clone` holds fields that change when the voice is a bank clip (`null` removes a field). `voices` can list voices, name a set from `tts_models.json` (`"@kokoro_en"`), and include `"schema"` (the model's own voice list) and `"bank"`. To change a shipped model, override only what differs, e.g. `"kokoro": {"controls": {"speed": {"normal": 1.1}}}`; `"enabled": false` hides one.
+- `{text}` and `{voice}`
+- `{speed}`, from pace
+- `{pitch}`, through the adapter's `controls.pitch` table
+- `{emotion}`
+- `{exaggeration}` and `{cfg_weight}`, from temperament, through `controls`
+- `{style}`, a short acting direction
+- `{voice_description}`
+- `{seed}`, stable per NPC
+- `{reference_audio}` and `{reference_text}`, from the voice bank
+
+`input_clone` holds fields that change when the voice is a bank clip (`null` removes a field). `voices` can list voices, name a set from `tts_models.json` (`"@kokoro_en"`), and include `"schema"` (the model's own voice list) and `"bank"`. To change a shipped model, override only what differs, e.g. `"kokoro": {"controls": {"speed": {"normal": 1.1}}}`. `"enabled": false` hides one.
 
 ### Self-hosted and other OpenAI-compatible servers
 
@@ -402,7 +412,7 @@ Servers such as Kokoro-FastAPI, Chatterbox TTS servers, or hosted services with 
 }
 ```
 
-Fields: `transport: "openai_compatible"`, `base_url` (including `/v1`), `model`, `voices`, `response_format` (`pcm` or `wav`), an optional `api_key_env`, and `extra` for any additional request fields (same placeholders). A rate limit (429) is retried once before any audio plays, a voice the server says it doesn't have (404) is dropped from casting, and lines over `max_chars` (default 1000) are sent in parts. For a hosted service, add `"price": {"per_1k_chars": ...}` to get a cost estimate in `//koto status`.
+Fields: `transport: "openai_compatible"`, `base_url` (including `/v1`), `model`, `voices`, `response_format` (`pcm` or `wav`), an optional `api_key_env`, and `extra` for any additional request fields (same placeholders). A rate limit (429) is retried once before any audio plays. A voice the server says it doesn't have (404) is dropped from casting. Lines over `max_chars` (default 1000) are sent in parts. For a hosted service, add `"price": {"per_1k_chars": ...}` to get a cost estimate in `//koto status`.
 
 ## How voices are chosen
 
@@ -419,14 +429,14 @@ Each profile is turned into acting direction for the TTS model ("Voice: elderly 
 
 ### Optional voice casting (LLM)
 
-By default (`inference.provider: "none"`) voices come from archetypes plus your overrides. If you set `inference.provider` to `anthropic` or `openai` in `server/config.json`, the first time an unknown NPC speaks (or you target one, or start an event with them) the model is asked once to describe how they should sound. The answer is validated against a strict schema and saved to `library/npcs.json`; it's never requested again for that NPC. The first line waits up to `wait_ms` (2.5 s) for the answer, then falls back to the archetype voice so dialog is never delayed much. NPCs the game gives no race for (story characters with a fixed "precomposed" model) wait up to `unknown_wait_ms` (8 s) instead: their only stand-in is a genderless voice, and the casting would replace it from their second line on.
+By default (`inference.provider: "none"`) voices come from archetypes plus your overrides. You can set `inference.provider` to `anthropic` or `openai` in `server/config.json`. Then the model is asked once to describe how an unknown NPC should sound. This happens the first time the NPC speaks, you target them, or you start an event with them. The answer is validated against a strict schema and saved to `library/npcs.json`. It's never requested again for that NPC. The first line waits up to `wait_ms` (2.5 s) for the answer, then falls back to the archetype voice so dialog is never delayed much. NPCs the game gives no race for (story characters with a fixed "precomposed" model) wait up to `unknown_wait_ms` (8 s) instead. Their only stand-in is a genderless voice, and the casting would replace it from their second line on.
 
 - For `anthropic`, install the SDK in a virtual environment.
   - Linux: `python3 -m venv server/.venv && server/.venv/bin/pip install anthropic`. `kotodama.sh` uses `server/.venv` automatically when it exists.
   - Windows: `py -3 -m venv server\.venv`, then `server\.venv\Scripts\pip install anthropic`. `kotodama.cmd` uses `server\.venv` automatically when it exists.
 - Without the SDK or the API key, the sidecar runs with casting off and says why: in game when the addon connects, in `//koto status`, and in `doctor`.
 - Casting is throttled (`max_per_minute`) and a failed NPC is not retried for ten minutes.
-- `//koto status` counts the tokens each casting call uses and estimates the cost at the model's list price. `inference.prices` has the current Claude models and `gpt-4o-mini`; add an entry for another model, e.g. `"inference": {"prices": {"my-model": {"per_1m_input_tokens": 1.0, "per_1m_output_tokens": 4.0}}}`. A model without one is shown in tokens only.
+- `//koto status` counts the tokens each casting call uses and estimates the cost at the model's list price. `inference.prices` has the current Claude models and `gpt-4o-mini`. Add an entry for another model, e.g. `"inference": {"prices": {"my-model": {"per_1m_input_tokens": 1.0, "per_1m_output_tokens": 4.0}}}`. A model without one is shown in tokens only.
 
 ### Sharing a library
 
@@ -447,11 +457,11 @@ Imported packs beat your learned (LLM) entries but not your curated ones, and yo
 
 ## Loudness and ducking
 
-**Loudness.** Voices come out of the TTS models at very different levels: one voice can sit 15–20 dB below another, while the lines of any one voice stay within a dB or two of each other. So the sidecar measures every line (in LUFS, the broadcast loudness scale) and gives each *voice* one steady gain that brings its typical line to `audio.normalize.target_lufs` (default −13). A voice is its provider, model and voice, so lines styled to be whispered or shouted are still the same voice: a whisper stays a whisper, a shout stays a shout, and the rise and fall within a line is untouched. `//koto volume` scales on top: 100 is the normalized baseline, 200 is twice as loud again, up to 400. A peak limiter lowers its gain on loud passages instead of clipping them.
+**Loudness.** Voices come out of the TTS models at very different levels. One voice can sit 15 to 20 dB below another, while the lines of any one voice stay within a dB or two of each other. So the sidecar measures every line in LUFS, the broadcast loudness scale. Then it gives each *voice* one steady gain that brings its typical line to `audio.normalize.target_lufs` (default −13). A voice is its provider, model and voice, so lines styled to be whispered or shouted are still the same voice. A whisper stays a whisper, a shout stays a shout, and the rise and fall within a line is untouched. `//koto volume` scales on top: 100 is the normalized baseline, 200 is twice as loud again, up to 400. A peak limiter lowers its gain on loud passages instead of clipping them.
 
 - **A voice's level** is the median of its last 20 lines that are a second or longer (`voice_window`), so the odd whisper or shout doesn't move it. Boosts stop at +15 dB and cuts at −10 dB (`max_boost_db`, `max_cut_db`).
-- **A voice heard for the first time** starts from the typical level of other voices on the same model (or, with nothing measured yet, the fixed `audio.makeup_db` boost of +9 dB). During that first line its gain settles toward the target, at most 2 dB per second and within 6 dB of where it started (`first_line_adapt`). From its second line on the gain is steady. This adds no delay. If you'd rather a new voice's first line start at the right level, `lookahead_ms` (e.g. 500) holds back that much of the first line to measure it first; this delays only first lines of new voices, by exactly that amount.
-- **Lines that sag partway through** can be lifted by the leveler (`leveler.enabled`, off by default). It compares the last 3 seconds of speech with the line's opening, ignores a sag of up to 2 dB, lifts at most `leveler.max_db` (6 dB) at 2 dB per second, never turns anything down, and holds still through pauses. It also lifts a line that trails off on purpose, which is why it's off. `leveler.providers` limits it to some providers (empty: all of them).
+- **A voice heard for the first time** starts from the typical level of other voices on the same model (or, with nothing measured yet, the fixed `audio.makeup_db` boost of +9 dB). During that first line its gain settles toward the target, at most 2 dB per second and within 6 dB of where it started (`first_line_adapt`). From its second line on the gain is steady. This adds no delay. If you'd rather a new voice's first line start at the right level, set `lookahead_ms` (e.g. 500). It holds back that much of the first line to measure it first. This delays only first lines of new voices, by exactly that amount.
+- **Lines that sag partway through** can be lifted by the leveler (`leveler.enabled`, off by default). It compares the last 3 seconds of speech with the line's opening and ignores a sag of up to 2 dB. It lifts at most `leveler.max_db` (6 dB) at 2 dB per second, never turns anything down, and holds still through pauses. It also lifts a line that trails off on purpose, which is why it's off. `leveler.providers` limits it to some providers (empty: all of them).
 - **The cache keeps the unscaled audio** with each line's measured level, so changing any of this never invalidates the cache.
 - **Turning it off:** `//koto norm off`, or `audio.normalize.enabled: false` in `server/config.json`. Every line then gets the fixed `audio.makeup_db` boost. `//koto norm default` goes back to what the config file says.
 - **Checking it:** `//koto voice <name>` shows a voice's measured level and its gain, e.g. `loudness: -24.0 LUFS over 12 line(s) -> +11.0 dB`. With `//koto debug on` the sidecar log shows how each line's gain was picked.
@@ -481,7 +491,7 @@ On Windows (experimental) it lowers FFXI's per-app volume instead, the same slid
 
 ## Cache and cost
 
-Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price, voice casting included. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `server/kotodama.sh cache stats` works without the game; `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
+Every synthesized line is stored in `cache/` (default cap 2 GB, least-recently-played evicted), per provider. Hearing the same line again costs nothing. If you advance past a line before it finishes, the audio is still downloaded into the cache because it's already paid for (`cache.finish_download_on_stop`). `//koto status` shows today's counts with a rough dollar estimate at each provider's list price, voice casting included. For ElevenLabs it also shows characters and estimated credits (`elevenlabs.credits_per_char`, default 0.5 for Flash models and 1 otherwise). Check your plan for the real figures. `server/kotodama.sh cache stats` works without the game. `cache analyze` measures the loudness of any cached line that hasn't been measured yet (`--all` re-measures everything).
 
 ## Choosing what is spoken
 
@@ -517,7 +527,14 @@ The two talk over a local UDP socket on `127.0.0.1:47123`. Nothing is exposed be
 
 Kotodama doesn't try to tell cutscenes from other events. The game has no flag for it, and a filter built on a guess would drop lines without telling you.
 
-With `//koto debug on`, `data/debug.log` records every decision with its reason, the raw bytes of each event-start packet, the player's status at each event start and on each line, and a count of the packets that flew by during each event or untracked scene. If you find a line that's misclassified, that log is what to look at.
+With `//koto debug on`, `data/debug.log` records:
+
+- every decision, with its reason.
+- the raw bytes of each event-start packet.
+- the player's status at each event start and on each line.
+- a count of the packets that flew by during each event or untracked scene.
+
+If you find a line that's misclassified, that log is what to look at.
 
 `python3 tests/lua/replay_log.py data/debug.log` replays a recorded log through the current rules and lists every line whose classification changed, which is the way to check a tweak against your real sessions.
 
@@ -534,7 +551,7 @@ Non-player creatures and some fixed-model townsfolk carry a model id instead of 
   ```
   Without `lupa` these tests are skipped, not failed, so check that the run says more than `skipped`.
 
-GitHub Actions (`.github/workflows/tests.yml`) runs both on every pull request and every push to `main`: the sidecar tests on Linux and Windows with Python 3.10 and the newest Python, and the Lua tests on Linux. The Lua job stops with an error if `lupa` can't load Lua 5.1.
+GitHub Actions (`.github/workflows/tests.yml`) runs both on every pull request and every push to `main`. The sidecar tests run on Linux and Windows with Python 3.10 and the newest Python. The Lua tests run on Linux. The Lua job stops with an error if `lupa` can't load Lua 5.1.
 
 ## Releases
 
@@ -546,7 +563,7 @@ GitHub Actions (`.github/workflows/tests.yml`) runs both on every pull request a
 
 `.github/workflows/release.yml` then runs all the tests, builds `Kotodama-v0.2.0.zip` with a `.sha256` file, and publishes a GitHub release with notes generated from the merged pull requests. If the tag doesn't match both versions, nothing is published. A tag with a hyphen, such as `v0.2.0-rc1`, is published as a prerelease.
 
-The zip holds one `Kotodama/` folder built with `git archive`, so only committed files go in. Anything marked `export-ignore` in `.gitattributes` is left out (tests, CI files, repository tooling), and the build stops if the zip contains files it must not ship, such as a learned library or a key file. To build the same zip locally, run `scripts/build_release.sh` (it writes to `dist/`).
+The zip holds one `Kotodama/` folder built with `git archive`, so only committed files go in. Anything marked `export-ignore` in `.gitattributes` is left out (tests, CI files, repository tooling). The build stops if the zip contains files it must not ship, such as a learned library or a key file. To build the same zip locally, run `scripts/build_release.sh` (it writes to `dist/`).
 
 ### Updating the shipped library
 

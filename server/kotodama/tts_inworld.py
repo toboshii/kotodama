@@ -3,10 +3,14 @@
 Synthesis is OpenAI's request shape, POST {base}/v1/audio/speech with
 response_format "pcm" (raw 16-bit, 24 kHz, sent as it's generated), so it
 shares GenericTTS's OpenAI-compatible code path. What's Inworld's own lives
-here: the key (the Base64 credential from the Inworld portal, sent as
-"Authorization: Basic"), error codes, and the voice library from
-GET {base}/voices/v1/voices, which labels every voice with gender, age group
-and language and includes the workspace's own cloned and designed voices.
+here:
+
+- the key: the Base64 credential from the Inworld portal, sent as
+  "Authorization: Basic".
+- error codes.
+- the voice library from GET {base}/voices/v1/voices. It labels every voice
+  with gender, age group and language, and includes the workspace's own
+  cloned and designed voices.
 
 The key travels only in the Authorization header, never in a URL.
 """

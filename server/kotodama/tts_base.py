@@ -1,9 +1,9 @@
 """Shared pieces for TTS providers.
 
-A provider turns a resolved voice profile into a VoiceRequest (which voice,
+A provider turns a resolved voice profile into a VoiceRequest: which voice,
 which provider-specific options, and a cache tag that captures everything
-about the request that changes the audio), then streams raw 16-bit mono PCM
-for a line of text. HTTPStreamer holds the warm keep-alive connection pool
+about the request that changes the audio. Then it streams raw 16-bit mono
+PCM for a line of text. HTTPStreamer holds the warm keep-alive connection pool
 and the chunked-streaming logic both providers use.
 """
 

@@ -271,10 +271,10 @@ local function scene_key(ev)
 end
 
 -- Every character the game hasn't introduced yet is "???", so each one is
--- named after its scene instead: one voice for the whole scene (and its
--- replays), rather than one voice for every "???" in the game. Who they
--- are (race, look) comes from their actor, looked up once per scene so the
--- voice can't change mid-scene.
+-- named after its scene instead. That gives one voice for the whole scene
+-- (and its replays), rather than one voice for every "???" in the game.
+-- Who they are (race, look) comes from their actor. It is looked up once
+-- per scene, so the voice can't change mid-scene.
 local function unnamed_speaker(shown, ev)
     local skey = scene_key(ev)
     local identity = string.format('%s (%s)', shown, skey)
@@ -301,9 +301,12 @@ local function mentions(text, name)
 end
 
 -- A name speaking for the first time may be a "???" from earlier, now
--- introduced: the same actor, someone who looks exactly the same, or (when
--- either look is unknown) the scene's only "???" while this line or the one
--- before says the name. Returns the "???" identity and why.
+-- introduced. It matches if it is:
+--   * the same actor,
+--   * someone who looks exactly the same, or
+--   * (when either look is unknown) the scene's only "???", while this line
+--     or the one before says the name.
+-- Returns the "???" identity and why.
 local function was_unnamed(name, info, text, skey)
     local in_scene, only = 0, nil
     for _, rec in pairs(state.unnamed) do

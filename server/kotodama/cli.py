@@ -48,7 +48,7 @@ from .voice_bank import DESIGN_TEXT, VoiceBank, design_jobs, save_designed
 def _tolerant_output(streams=None) -> None:
     """Never crash on a character the console can't show. A Windows console
     or a redirected log uses the local code page, which can't encode every
-    NPC or zone name; those characters become escapes instead."""
+    NPC or zone name. Those characters become escapes instead."""
     for stream in streams if streams is not None else (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
