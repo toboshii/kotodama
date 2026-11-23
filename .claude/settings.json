@@ -3,16 +3,5 @@
     "commit": "",
     "pr": "",
     "sessionUrl": false
-  },
-  "extraKnownMarketplaces": {
-    "ste80-humanizer": {
-      "source": {
-        "source": "github",
-        "repo": "Dodaios/ste80-humanizer"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "ste80-humanizer@ste80-humanizer": true
   }
 }
