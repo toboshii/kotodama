@@ -745,10 +745,7 @@ windower.register_event('addon command', function(command, ...)
 
     elseif cmd == 'mode' then
         local m = args[2] and args[2]:lower()
-        if m == 'cutscenes' then
-            settings.mode = 'events'
-            say('cutscenes mode was removed. mode: events (all NPC events, not one-line chatter)')
-        elseif m and MODES[m] then
+        if m and MODES[m] then
             settings.mode = m
             say('mode: ' .. m)
         else

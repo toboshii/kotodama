@@ -455,13 +455,6 @@ class AddonSmokeTests(unittest.TestCase):
         a.line(b"Ayame : Welcome back!", mode=144)
         self.assertEqual(kinds(a), ["event", "ambient"])
 
-    def test_removed_cutscenes_mode_becomes_events(self):
-        a = self.a
-        a.command("mode", "cutscenes")
-        self.assertIn("cutscenes mode was removed", a.chat()[-1])
-        a.command("mode")
-        self.assertIn("mode is events", a.chat()[-1])
-
     def test_saved_cutscenes_mode_loads_as_events(self):
         a = self.a
         a.lua.execute(b"""
