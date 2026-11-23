@@ -94,8 +94,6 @@ local function load_settings()
     if class(settings.deny) ~= 'Set' then
         settings.deny = S{}
     end
-    -- 'cutscenes' mode was removed; 'events' is the nearest to it.
-    if settings.mode == 'cutscenes' then settings.mode = 'events' end
     if not MODES[settings.mode] then settings.mode = 'all' end
     config.save(settings)
 end

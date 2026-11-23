@@ -455,15 +455,6 @@ class AddonSmokeTests(unittest.TestCase):
         a.line(b"Ayame : Welcome back!", mode=144)
         self.assertEqual(kinds(a), ["event", "ambient"])
 
-    def test_saved_cutscenes_mode_loads_as_events(self):
-        a = self.a
-        a.lua.execute(b"""
-            local real = config.load
-            config.load = function(d) local s = real(d); s.mode = 'cutscenes'; return s end
-        """)
-        a.fire("load")
-        a.command("mode")
-        self.assertIn("mode is events", a.chat()[-1])
 
     def test_deny_list_with_wildcards_and_stop(self):
         a = self.a

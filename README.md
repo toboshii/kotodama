@@ -494,7 +494,7 @@ To control what you hear:
 - **`battle`**, **`narrator`** and **`own`** turn battle chatter, unnamed narration and your own character's lines on or off.
 - **Enter** (or advancing the dialog with a controller) cuts off the line that is playing while `interrupt` is on, which is the default. `//koto stop` always stops it.
 
-`mode cutscenes` was removed. If your saved settings use it, Kotodama changes it to `mode events`. Kotodama no longer reads or writes `library/cutscenes.json`, so you can delete that file.
+`mode cutscenes` was removed. If your saved settings use it, Kotodama loads `mode all`. Kotodama no longer reads or writes `library/cutscenes.json`, so you can delete that file.
 
 # Developers
 
